@@ -20,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	DefaultAPIPort            int32  = 6385
+	DefaultImageServerPort    int32  = 8088
+	DefaultImageServerTLSPort int32  = 8089
+	DefaultDatabaseImage      string = "quay.io/metal3-io/mariadb"
+	DefaultIronicImage        string = "quay.io/metal3-io/ironic"
+)
+
 // Database defines database settings
 type Database struct {
 	// Image is the MariaDB image.
@@ -100,11 +108,14 @@ type IronicSpec struct {
 	ImageServerPort int32 `json:"imageServerPort,omitempty"`
 
 	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
-	// Setting it to 0 disables TLS for virtual media.
 	// +kubebuilder:default=8089
-	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Minimum=1
 	// +optional
 	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
+
+	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
+	// which may be required for hardware that cannot accept HTTPS links.
+	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
 
 	// APISecretName is the name of the secret with Ironic API credentials.
 	APISecretName string `json:"apiSecretName"`

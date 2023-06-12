@@ -66,6 +66,11 @@ spec:
                       database TLS certificate.
                     type: string
                 type: object
+              disableVirtualMediaTLS:
+                description: DisableVirtualMediaTLS turns off TLS on the virtual media
+                  server, which may be required for hardware that cannot accept HTTPS
+                  links.
+                type: boolean
               image:
                 default: quay.io/metal3-io/ironic
                 description: Image is the Ironic image (including httpd).
@@ -79,10 +84,9 @@ spec:
               imageServerTLSPort:
                 default: 8089
                 description: ImageServerTLSPort is the public port used for serving
-                  virtual media images over TLS. Setting it to 0 disables TLS for
-                  virtual media.
+                  virtual media images over TLS.
                 format: int32
-                minimum: 0
+                minimum: 1
                 type: integer
               inspection:
                 description: Inspection defines inspection settings
