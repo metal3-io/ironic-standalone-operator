@@ -33,9 +33,9 @@ type IronicReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=metal3.io.metal3.io,resources=ironics,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io.metal3.io,resources=ironics/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=metal3.io.metal3.io,resources=ironics/finalizers,verbs=update
+//+kubebuilder:rbac:groups=metal3.io,resources=ironics,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=metal3.io,resources=ironics/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=metal3.io,resources=ironics/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: ironics.metal3.io.metal3.io
+  name: ironics.metal3.io
 spec:
-  group: metal3.io.metal3.io
+  group: metal3.io
   names:
     kind: Ironic
     listKind: IronicList
