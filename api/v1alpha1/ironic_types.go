@@ -26,6 +26,8 @@ const (
 	DefaultImageServerTLSPort int32  = 8089
 	DefaultDatabaseImage      string = "quay.io/metal3-io/mariadb"
 	DefaultIronicImage        string = "quay.io/metal3-io/ironic"
+
+	IronicFinalizer string = "ironic.metal3.io"
 )
 
 // Database defines database settings

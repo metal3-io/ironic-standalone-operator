@@ -20,9 +20,11 @@ import (
 	"flag"
 	"os"
 
+	"k8s.io/client-go/kubernetes"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -65,7 +67,10 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	config := ctrl.GetConfigOrDie()
+	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-operator"))
+
+	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
@@ -90,8 +95,9 @@ func main() {
 	}
 
 	if err = (&controllers.IronicReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:     mgr.GetClient(),
+		KubeClient: kubeClient,
+		Scheme:     mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)
