@@ -16,5 +16,5 @@ const (
 
 // RemoveIronic removes all bits of the Ironic deployment.
 func RemoveIronic(ctx context.Context, kubeClient kubernetes.Interface, ironic *metal3api.Ironic) error {
-	return client.IgnoreNotFound(kubeClient.AppsV1().Deployments(ironic.Namespace).Delete(context.Background(), ironicDeploymentName, metav1.DeleteOptions{}))
+	return client.IgnoreNotFound(kubeClient.AppsV1().DaemonSets(ironic.Namespace).Delete(context.Background(), ironicDeploymentName, metav1.DeleteOptions{}))
 }
