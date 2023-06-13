@@ -28,6 +28,18 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - deployments
   verbs:
   - create
@@ -45,6 +57,32 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - ironicdatabases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - ironicdatabases/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - metal3.io
+  resources:
+  - ironicdatabases/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - metal3.io
   resources:

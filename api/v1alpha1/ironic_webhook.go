@@ -44,31 +44,7 @@ func (r *Ironic) Default() {
 	setDefaults(&r.Spec)
 }
 
-func setDefaults(ironic *IronicSpec) {
-	if ironic.APIPort == 0 {
-		ironic.APIPort = DefaultAPIPort
-	}
-
-	if ironic.ImageServerPort == 0 {
-		ironic.ImageServerPort = DefaultImageServerPort
-	}
-
-	if ironic.ImageServerTLSPort == 0 && !ironic.DisableVirtualMediaTLS {
-		ironic.ImageServerTLSPort = DefaultImageServerTLSPort
-	}
-
-	if ironic.Image == "" {
-		ironic.Image = DefaultIronicImage
-	}
-
-	if ironic.Size > 1 && ironic.Database == nil {
-		ironic.Database = new(Database)
-	}
-
-	if ironic.Database != nil && ironic.Database.Image == "" {
-		ironic.Database.Image = DefaultDatabaseImage
-	}
-}
+func setDefaults(ironic *IronicSpec) {}
 
 //+kubebuilder:webhook:path=/validate-metal3-io-v1alpha1-ironic,mutating=false,failurePolicy=fail,sideEffects=None,groups=metal3.io,resources=ironics,verbs=create;update,versions=v1alpha1,name=vironic.kb.io,admissionReviewVersions=v1
 
@@ -77,13 +53,13 @@ var _ webhook.Validator = &Ironic{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateCreate() error {
 	ironiclog.Info("validate create", "name", r.Name)
-	return validate(&r.Spec)
+	return validateIronic(&r.Spec)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateUpdate(old runtime.Object) error {
 	ironiclog.Info("validate update", "name", r.Name)
-	return validate(&r.Spec)
+	return validateIronic(&r.Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -91,9 +67,9 @@ func (r *Ironic) ValidateDelete() error {
 	return nil
 }
 
-func validate(ironic *IronicSpec) error {
-	if ironic.Database != nil && ironic.Database.ExternalIP != "" && ironic.Database.CredentialsSecretName == "" {
-		return errors.New("external database requires credentials")
+func validateIronic(ironic *IronicSpec) error {
+	if ironic.Size > 1 && ironic.DatabaseName == "" {
+		return errors.New("database is required when size is more than 1")
 	}
 
 	return nil

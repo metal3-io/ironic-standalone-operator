@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
-  name: ironics.metal3.io
+  name: ironicdatabases.metal3.io
 spec:
   group: metal3.io
   names:
-    kind: Ironic
-    listKind: IronicList
-    plural: ironics
-    singular: ironic
+    kind: IronicDatabase
+    listKind: IronicDatabaseList
+    plural: ironicdatabases
+    singular: ironicdatabase
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Ironic is the Schema for the ironics API
+        description: IronicDatabase is the Schema for the ironicdatabases API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,100 +33,28 @@ spec:
           metadata:
             type: object
           spec:
-            description: IronicSpec defines the desired state of Ironic
+            description: IronicDatabaseSpec defines the desired state of IronicDatabase
             properties:
-              apiPort:
-                default: 6385
-                description: APIPort is the public port used for Ironic.
-                format: int32
-                minimum: 1
-                type: integer
-              apiSecretName:
-                description: APISecretName is the name of the secret with Ironic API
-                  credentials.
+              credentialsSecretName:
+                description: CredentialsSecretName is the name of the secret with
+                  database credentials.
                 type: string
-              database:
-                description: Database defines database settings for Ironic. Mandatory
-                  when size is more than 1.
+              externalIP:
+                description: ExternalIP can be set to use an existing MariaDB installation
+                  instead of a managed one.
                 type: string
-              disableVirtualMediaTLS:
-                description: DisableVirtualMediaTLS turns off TLS on the virtual media
-                  server, which may be required for hardware that cannot accept HTTPS
-                  links.
-                type: boolean
               image:
-                default: quay.io/metal3-io/ironic
-                description: Image is the Ironic image (including httpd).
+                default: quay.io/metal3-io/mariadb
+                description: Image is the MariaDB image.
                 minLength: 1
                 type: string
-              imageServerPort:
-                default: 8088
-                description: ImageServerPort is the public port used for serving images.
-                format: int32
-                minimum: 1
-                type: integer
-              imageServerTLSPort:
-                default: 8089
-                description: ImageServerTLSPort is the public port used for serving
-                  virtual media images over TLS.
-                format: int32
-                minimum: 1
-                type: integer
-              inspection:
-                description: Inspection defines inspection settings
-                properties:
-                  collectors:
-                    description: Collectors is a list of inspection collectors to
-                      enable.
-                    items:
-                      type: string
-                    type: array
-                  vlanInterfaces:
-                    description: List of interfaces to inspect for VLANs.
-                    items:
-                      type: string
-                    type: array
-                type: object
-              networking:
-                description: Networking defines networking settings for Ironic. At
-                  least one of the subfield should be provided.
-                properties:
-                  bindInterface:
-                    description: BindInterface makes Ironic API bound to only one
-                      interface.
-                    type: boolean
-                  externalIP:
-                    description: ExternalIP is used for accessing API and the image
-                      server from remote hosts.
-                    type: string
-                  interface:
-                    description: Interface is a Linux network device to listen on.
-                    type: string
-                  macAddresses:
-                    description: MACAddresses can be provided to make the start script
-                      pick the interface matching any of these addresses.
-                    items:
-                      type: string
-                    type: array
-                type: object
-              ramdiskSSHKey:
-                description: RamdiskSSHKey is the contents of the public key to inject
-                  into the ramdisk for debugging purposes.
-                type: string
-              size:
-                description: Size is the desired count of Ironic instances.
-                format: int32
-                minimum: 1
-                type: integer
               tlsSecretName:
-                description: TLSSecretName is the name of the secret with the API
+                description: TLSSecretName is the name of the secret with the database
                   TLS certificate.
                 type: string
-            required:
-            - apiSecretName
             type: object
           status:
-            description: IronicStatus defines the observed state of Ironic
+            description: IronicDatabaseStatus defines the observed state of IronicDatabase
             properties:
               conditions:
                 description: Conditions describe the state of the Ironic deployment.
@@ -200,8 +128,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              ironicEndpoint:
-                description: IronicEndpoints is the available API endpoints of Ironic.
+              databaseIPs:
+                description: DatabaseIPs is the available database IP addresses.
                 items:
                   type: string
                 type: array

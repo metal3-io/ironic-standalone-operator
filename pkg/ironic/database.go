@@ -15,6 +15,6 @@ const (
 )
 
 // RemoveDatabase removes the MariaDB database.
-func RemoveDatabase(ctx context.Context, kubeClient kubernetes.Interface, ironic *metal3api.Ironic) error {
-	return client.IgnoreNotFound(kubeClient.AppsV1().Deployments(ironic.Namespace).Delete(context.Background(), databaseDeploymentName, metav1.DeleteOptions{}))
+func RemoveDatabase(ctx context.Context, kubeClient kubernetes.Interface, db *metal3api.IronicDatabase) error {
+	return client.IgnoreNotFound(kubeClient.AppsV1().Deployments(db.Namespace).Delete(context.Background(), databaseDeploymentName, metav1.DeleteOptions{}))
 }

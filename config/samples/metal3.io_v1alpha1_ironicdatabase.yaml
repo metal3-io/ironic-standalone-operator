@@ -1,0 +1,12 @@
+apiVersion: metal3.io/v1alpha1
+kind: IronicDatabase
+metadata:
+  labels:
+    app.kubernetes.io/name: ironicdatabase
+    app.kubernetes.io/instance: ironicdatabase-sample
+    app.kubernetes.io/part-of: ironic-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: ironic-operator
+  name: ironicdatabase-sample
+spec:
+  # TODO(user): Add fields here

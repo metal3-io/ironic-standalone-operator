@@ -24,29 +24,10 @@ const (
 	DefaultAPIPort            int32  = 6385
 	DefaultImageServerPort    int32  = 8088
 	DefaultImageServerTLSPort int32  = 8089
-	DefaultDatabaseImage      string = "quay.io/metal3-io/mariadb"
 	DefaultIronicImage        string = "quay.io/metal3-io/ironic"
 
 	IronicFinalizer string = "ironic.metal3.io"
 )
-
-// Database defines database settings
-type Database struct {
-	// Image is the MariaDB image.
-	// +kubebuilder:default=quay.io/metal3-io/mariadb
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// ExternalIP can be set to use an existing MariaDB installation instead of a managed one.
-	ExternalIP string `json:"externalIP,omitempty"`
-
-	// CredentialsSecretName is the name of the secret with database credentials.
-	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
-
-	// TLSSecretName is the name of the secret with the database TLS certificate.
-	// +optional
-	TLSSecretName string `json:"tlsSecretName,omitempty"`
-}
 
 // Inspection defines inspection settings
 type Inspection struct {
@@ -78,6 +59,7 @@ type Networking struct {
 type IronicSpec struct {
 	// Image is the Ironic image (including httpd).
 	// +kubebuilder:default=quay.io/metal3-io/ironic
+	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Image string `json:"image,omitempty"`
 
@@ -87,7 +69,7 @@ type IronicSpec struct {
 	Size int32 `json:"size,omitempty"`
 
 	// Database defines database settings for Ironic. Mandatory when size is more than 1.
-	Database *Database `json:"database,omitempty"`
+	DatabaseName string `json:"database,omitempty"`
 
 	// Inspection defines inspection settings
 	Inspection Inspection `json:"inspection,omitempty"`
