@@ -75,10 +75,8 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 			},
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				// FIXME(dtantsur): this should not be necessary, but our rootless approach does not always work:
-				// https://github.com/metal3-io/mariadb-image/pull/8#issuecomment-1593004837
-				Privileged:   pointer.BoolPtr(true),
-				RunAsNonRoot: pointer.BoolPtr(false),
+				RunAsUser:  pointer.Int64(databaseUser),
+				RunAsGroup: pointer.Int64(databaseUser),
 			},
 		},
 	}
