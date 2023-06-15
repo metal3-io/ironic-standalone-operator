@@ -2,8 +2,10 @@ package controllers
 
 import (
 	"github.com/pkg/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -51,4 +53,31 @@ func setCondition(cctx ironic.ControllerContext, conditions *[]metav1.Condition,
 	}
 	cctx.Logger.Info("recording condition change", "Condition", cond)
 	meta.SetStatusCondition(conditions, cond)
+}
+
+func getIronic(cctx ironic.ControllerContext, name types.NamespacedName) (*metal3api.Ironic, error) {
+	ironicConf := &metal3api.Ironic{}
+	err := cctx.Client.Get(cctx.Context, name, ironicConf)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "could not load ironic configuration %s", name)
+	}
+
+	return ironicConf, nil
+}
+
+func getDatabase(cctx ironic.ControllerContext, name types.NamespacedName) (*metal3api.IronicDatabase, error) {
+	db := &metal3api.IronicDatabase{}
+	err := cctx.Client.Get(cctx.Context, name, db)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		cctx.Logger.Error(err, "unexpected error when loading the database")
+		return nil, errors.Wrapf(err, "could not load ironic configuration %s", name)
+	}
+
+	return db, nil
 }

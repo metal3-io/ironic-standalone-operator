@@ -19,12 +19,10 @@ package controllers
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +51,7 @@ type IronicDatabaseReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("ironicDatabase", req.NamespacedName)
+	logger := log.FromContext(ctx).WithValues("IronicDatabase", req.NamespacedName)
 	logger.Info("starting reconcile")
 
 	cctx := ironic.ControllerContext{
@@ -64,7 +62,7 @@ func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		Logger:     logger,
 	}
 
-	db, err := r.getDatabase(cctx, req)
+	db, err := getDatabase(cctx, req.NamespacedName)
 	if db == nil || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,20 +112,6 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		err = cctx.Client.Status().Update(cctx.Context, db)
 	}
 	return
-}
-
-func (r *IronicDatabaseReconciler) getDatabase(cctx ironic.ControllerContext, req ctrl.Request) (*metal3api.IronicDatabase, error) {
-	db := &metal3api.IronicDatabase{}
-	err := r.Get(cctx.Context, req.NamespacedName, db)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		cctx.Logger.Error(err, "unexpected error when loading the database")
-		return nil, errors.Wrapf(err, "could not load ironic configuration %s", req.NamespacedName)
-	}
-
-	return db, nil
 }
 
 func (r *IronicDatabaseReconciler) cleanUp(cctx ironic.ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
