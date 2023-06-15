@@ -23,6 +23,7 @@ import (
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -55,18 +56,20 @@ func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger := log.FromContext(ctx).WithValues("ironicDatabase", req.NamespacedName)
 	logger.Info("starting reconcile")
 
-	db, err := r.getDatabase(ctx, req)
+	cctx := ironic.ControllerContext{
+		Context:    ctx,
+		Client:     r.Client,
+		KubeClient: r.KubeClient,
+		Scheme:     r.Scheme,
+		Logger:     logger,
+	}
+
+	db, err := r.getDatabase(cctx, req)
 	if db == nil || err != nil {
 		return ctrl.Result{}, err
 	}
 
-	var changed bool
-	if db.DeletionTimestamp.IsZero() {
-		changed, err = ensureFinalizer(ctx, r.Client, db)
-	} else {
-		changed, err = r.cleanUp(ctx, r.KubeClient, db)
-	}
-
+	changed, err := r.handleDatabase(cctx, db)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -74,35 +77,72 @@ func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	logger.Info("object has been fully reconciled")
 	return ctrl.Result{}, nil
 }
 
-func (r *IronicDatabaseReconciler) getDatabase(ctx context.Context, req ctrl.Request) (*metal3api.IronicDatabase, error) {
+func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext, db *metal3api.IronicDatabase) (requeue bool, err error) {
+	if db.DeletionTimestamp.IsZero() {
+		requeue, err = ensureFinalizer(cctx, db)
+		if requeue || err != nil {
+			return
+		}
+	} else {
+		return r.cleanUp(cctx, db)
+	}
+
+	status, endpoints, err := ironic.EnsureDatabase(cctx, db)
+	newStatus := db.Status.DeepCopy()
+	if err != nil {
+		cctx.Logger.Error(err, "failed to create or update database")
+		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
+	} else if status != metal3api.IronicStatusAvailable {
+		requeue = true
+		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, false, "DeploymentInProgress", "deployment is not ready yet")
+		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusProgressing, true, "DeploymentInProgress", "deployment is in progress")
+	} else {
+		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "database is available")
+		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "database is available")
+		newStatus.DatabaseServiceName = ironic.DatabaseServiceName
+		newStatus.DatabaseEndpoints = endpoints
+	}
+
+	if !apiequality.Semantic.DeepEqual(newStatus, &db.Status) {
+		cctx.Logger.Info("updating status", "Status", newStatus)
+		requeue = true
+		db.Status = *newStatus
+		err = cctx.Client.Status().Update(cctx.Context, db)
+	}
+	return
+}
+
+func (r *IronicDatabaseReconciler) getDatabase(cctx ironic.ControllerContext, req ctrl.Request) (*metal3api.IronicDatabase, error) {
 	db := &metal3api.IronicDatabase{}
-	err := r.Get(ctx, req.NamespacedName, db)
+	err := r.Get(cctx.Context, req.NamespacedName, db)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
+		cctx.Logger.Error(err, "unexpected error when loading the database")
 		return nil, errors.Wrapf(err, "could not load ironic configuration %s", req.NamespacedName)
 	}
 
 	return db, nil
 }
 
-func (r *IronicDatabaseReconciler) cleanUp(ctx context.Context, kubeClient kubernetes.Interface, db *metal3api.IronicDatabase) (bool, error) {
+func (r *IronicDatabaseReconciler) cleanUp(cctx ironic.ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
 	if !slices.Contains(db.Finalizers, metal3api.IronicFinalizer) {
 		return false, nil
 	}
 
 	// Only remove the database after Ironic is removed!
-	err := ironic.RemoveDatabase(ctx, kubeClient, db)
+	err := ironic.RemoveDatabase(cctx, db)
 	if err != nil {
 		return false, err
 	}
 
 	// This must be the last action.
-	return removeFinalizer(ctx, r.Client, db)
+	return removeFinalizer(cctx, db)
 }
 
 // SetupWithManager sets up the controller with the Manager.

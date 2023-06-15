@@ -53,13 +53,13 @@ var _ webhook.Validator = &Ironic{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateCreate() error {
 	ironiclog.Info("validate create", "name", r.Name)
-	return validateIronic(&r.Spec)
+	return validateIronic(&r.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateUpdate(old runtime.Object) error {
 	ironiclog.Info("validate update", "name", r.Name)
-	return validateIronic(&r.Spec)
+	return validateIronic(&r.Spec, &old.(*Ironic).Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -67,9 +67,13 @@ func (r *Ironic) ValidateDelete() error {
 	return nil
 }
 
-func validateIronic(ironic *IronicSpec) error {
+func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	if ironic.Size > 1 && ironic.DatabaseName == "" {
 		return errors.New("database is required when size is more than 1")
+	}
+
+	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
+		return errors.New("cannot change to a new database or remove it")
 	}
 
 	return nil

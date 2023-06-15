@@ -45,9 +45,12 @@ type IronicDatabaseSpec struct {
 
 // IronicDatabaseStatus defines the observed state of IronicDatabase
 type IronicDatabaseStatus struct {
-	// DatabaseIPs is the available database IP addresses.
+	// DatabaseServiceName is the name of the Kubernetes service for the database.
 	// +optional
-	DatabaseIPs []string `json:"databaseIPs,omitempty"`
+	DatabaseServiceName string `json:"databaseServiceName,omitempty"`
+
+	// DatabaseEndpoints is a list of available endpoints.
+	DatabaseEndpoints []string `json:"databaseEndpoints,omitempty"`
 
 	// Conditions describe the state of the Ironic deployment.
 	// +patchMergeKey=type

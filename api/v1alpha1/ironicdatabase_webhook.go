@@ -48,13 +48,13 @@ var _ webhook.Validator = &IronicDatabase{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *IronicDatabase) ValidateCreate() error {
 	ironicdatabaselog.Info("validate create", "name", r.Name)
-	return validateDatabase(&r.Spec)
+	return validateDatabase(&r.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *IronicDatabase) ValidateUpdate(old runtime.Object) error {
 	ironicdatabaselog.Info("validate update", "name", r.Name)
-	return validateDatabase(&r.Spec)
+	return validateDatabase(&r.Spec, &old.(*IronicDatabase).Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -62,7 +62,7 @@ func (r *IronicDatabase) ValidateDelete() error {
 	return nil
 }
 
-func validateDatabase(db *IronicDatabaseSpec) error {
+func validateDatabase(db *IronicDatabaseSpec, old *IronicDatabaseSpec) error {
 	if db.ExternalIP != "" && db.CredentialsSecretName == "" {
 		return errors.New("external database requires credentials")
 	}

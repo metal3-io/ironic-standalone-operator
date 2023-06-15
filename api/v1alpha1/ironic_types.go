@@ -112,19 +112,6 @@ type IronicSpec struct {
 	RamdiskSSHKey string `json:"ramdiskSSHKey,omitempty"`
 }
 
-type IronicStatusConditionType string
-
-const (
-	// Available indicates that Ironic is fully available
-	IronicStatusAvailable IronicStatusConditionType = "Available"
-
-	// Progressing indicates that Ironic deployment is in progress
-	IronicStatusProgressing IronicStatusConditionType = "Progressing"
-
-	// Degraded indicates that Ironic deployment cannot progress
-	IronicStatusDegraded IronicStatusConditionType = "Degraded"
-)
-
 // IronicStatus defines the observed state of Ironic
 type IronicStatus struct {
 	// IronicEndpoints is the available API endpoints of Ironic.

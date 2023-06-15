@@ -56,16 +56,24 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger := log.FromContext(ctx).WithValues("ironic", req.NamespacedName)
 	logger.Info("starting reconcile")
 
-	ironicConf, err := r.getIronic(ctx, req)
+	cctx := ironic.ControllerContext{
+		Context:    ctx,
+		Client:     r.Client,
+		KubeClient: r.KubeClient,
+		Scheme:     r.Scheme,
+		Logger:     logger,
+	}
+
+	ironicConf, err := r.getIronic(cctx, req)
 	if ironicConf == nil || err != nil {
 		return ctrl.Result{}, err
 	}
 
 	var changed bool
 	if ironicConf.DeletionTimestamp.IsZero() {
-		changed, err = ensureFinalizer(ctx, r.Client, ironicConf)
+		changed, err = ensureFinalizer(cctx, ironicConf)
 	} else {
-		changed, err = r.cleanUp(ctx, r.KubeClient, ironicConf)
+		changed, err = r.cleanUp(cctx, ironicConf)
 	}
 
 	if err != nil {
@@ -78,9 +86,9 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *IronicReconciler) getIronic(ctx context.Context, req ctrl.Request) (*metal3api.Ironic, error) {
+func (r *IronicReconciler) getIronic(cctx ironic.ControllerContext, req ctrl.Request) (*metal3api.Ironic, error) {
 	ironicConf := &metal3api.Ironic{}
-	err := r.Get(ctx, req.NamespacedName, ironicConf)
+	err := r.Get(cctx.Context, req.NamespacedName, ironicConf)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
@@ -91,18 +99,18 @@ func (r *IronicReconciler) getIronic(ctx context.Context, req ctrl.Request) (*me
 	return ironicConf, nil
 }
 
-func (r *IronicReconciler) cleanUp(ctx context.Context, kubeClient kubernetes.Interface, ironicConf *metal3api.Ironic) (bool, error) {
+func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (bool, error) {
 	if !slices.Contains(ironicConf.Finalizers, metal3api.IronicFinalizer) {
 		return false, nil
 	}
 
-	err := ironic.RemoveIronic(ctx, kubeClient, ironicConf)
+	err := ironic.RemoveIronic(cctx, ironicConf)
 	if err != nil {
 		return false, err
 	}
 
 	// This must be the last action.
-	return removeFinalizer(ctx, r.Client, ironicConf)
+	return removeFinalizer(cctx, ironicConf)
 }
 
 // SetupWithManager sets up the controller with the Manager.

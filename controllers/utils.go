@@ -1,19 +1,20 @@
 package controllers
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
+	"github.com/metal3-io/ironic-operator/pkg/ironic"
 )
 
-func ensureFinalizer(ctx context.Context, cli client.Client, obj client.Object) (bool, error) {
+func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
 	changed := controllerutil.AddFinalizer(obj, metal3api.IronicFinalizer)
 	if changed {
-		err := cli.Update(ctx, obj)
+		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to add finalizer")
 		}
@@ -23,10 +24,10 @@ func ensureFinalizer(ctx context.Context, cli client.Client, obj client.Object) 
 	return false, nil
 }
 
-func removeFinalizer(ctx context.Context, cli client.Client, obj client.Object) (bool, error) {
+func removeFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
 	changed := controllerutil.RemoveFinalizer(obj, metal3api.IronicFinalizer)
 	if changed {
-		err := cli.Update(ctx, obj)
+		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
 			return false, errors.Wrap(err, "failed to remove finalizer")
 		}
@@ -34,4 +35,20 @@ func removeFinalizer(ctx context.Context, cli client.Client, obj client.Object) 
 	}
 
 	return false, nil
+}
+
+func setCondition(cctx ironic.ControllerContext, conditions *[]metav1.Condition, generation int64, status metal3api.IronicStatusConditionType, value bool, reason, message string) {
+	condStatus := metav1.ConditionFalse
+	if value {
+		condStatus = metav1.ConditionTrue
+	}
+	cond := metav1.Condition{
+		Type:               string(status),
+		Status:             condStatus,
+		ObservedGeneration: generation,
+		Reason:             reason,
+		Message:            message,
+	}
+	cctx.Logger.Info("recording condition change", "Condition", cond)
+	meta.SetStatusCondition(conditions, cond)
 }
