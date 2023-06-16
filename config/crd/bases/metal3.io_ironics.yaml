@@ -46,13 +46,17 @@ spec:
                   credentials.
                 type: string
               database:
-                description: Database defines database settings for Ironic. Mandatory
-                  when size is more than 1.
+                description: Database defines database settings for Ironic.
                 type: string
               disableVirtualMediaTLS:
                 description: DisableVirtualMediaTLS turns off TLS on the virtual media
                   server, which may be required for hardware that cannot accept HTTPS
                   links.
+                type: boolean
+              distributed:
+                description: Distributed causes Ironic to be deployed as a DaemonSet
+                  on control plane nodes instead of a deployment with 1 replica. Requires
+                  database to be installed and linked to DatabaseName.
                 type: boolean
               image:
                 default: quay.io/metal3-io/ironic
@@ -113,11 +117,6 @@ spec:
                 description: RamdiskSSHKey is the contents of the public key to inject
                   into the ramdisk for debugging purposes.
                 type: string
-              size:
-                description: Size is the desired count of Ironic instances.
-                format: int32
-                minimum: 1
-                type: integer
               tlsSecretName:
                 description: TLSSecretName is the name of the secret with the API
                   TLS certificate.

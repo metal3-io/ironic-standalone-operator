@@ -68,8 +68,8 @@ func (r *Ironic) ValidateDelete() error {
 }
 
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
-	if ironic.Size > 1 && ironic.DatabaseName == "" {
-		return errors.New("database is required when size is more than 1")
+	if ironic.Distributed && ironic.DatabaseName == "" {
+		return errors.New("database is required for distributed architecture")
 	}
 
 	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {

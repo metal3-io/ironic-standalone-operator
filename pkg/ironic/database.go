@@ -103,6 +103,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
+			deploy.Spec.Replicas = pointer.Int32(1)
 		}
 		deploy.Spec.Template = newDatabasePodTemplate(db)
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)

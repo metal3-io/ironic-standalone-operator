@@ -63,12 +63,12 @@ type IronicSpec struct {
 	// +optional
 	Image string `json:"image,omitempty"`
 
-	// Size is the desired count of Ironic instances.
-	// +kubebuilder:validation:Minimum=1
+	// Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
+	// Requires database to be installed and linked to DatabaseName.
 	// +optional
-	Size int32 `json:"size,omitempty"`
+	Distributed bool `json:"distributed,omitempty"`
 
-	// Database defines database settings for Ironic. Mandatory when size is more than 1.
+	// Database defines database settings for Ironic.
 	DatabaseName string `json:"database,omitempty"`
 
 	// Inspection defines inspection settings
