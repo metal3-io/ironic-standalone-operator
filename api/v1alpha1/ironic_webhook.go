@@ -68,12 +68,25 @@ func (r *Ironic) ValidateDelete() error {
 }
 
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
+	if ironic.APISecretName == "" {
+		return errors.New("apiSecretName is required")
+	}
+
 	if ironic.Distributed && ironic.DatabaseName == "" {
 		return errors.New("database is required for distributed architecture")
 	}
 
 	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
 		return errors.New("cannot change to a new database or remove it")
+	}
+
+	if ironic.Networking.Interface == "" && ironic.Networking.MACAddresses == nil {
+		return errors.New("either interface or macAddresses must be provided in networking")
+	}
+
+	// TODO(dtantsur): implement and remove (comment out for local testing)
+	if ironic.Distributed {
+		return errors.New("distributed architecture is experimental, please do not use")
 	}
 
 	return nil

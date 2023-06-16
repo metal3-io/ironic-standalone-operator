@@ -113,6 +113,11 @@ spec:
                       type: string
                     type: array
                 type: object
+              ramdiskDownloaderImage:
+                default: quay.io/metal3-io/ironic-ipa-downloader
+                description: RamdiskDownloaderImage is the image to be used at pod
+                  initialization to download the IPA ramdisk.
+                type: string
               ramdiskSSHKey:
                 description: RamdiskSSHKey is the contents of the public key to inject
                   into the ramdisk for debugging purposes.

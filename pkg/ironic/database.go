@@ -2,8 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"net"
-	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +21,7 @@ const (
 	databaseUser    = 27
 )
 
-func deploymentName(db *metal3api.IronicDatabase) string {
+func databaseDeploymentName(db *metal3api.IronicDatabase) string {
 	return fmt.Sprintf("%s-database", db.Name)
 }
 
@@ -94,7 +92,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 
 func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
 	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: deploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
@@ -114,18 +112,9 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	return getDeploymentStatus(deploy)
 }
 
-func buildEndpoints(ips []string) (endpoints []string) {
-	port := fmt.Sprint(databasePort)
-	for _, ip := range ips {
-		endpoints = append(endpoints, net.JoinHostPort(ip, port))
-	}
-	sort.Strings(endpoints)
-	return
-}
-
 func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, []string, error) {
 	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: deploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
@@ -149,7 +138,7 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 		return metal3api.IronicStatusProgressing, nil, err
 	}
 
-	return metal3api.IronicStatusAvailable, buildEndpoints(service.Spec.ClusterIPs), nil
+	return metal3api.IronicStatusAvailable, buildEndpoints(service.Spec.ClusterIPs, databasePort, ""), nil
 }
 
 // EnsureDatabase ensures MariaDB is running with the current configuration.
@@ -164,5 +153,5 @@ func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (statu
 
 // RemoveDatabase removes the MariaDB database.
 func RemoveDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) error {
-	return nil
+	return nil // rely on ownership-based clean up
 }

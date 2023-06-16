@@ -45,6 +45,7 @@ type IronicDatabaseReconciler struct {
 //+kubebuilder:rbac:groups=metal3.io,resources=ironicdatabases/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;delete
 

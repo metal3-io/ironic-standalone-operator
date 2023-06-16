@@ -45,7 +45,9 @@ type IronicReconciler struct {
 //+kubebuilder:rbac:groups=metal3.io,resources=ironics/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=metal3.io,resources=ironics/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;delete
 
@@ -147,7 +149,9 @@ func (r *IronicReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&metal3api.Ironic{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).
+		Owns(&appsv1.Deployment{}).
 		Owns(&metal3api.IronicDatabase{}).
 		Complete(r)
 }

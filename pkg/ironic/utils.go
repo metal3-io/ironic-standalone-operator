@@ -2,6 +2,10 @@ package ironic
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -44,4 +48,55 @@ func getDeploymentStatus(deploy *appsv1.Deployment) (metal3api.IronicStatusCondi
 	} else {
 		return metal3api.IronicStatusProgressing, nil
 	}
+}
+
+func getDaemonSetStatus(deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditionType, error) {
+	if deploy.Status.ObservedGeneration != deploy.Generation {
+		return metal3api.IronicStatusProgressing, nil
+	}
+
+	var available bool
+
+	// FIXME(dtantsur): the current version of appsv1 does not seem to have
+	// constants for conditions types.
+	// var err error
+	// for _, cond := range deploy.Status.Conditions {
+	// 	if cond.Type == appsv1.??? && cond.Status == corev1.ConditionTrue {
+	// 		available = true
+	// 	}
+	// 	if cond.Type == appsv1.??? && cond.Status == corev1.ConditionTrue {
+	// 		err = errors.Errorf("deployment failed: %s", cond.Message)
+	// 		return metal3api.IronicStatusProgressing, err
+	// 	}
+	// }
+	available = deploy.Status.NumberUnavailable == 0
+
+	if available {
+		return metal3api.IronicStatusAvailable, nil
+	} else {
+		return metal3api.IronicStatusProgressing, nil
+	}
+}
+
+func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {
+	portString := fmt.Sprint(port)
+	for _, ip := range ips {
+		var endpoint string
+		if (includeProto == "https" && port == 443) || (includeProto == "http" && port == 80) {
+			if strings.Contains(ip, ":") {
+				endpoint = fmt.Sprintf("%s://[%s]", includeProto, ip) // IPv6
+			} else {
+				endpoint = fmt.Sprintf("%s://%s", includeProto, ip)
+			}
+		} else {
+			endpoint = net.JoinHostPort(ip, portString)
+			if includeProto != "" {
+				endpoint = fmt.Sprintf("%s://%s", includeProto, endpoint)
+			}
+		}
+
+		endpoints = append(endpoints, endpoint)
+	}
+	sort.Strings(endpoints)
+	return
 }

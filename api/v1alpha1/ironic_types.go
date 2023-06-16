@@ -49,9 +49,11 @@ type Networking struct {
 	MACAddresses []string `json:"macAddresses,omitempty"`
 
 	// BindInterface makes Ironic API bound to only one interface.
+	// +optional
 	BindInterface bool `json:"bindInterface,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
+	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 }
 
@@ -62,6 +64,11 @@ type IronicSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Image string `json:"image,omitempty"`
+
+	// RamdiskDownloaderImage is the image to be used at pod initialization to download the IPA ramdisk.
+	// +kubebuilder:default=quay.io/metal3-io/ironic-ipa-downloader
+	// +optional
+	RamdiskDownloaderImage string `json:"ramdiskDownloaderImage,omitempty"`
 
 	// Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
 	// Requires database to be installed and linked to DatabaseName.
@@ -99,6 +106,7 @@ type IronicSpec struct {
 
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.
+	// +optional
 	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
 
 	// APISecretName is the name of the secret with Ironic API credentials.
@@ -109,6 +117,7 @@ type IronicSpec struct {
 	TLSSecretName string `json:"tlsSecretName,omitempty"`
 
 	// RamdiskSSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
+	// +optional
 	RamdiskSSHKey string `json:"ramdiskSSHKey,omitempty"`
 }
 
