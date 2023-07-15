@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
@@ -72,7 +73,7 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 15 * time.Second}, err
 	}
 	if changed {
 		return ctrl.Result{Requeue: true}, nil
@@ -112,7 +113,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		cctx.Logger.Error(err, "failed to create or update ironic")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
 	} else if status != metal3api.IronicStatusAvailable {
-		requeue = true
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentInProgress", "deployment is not ready yet")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusProgressing, true, "DeploymentInProgress", "deployment is in progress")
 	} else {
@@ -123,7 +123,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {
 		cctx.Logger.Info("updating status", "Status", newStatus)
-		requeue = true
 		ironicConf.Status = *newStatus
 		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 	}
