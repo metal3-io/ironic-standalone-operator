@@ -140,6 +140,16 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			requeue = true
 			return
 		}
+
+		changed, err := ironic.UpdateSecret(cctx, apiSecret)
+		if err != nil {
+			return true, err
+		}
+		if changed {
+			cctx.Logger.Info("updating htpasswd", "Secret", apiSecret.Name)
+			err = cctx.Client.Update(cctx.Context, apiSecret)
+			return true, err
+		}
 	}
 
 	status, endpoints, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
@@ -147,6 +157,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if err != nil {
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
 	} else if status != metal3api.IronicStatusAvailable {
+		cctx.Logger.Info("ironic deployment is still progressing")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentInProgress", "deployment is not ready yet")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusProgressing, true, "DeploymentInProgress", "deployment is in progress")
 	} else {

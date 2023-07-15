@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -321,10 +320,9 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
-		var err error
-		htpasswd, err = htpasswdFromSecret(apiSecret)
-		if err != nil {
-			return corev1.PodTemplateSpec{}, fmt.Errorf("cannot generate htpasswd for the API credentials secret: %w", err)
+		htpasswd = string(apiSecret.Data[htpasswdKey])
+		if htpasswd == "" {
+			return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
 		}
 	}
 
