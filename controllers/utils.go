@@ -51,7 +51,6 @@ func setCondition(cctx ironic.ControllerContext, conditions *[]metav1.Condition,
 		Reason:             reason,
 		Message:            message,
 	}
-	cctx.Logger.Info("recording condition change", "Condition", cond)
 	meta.SetStatusCondition(conditions, cond)
 }
 

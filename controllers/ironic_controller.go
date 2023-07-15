@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
@@ -73,6 +76,7 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
+		cctx.Logger.Error(err, "reconcile failed")
 		return ctrl.Result{RequeueAfter: 15 * time.Second}, err
 	}
 	if changed {
@@ -100,10 +104,18 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			Name:      ironicConf.Spec.DatabaseName,
 		}
 		db = &metal3api.IronicDatabase{}
-		err := cctx.Client.Get(cctx.Context, dbName, db)
+		err = cctx.Client.Get(cctx.Context, dbName, db)
 		if err != nil {
-			cctx.Logger.Error(err, "cannot load linked database")
-			return true, err
+			return true, errors.Wrap(err, "cannot load linked database")
+		}
+
+		oldReferences := db.GetOwnerReferences()
+		controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
+		if !reflect.DeepEqual(oldReferences, db.GetOwnerReferences()) {
+			cctx.Logger.Info("updating owner reference", "Database", db.Name)
+			err = cctx.Client.Update(cctx.Context, db)
+			requeue = true
+			return
 		}
 	}
 
@@ -114,17 +126,24 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			Name:      ironicConf.Spec.APISecretName,
 		}
 		apiSecret = &corev1.Secret{}
-		err := cctx.Client.Get(cctx.Context, secretName, apiSecret)
+		err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
 		if err != nil {
-			cctx.Logger.Error(err, "cannot load API credentials")
-			return true, err
+			return true, errors.Wrap(err, "cannot load API credentials")
+		}
+
+		oldReferences := apiSecret.GetOwnerReferences()
+		controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
+		if !reflect.DeepEqual(oldReferences, apiSecret.GetOwnerReferences()) {
+			cctx.Logger.Info("updating owner reference", "Secret", apiSecret.Name)
+			err = cctx.Client.Update(cctx.Context, apiSecret)
+			requeue = true
+			return
 		}
 	}
 
 	status, endpoints, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
 	if err != nil {
-		cctx.Logger.Error(err, "failed to create or update ironic")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
 	} else if status != metal3api.IronicStatusAvailable {
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentInProgress", "deployment is not ready yet")
