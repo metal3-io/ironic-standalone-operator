@@ -107,7 +107,21 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
-	status, endpoints, err := ironic.EnsureIronic(cctx, ironicConf, db)
+	var apiSecret *corev1.Secret
+	if ironicConf.Spec.APISecretName != "" {
+		secretName := types.NamespacedName{
+			Namespace: ironicConf.Namespace,
+			Name:      ironicConf.Spec.APISecretName,
+		}
+		apiSecret = &corev1.Secret{}
+		err := cctx.Client.Get(cctx.Context, secretName, apiSecret)
+		if err != nil {
+			cctx.Logger.Error(err, "cannot load API credentials")
+			return true, err
+		}
+	}
+
+	status, endpoints, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
 	if err != nil {
 		cctx.Logger.Error(err, "failed to create or update ironic")

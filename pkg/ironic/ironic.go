@@ -136,7 +136,23 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
-func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) []corev1.EnvVar {
+func buildHtpasswdVars(htpasswd string) (result []corev1.EnvVar) {
+	if htpasswd != "" {
+		result = append(result, []corev1.EnvVar{
+			{
+				Name:  "IRONIC_HTPASSWD",
+				Value: htpasswd,
+			},
+			{
+				Name:  "INSPECTOR_HTPASSWD",
+				Value: htpasswd,
+			},
+		}...)
+	}
+	return
+}
+
+func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
 	result = append(result, []corev1.EnvVar{
 		{
@@ -162,11 +178,20 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) 
 		result = append(result, databasePasswordEnvVar(db))
 	}
 
+	if ironic.Spec.TLSSecretName == "" {
+		result = append(result, buildHtpasswdVars(htpasswd)...)
+	}
+
 	return result
 }
 
-func buildHttpdEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) []corev1.EnvVar {
+func buildHttpdEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
+
+	if ironic.Spec.TLSSecretName != "" {
+		result = append(result, buildHtpasswdVars(htpasswd)...)
+	}
+
 	return result
 }
 
@@ -292,7 +317,16 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	return
 }
 
-func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) corev1.PodTemplateSpec {
+func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (corev1.PodTemplateSpec, error) {
+	var htpasswd string
+	if apiSecret != nil {
+		var err error
+		htpasswd, err = htpasswdFromSecret(apiSecret)
+		if err != nil {
+			return corev1.PodTemplateSpec{}, errors.Wrap(err, "cannot generate htpasswd for the API credentials secret")
+		}
+	}
+
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
 	initContainers := []corev1.Container{
@@ -318,7 +352,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Image:   ironic.Spec.Image,
 			Command: []string{"/bin/runironic"},
 			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          buildIronicEnvVars(ironic, db),
+			Env:          buildIronicEnvVars(ironic, db, htpasswd),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
@@ -331,7 +365,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Image:   ironic.Spec.Image,
 			Command: []string{"/bin/runhttpd"},
 			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          buildHttpdEnvVars(ironic, db),
+			Env:          buildHttpdEnvVars(ironic, db, htpasswd),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
@@ -362,14 +396,18 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			// Ironic needs to be accessed by external machines
 			HostNetwork: true,
 		},
-	}
+	}, nil
 }
 
-func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, err error) {
+func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, err error) {
 	if db == nil {
-		err = errors.New("database is required for a distributed deployment")
-		return
+		return metal3api.IronicStatusProgressing, errors.New("database is required for a distributed deployment")
 	}
+	template, err := newIronicPodTemplate(ironic, db, apiSecret)
+	if err != nil {
+		return metal3api.IronicStatusProgressing, err
+	}
+
 	deploy := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
 	}
@@ -381,7 +419,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 				MatchLabels: matchLabels,
 			}
 		}
-		deploy.Spec.Template = newIronicPodTemplate(ironic, db)
+		deploy.Spec.Template = template
 		return controllerutil.SetControllerReference(ironic, deploy, cctx.Scheme)
 	})
 	if err != nil {
@@ -390,7 +428,12 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	return getDaemonSetStatus(deploy)
 }
 
-func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, err error) {
+func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, err error) {
+	template, err := newIronicPodTemplate(ironic, db, apiSecret)
+	if err != nil {
+		return metal3api.IronicStatusProgressing, err
+	}
+
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
 	}
@@ -403,7 +446,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 			}
 			deploy.Spec.Replicas = pointer.Int32(1)
 		}
-		deploy.Spec.Template = newIronicPodTemplate(ironic, db)
+		deploy.Spec.Template = template
 		// We cannot run two copies of Ironic in parallel
 		deploy.Spec.Strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RecreateDeploymentStrategyType,
@@ -461,19 +504,19 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 }
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
-func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, endpoints []string, err error) {
+func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, endpoints []string, err error) {
 	if ironic.Spec.Distributed {
 		err = removeIronicDeployment(cctx, ironic)
 		if err != nil {
 			return
 		}
-		status, err = ensureIronicDaemonSet(cctx, ironic, db)
+		status, err = ensureIronicDaemonSet(cctx, ironic, db, apiSecret)
 	} else {
 		err = removeIronicDaemonSet(cctx, ironic)
 		if err != nil {
 			return
 		}
-		status, err = ensureIronicDeployment(cctx, ironic, db)
+		status, err = ensureIronicDeployment(cctx, ironic, db, apiSecret)
 	}
 
 	if err != nil {
