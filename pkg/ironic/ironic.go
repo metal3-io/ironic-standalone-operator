@@ -16,8 +16,11 @@ import (
 )
 
 const (
-	ironicAppName  = "ironic-service"
-	ironicPortName = "ironic-api"
+	ironicAppName = "ironic-service"
+
+	ironicPortName    = "ironic-api"
+	imagesPortName    = "image-svc"
+	imagesTLSPortName = "image-svc-tls"
 
 	ironicUser     = 997
 	ironicGroup    = 994
@@ -38,6 +41,14 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		{
 			Name:  "IRONIC_LISTEN_PORT",
 			Value: strconv.Itoa(int(ironic.Spec.APIPort)),
+		},
+		{
+			Name:  "HTTP_PORT",
+			Value: strconv.Itoa(int(ironic.Spec.ImageServerPort)),
+		},
+		{
+			Name:  "LISTEN_ALL_INTERFACES",
+			Value: strconv.FormatBool(!ironic.Spec.Networking.BindInterface),
 		},
 	}
 
@@ -84,16 +95,40 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 
 	if ironic.Spec.TLSSecretName != "" {
 		// Ironic and Inspector will listen on a Unix socket, httpd will be responsible for serving HTTPS.
-		result = append(result,
-			corev1.EnvVar{
+		result = append(result, []corev1.EnvVar{
+			{
 				Name:  "IRONIC_PRIVATE_PORT",
 				Value: "unix",
 			},
-		)
-		result = append(result,
-			corev1.EnvVar{
+			{
 				Name:  "IRONIC_INSPECTOR_PRIVATE_PORT",
 				Value: "unix",
+			},
+			{
+				Name:  "IRONIC_REVERSE_PROXY_SETUP",
+				Value: "true",
+			},
+			{
+				Name:  "INSPECTOR_REVERSE_PROXY_SETUP",
+				Value: "true",
+			},
+		}...)
+
+		if !ironic.Spec.DisableVirtualMediaTLS {
+			result = append(result,
+				corev1.EnvVar{
+					Name:  "VMEDIA_TLS_PORT",
+					Value: strconv.Itoa(int(ironic.Spec.ImageServerTLSPort)),
+				},
+			)
+		}
+	}
+
+	if ironic.Spec.RamdiskSSHKey != "" {
+		result = append(result,
+			corev1.EnvVar{
+				Name:  "IRONIC_RAMDISK_SSH_KEY",
+				Value: strings.Trim(ironic.Spec.RamdiskSSHKey, " \t\n\r"),
 			},
 		)
 	}
@@ -112,10 +147,6 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) 
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
 			Value: strconv.FormatBool(ironic.Spec.Distributed),
 		},
-		{
-			Name:  "LISTEN_ALL_INTERFACES",
-			Value: strconv.FormatBool(!ironic.Spec.Networking.BindInterface),
-		},
 		// TODO(dtantsur): try to get rid of these eventually (especially once inspector is gone)
 		{
 			Name:  "IRONIC_INSECURE",
@@ -131,15 +162,11 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) 
 		result = append(result, databasePasswordEnvVar(db))
 	}
 
-	if ironic.Spec.RamdiskSSHKey != "" {
-		result = append(result,
-			corev1.EnvVar{
-				Name:  "IRONIC_RAMDISK_SSH_KEY",
-				Value: ironic.Spec.RamdiskSSHKey,
-			},
-		)
-	}
+	return result
+}
 
+func buildHttpdEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) []corev1.EnvVar {
+	result := buildCommonEnvVars(ironic)
 	return result
 }
 
@@ -237,6 +264,34 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 	return
 }
 
+func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.ContainerPort, httpdPorts []corev1.ContainerPort) {
+	httpdPorts = []corev1.ContainerPort{
+		{
+			Name:          imagesPortName,
+			ContainerPort: ironic.Spec.ImageServerPort,
+		},
+	}
+
+	apiPort := corev1.ContainerPort{
+		Name:          ironicPortName,
+		ContainerPort: ironic.Spec.APIPort,
+	}
+
+	if ironic.Spec.TLSSecretName == "" {
+		ironicPorts = append(ironicPorts, apiPort)
+	} else {
+		httpdPorts = append(httpdPorts, apiPort)
+		if !ironic.Spec.DisableVirtualMediaTLS {
+			httpdPorts = append(httpdPorts, corev1.ContainerPort{
+				Name:          imagesTLSPortName,
+				ContainerPort: ironic.Spec.ImageServerTLSPort,
+			})
+		}
+	}
+
+	return
+}
+
 func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) corev1.PodTemplateSpec {
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
@@ -254,6 +309,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Command: []string{"/usr/local/bin/get-resource.sh"},
 		},
 	}
+
+	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
+
 	containers := []corev1.Container{
 		{
 			Name:    "ironic",
@@ -266,12 +324,20 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
 			},
-			Ports: []corev1.ContainerPort{
-				{
-					Name:          ironicPortName,
-					ContainerPort: ironic.Spec.APIPort,
-				},
+			Ports: ironicPorts,
+		},
+		{
+			Name:    "httpd",
+			Image:   ironic.Spec.Image,
+			Command: []string{"/bin/runhttpd"},
+			// TODO(dtantsur): livenessProbe+readinessProbe
+			Env:          buildHttpdEnvVars(ironic, db),
+			VolumeMounts: mounts,
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(ironicUser),
+				RunAsGroup: pointer.Int64(ironicGroup),
 			},
+			Ports: httpdPorts,
 		},
 		{
 			Name:         "ramdisk-logs",
