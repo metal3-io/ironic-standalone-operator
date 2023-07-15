@@ -41,10 +41,17 @@ type Inspection struct {
 // Networking defines networking settings for Ironic
 type Networking struct {
 	// Interface is a Linux network device to listen on.
+	// Detected from IPAddress if missing.
 	// +optional
 	Interface string `json:"interface,omitempty"`
 
+	// IPAddress is the main IP address to listen on and use for communication.
+	// Detected from Interface if missing.
+	// +optional
+	IPAddress string `json:"ipAddress,omitempty"`
+
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
+	// Only set if no other options can be used.
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
 

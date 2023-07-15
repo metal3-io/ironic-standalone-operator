@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"net"
+
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,8 +82,8 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return errors.New("cannot change to a new database or remove it")
 	}
 
-	if ironic.Networking.Interface == "" && ironic.Networking.MACAddresses == nil {
-		return errors.New("either interface or macAddresses must be provided in networking")
+	if ironic.Networking.IPAddress != "" && net.ParseIP(ironic.Networking.IPAddress) == nil {
+		return errors.Errorf("%s is not a valid IP address", ironic.Networking.IPAddress)
 	}
 
 	// TODO(dtantsur): implement and remove (comment out for local testing)

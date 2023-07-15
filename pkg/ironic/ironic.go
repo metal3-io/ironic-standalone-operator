@@ -41,6 +41,16 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		},
 	}
 
+	networkingProvided := false
+	if ironic.Spec.Networking.IPAddress != "" {
+		result = append(result,
+			corev1.EnvVar{
+				Name:  "PROVISIONING_IP",
+				Value: ironic.Spec.Networking.IPAddress,
+			},
+		)
+		networkingProvided = true
+	}
 	if ironic.Spec.Networking.Interface != "" {
 		result = append(result,
 			corev1.EnvVar{
@@ -48,12 +58,26 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 				Value: ironic.Spec.Networking.Interface,
 			},
 		)
+		networkingProvided = true
 	}
 	if len(ironic.Spec.Networking.MACAddresses) > 0 {
 		result = append(result,
 			corev1.EnvVar{
 				Name:  "PROVISIONING_MACS",
 				Value: strings.Join(ironic.Spec.Networking.MACAddresses, ","),
+			},
+		)
+		networkingProvided = true
+	}
+	if !networkingProvided {
+		result = append(result,
+			corev1.EnvVar{
+				Name: "PROVISIONING_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "status.hostIP",
+					},
+				},
 			},
 		)
 	}
