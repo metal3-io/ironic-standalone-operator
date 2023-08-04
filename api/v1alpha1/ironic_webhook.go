@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -53,20 +54,20 @@ func setDefaults(ironic *IronicSpec) {}
 var _ webhook.Validator = &Ironic{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Ironic) ValidateCreate() error {
+func (r *Ironic) ValidateCreate() (warnings admission.Warnings, err error) {
 	ironiclog.Info("validate create", "name", r.Name)
-	return validateIronic(&r.Spec, nil)
+	return nil, validateIronic(&r.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Ironic) ValidateUpdate(old runtime.Object) error {
+func (r *Ironic) ValidateUpdate(old runtime.Object) (warnings admission.Warnings, err error) {
 	ironiclog.Info("validate update", "name", r.Name)
-	return validateIronic(&r.Spec, &old.(*Ironic).Spec)
+	return nil, validateIronic(&r.Spec, &old.(*Ironic).Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Ironic) ValidateDelete() error {
-	return nil
+func (r *Ironic) ValidateDelete() (warnings admission.Warnings, err error) {
+	return nil, nil
 }
 
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
