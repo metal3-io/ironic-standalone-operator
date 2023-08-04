@@ -17,9 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
+	"fmt"
 	"net"
-
-	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -84,7 +84,7 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	}
 
 	if ironic.Networking.IPAddress != "" && net.ParseIP(ironic.Networking.IPAddress) == nil {
-		return errors.Errorf("%s is not a valid IP address", ironic.Networking.IPAddress)
+		return fmt.Errorf("%s is not a valid IP address", ironic.Networking.IPAddress)
 	}
 
 	// TODO(dtantsur): implement and remove (comment out for local testing)

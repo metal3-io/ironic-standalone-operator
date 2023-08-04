@@ -18,10 +18,10 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -107,7 +107,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		db = &metal3api.IronicDatabase{}
 		err = cctx.Client.Get(cctx.Context, dbName, db)
 		if err != nil {
-			return true, errors.Wrap(err, "cannot load linked database")
+			return true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
 		}
 
 		oldReferences := db.GetOwnerReferences()
@@ -129,7 +129,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		apiSecret = &corev1.Secret{}
 		err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
 		if err != nil {
-			return true, errors.Wrap(err, "cannot load API credentials")
+			return true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.APISecretName, err)
 		}
 
 		oldReferences := apiSecret.GetOwnerReferences()

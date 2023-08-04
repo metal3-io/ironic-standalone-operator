@@ -1,10 +1,11 @@
 package ironic
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -323,7 +324,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		var err error
 		htpasswd, err = htpasswdFromSecret(apiSecret)
 		if err != nil {
-			return corev1.PodTemplateSpec{}, errors.Wrap(err, "cannot generate htpasswd for the API credentials secret")
+			return corev1.PodTemplateSpec{}, fmt.Errorf("cannot generate htpasswd for the API credentials secret: %w", err)
 		}
 	}
 

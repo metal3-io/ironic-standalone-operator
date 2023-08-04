@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,7 +37,7 @@ func getDeploymentStatus(deploy *appsv1.Deployment) (metal3api.IronicStatusCondi
 			available = true
 		}
 		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Status == corev1.ConditionTrue {
-			err = errors.Errorf("deployment failed: %s", cond.Message)
+			err = fmt.Errorf("deployment failed: %s", cond.Message)
 			return metal3api.IronicStatusProgressing, err
 		}
 	}
@@ -65,7 +64,7 @@ func getDaemonSetStatus(deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditi
 	// 		available = true
 	// 	}
 	// 	if cond.Type == appsv1.??? && cond.Status == corev1.ConditionTrue {
-	// 		err = errors.Errorf("deployment failed: %s", cond.Message)
+	// 		err = fmt.Errorf("deployment failed: %s", cond.Message)
 	// 		return metal3api.IronicStatusProgressing, err
 	// 	}
 	// }

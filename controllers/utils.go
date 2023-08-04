@@ -1,7 +1,8 @@
 package controllers
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +19,7 @@ func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, er
 	if changed {
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
-			return false, errors.Wrap(err, "failed to add finalizer")
+			return false, fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		return true, nil
 	}
@@ -31,7 +32,7 @@ func removeFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, er
 	if changed {
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
-			return false, errors.Wrap(err, "failed to remove finalizer")
+			return false, fmt.Errorf("failed to remove finalizer: %w", err)
 		}
 		return true, nil
 	}
@@ -61,7 +62,7 @@ func getIronic(cctx ironic.ControllerContext, name types.NamespacedName) (*metal
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
 		}
-		return nil, errors.Wrapf(err, "could not load ironic configuration %s", name)
+		return nil, fmt.Errorf("could not load ironic configuration %s: %w", name, err)
 	}
 
 	return ironicConf, nil
@@ -75,7 +76,7 @@ func getDatabase(cctx ironic.ControllerContext, name types.NamespacedName) (*met
 			return nil, nil
 		}
 		cctx.Logger.Error(err, "unexpected error when loading the database")
-		return nil, errors.Wrapf(err, "could not load ironic configuration %s", name)
+		return nil, fmt.Errorf("could not load database configuration %s: %w", name, err)
 	}
 
 	return db, nil
