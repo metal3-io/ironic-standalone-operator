@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,15 +26,32 @@ func databaseDeploymentName(db *metal3api.IronicDatabase) string {
 	return fmt.Sprintf("%s-database", db.Name)
 }
 
-func databasePasswordEnvVar(db *metal3api.IronicDatabase) corev1.EnvVar {
-	return corev1.EnvVar{
-		Name: "MARIADB_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: db.Spec.CredentialsSecretName,
+func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "MARIADB_DATABASE",
+			Value: db.Name,
+		},
+		{
+			Name: "MARIADB_USER",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: db.Spec.CredentialsSecretName,
+					},
+					Key: "username",
 				},
-				Key: "password",
+			},
+		},
+		{
+			Name: "MARIADB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: db.Spec.CredentialsSecretName,
+					},
+					Key: "password",
+				},
 			},
 		},
 	}
@@ -59,18 +77,27 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 		})
 	}
 
+	envVars := commonDatabaseVars(db)
+	envVars = append(envVars, []corev1.EnvVar{
+		{
+			Name: "MARIADB_HOST",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		{
+			Name:  "RESTART_CONTAINER_CERTIFICATE_UPDATED",
+			Value: "true",
+		},
+	}...)
 	containers := []corev1.Container{
 		{
 			Name:  "mariadb",
 			Image: db.Spec.Image,
 			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env: []corev1.EnvVar{
-				databasePasswordEnvVar(db),
-				{
-					Name:  "RESTART_CONTAINER_CERTIFICATE_UPDATED",
-					Value: "true",
-				},
-			},
+			Env:          envVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(databaseUser),
@@ -138,7 +165,9 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 		return metal3api.IronicStatusProgressing, nil, err
 	}
 
-	return metal3api.IronicStatusAvailable, buildEndpoints(service.Spec.ClusterIPs, databasePort, ""), nil
+	hosts := service.Spec.ClusterIPs
+	sort.Strings(hosts)
+	return metal3api.IronicStatusAvailable, hosts, nil
 }
 
 // EnsureDatabase ensures MariaDB is running with the current configuration.

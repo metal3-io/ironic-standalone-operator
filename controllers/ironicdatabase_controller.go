@@ -90,7 +90,7 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return r.cleanUp(cctx, db)
 	}
 
-	status, endpoints, err := ironic.EnsureDatabase(cctx, db)
+	status, hosts, err := ironic.EnsureDatabase(cctx, db)
 	newStatus := db.Status.DeepCopy()
 	if err != nil {
 		cctx.Logger.Error(err, "failed to create or update database")
@@ -102,8 +102,8 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 	} else {
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "database is available")
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "database is available")
-		newStatus.DatabaseServiceName = ironic.DatabaseServiceName
-		newStatus.DatabaseEndpoints = endpoints
+		newStatus.ServiceName = ironic.DatabaseServiceName
+		newStatus.Hosts = hosts
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &db.Status) {

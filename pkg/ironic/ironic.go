@@ -175,7 +175,14 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 	}...)
 
 	if db != nil {
-		result = append(result, databasePasswordEnvVar(db))
+		result = append(result, commonDatabaseVars(db)...)
+		result = append(result,
+			corev1.EnvVar{
+				Name: "MARIADB_HOST",
+				// At this point, we've already checked that the slice is not empty
+				Value: db.Status.Hosts[0],
+			},
+		)
 	}
 
 	if ironic.Spec.TLSSecretName == "" {
@@ -504,6 +511,11 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
 func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, endpoints []string, err error) {
+	if db != nil && len(db.Status.Hosts) == 0 {
+		cctx.Logger.Info("database is not ready yet")
+		return metal3api.IronicStatusProgressing, nil, nil
+	}
+
 	if ironic.Spec.Distributed {
 		err = removeIronicDeployment(cctx, ironic)
 		if err != nil {
