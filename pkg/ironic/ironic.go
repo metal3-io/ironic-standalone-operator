@@ -136,22 +136,6 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
-func buildHtpasswdVars(htpasswd string) (result []corev1.EnvVar) {
-	if htpasswd != "" {
-		result = append(result, []corev1.EnvVar{
-			{
-				Name:  "IRONIC_HTPASSWD",
-				Value: htpasswd,
-			},
-			{
-				Name:  "INSPECTOR_HTPASSWD",
-				Value: htpasswd,
-			},
-		}...)
-	}
-	return
-}
-
 func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
 	result = append(result, []corev1.EnvVar{
@@ -185,21 +169,27 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		)
 	}
 
-	if ironic.Spec.TLSSecretName == "" {
-		result = append(result, buildHtpasswdVars(htpasswd)...)
+	if htpasswd != "" {
+		result = append(result,
+			corev1.EnvVar{
+				Name: "IRONIC_HTPASSWD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: htpasswd,
+						},
+						Key: htpasswdKey,
+					},
+				},
+			},
+		)
 	}
 
 	return result
 }
 
-func buildHttpdEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string) []corev1.EnvVar {
-	result := buildCommonEnvVars(ironic)
-
-	if ironic.Spec.TLSSecretName != "" {
-		result = append(result, buildHtpasswdVars(htpasswd)...)
-	}
-
-	return result
+func buildHttpdEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
+	return buildCommonEnvVars(ironic)
 }
 
 func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
@@ -327,10 +317,11 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
-		htpasswd = string(apiSecret.Data[htpasswdKey])
-		if htpasswd == "" {
+		if len(apiSecret.Data[htpasswdKey]) == 0 {
 			return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
 		}
+
+		htpasswd = apiSecret.Name
 	}
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
@@ -371,7 +362,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Image:   ironic.Spec.Image,
 			Command: []string{"/bin/runhttpd"},
 			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          buildHttpdEnvVars(ironic, db, htpasswd),
+			Env:          buildHttpdEnvVars(ironic),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
