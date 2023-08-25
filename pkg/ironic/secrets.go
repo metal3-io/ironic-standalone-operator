@@ -111,3 +111,5 @@ func UpdateSecret(cctx ControllerContext, secret *corev1.Secret) (bool, error) {
 	secret.Data["auth-config"] = []byte(getAuthConfig(secret))
 	return true, nil
 }
+
+// func GenerateSimpleSecret(

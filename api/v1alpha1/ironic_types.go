@@ -82,8 +82,8 @@ type IronicSpec struct {
 	// +optional
 	Distributed bool `json:"distributed,omitempty"`
 
-	// Database defines database settings for Ironic.
-	DatabaseName string `json:"database,omitempty"`
+	// DatabaseName defines database settings for Ironic.
+	DatabaseName string `json:"databaseName,omitempty"`
 
 	// Inspection defines inspection settings
 	Inspection Inspection `json:"inspection,omitempty"`

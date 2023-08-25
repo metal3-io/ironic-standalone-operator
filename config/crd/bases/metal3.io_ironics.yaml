@@ -45,8 +45,8 @@ spec:
                 description: APISecretName is the name of the secret with Ironic API
                   credentials.
                 type: string
-              database:
-                description: Database defines database settings for Ironic.
+              databaseName:
+                description: DatabaseName defines database settings for Ironic.
                 type: string
               disableVirtualMediaTLS:
                 description: DisableVirtualMediaTLS turns off TLS on the virtual media
