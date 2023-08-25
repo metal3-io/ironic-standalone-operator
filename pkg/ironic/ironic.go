@@ -270,7 +270,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		if !ironic.Spec.DisableVirtualMediaTLS {
 			mounts = append(mounts,
 				corev1.VolumeMount{
-					Name:      "cert-vmedia",
+					Name:      "cert-ironic",
 					MountPath: certsDir + "/vmedia",
 					ReadOnly:  true,
 				},
