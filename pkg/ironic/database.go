@@ -80,12 +80,8 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 	envVars := commonDatabaseVars(db)
 	envVars = append(envVars, []corev1.EnvVar{
 		{
-			Name: "MARIADB_HOST",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
+			Name:  "MARIADB_HOST",
+			Value: "%",
 		},
 		{
 			Name:  "RESTART_CONTAINER_CERTIFICATE_UPDATED",
