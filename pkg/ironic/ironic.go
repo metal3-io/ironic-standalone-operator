@@ -328,9 +328,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 	sharedVolumeMount := mounts[0]
 	initContainers := []corev1.Container{
 		{
-			Name:         "ipa-downloader",
-			Image:        ironic.Spec.RamdiskDownloaderImage,
-			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
+			Name:            "ipa-downloader",
+			Image:           ironic.Spec.RamdiskDownloaderImage,
+			ImagePullPolicy: corev1.PullAlways,
+			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -345,9 +346,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	containers := []corev1.Container{
 		{
-			Name:    "ironic",
-			Image:   ironic.Spec.Image,
-			Command: []string{"/bin/runironic"},
+			Name:            "ironic",
+			Image:           ironic.Spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Command:         []string{"/bin/runironic"},
 			// TODO(dtantsur): livenessProbe+readinessProbe
 			Env:          buildIronicEnvVars(ironic, db, htpasswd),
 			VolumeMounts: mounts,
@@ -358,9 +360,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Ports: ironicPorts,
 		},
 		{
-			Name:    "httpd",
-			Image:   ironic.Spec.Image,
-			Command: []string{"/bin/runhttpd"},
+			Name:            "httpd",
+			Image:           ironic.Spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Command:         []string{"/bin/runhttpd"},
 			// TODO(dtantsur): livenessProbe+readinessProbe
 			Env:          buildHttpdEnvVars(ironic),
 			VolumeMounts: mounts,
@@ -371,10 +374,11 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Ports: httpdPorts,
 		},
 		{
-			Name:         "ramdisk-logs",
-			Image:        ironic.Spec.Image,
-			Command:      []string{"/bin/runlogwatch.sh"},
-			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
+			Name:            "ramdisk-logs",
+			Image:           ironic.Spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Command:         []string{"/bin/runlogwatch.sh"},
+			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
