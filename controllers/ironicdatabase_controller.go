@@ -102,7 +102,7 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 	} else {
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "database is available")
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "database is available")
-		newStatus.ServiceName = ironic.DatabaseServiceName
+		newStatus.ServiceName = ironic.DatabaseDeploymentName(db)
 		newStatus.Hosts = hosts
 	}
 

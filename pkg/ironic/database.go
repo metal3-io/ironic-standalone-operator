@@ -14,16 +14,17 @@ import (
 )
 
 const (
-	// The name of the service for the database.
-	DatabaseServiceName = "metal3-database"
-
 	databaseAppName = "ironic-database"
 	databasePort    = 3306
 	databaseUser    = 27
 )
 
-func databaseDeploymentName(db *metal3api.IronicDatabase) string {
+func DatabaseDeploymentName(db *metal3api.IronicDatabase) string {
 	return fmt.Sprintf("%s-database", db.Name)
+}
+
+func databaseDNSName(db *metal3api.IronicDatabase) string {
+	return fmt.Sprintf("%s.%s.svc:%d", db.Status.ServiceName, db.Namespace, databasePort)
 }
 
 func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
@@ -116,7 +117,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 
 func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
 	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: DatabaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
@@ -138,7 +139,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 
 func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, []string, error) {
 	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: DatabaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {

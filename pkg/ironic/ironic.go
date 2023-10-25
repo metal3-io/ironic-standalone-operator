@@ -162,9 +162,8 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		result = append(result, commonDatabaseVars(db)...)
 		result = append(result,
 			corev1.EnvVar{
-				Name: "MARIADB_HOST",
-				// At this point, we've already checked that the slice is not empty
-				Value: db.Status.Hosts[0],
+				Name:  "MARIADB_HOST",
+				Value: databaseDNSName(db),
 			},
 		)
 	}
@@ -396,6 +395,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Volumes:        volumes,
 			// Ironic needs to be accessed by external machines
 			HostNetwork: true,
+			DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
 		},
 	}, nil
 }
