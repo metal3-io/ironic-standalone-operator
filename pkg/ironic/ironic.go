@@ -279,7 +279,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		})
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "cert-mariadb",
-			MountPath: certsDir + "/mariadb",
+			MountPath: certsDir + "/ca/mariadb",
 		})
 	}
 
