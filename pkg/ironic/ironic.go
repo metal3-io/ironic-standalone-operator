@@ -2,6 +2,8 @@ package ironic
 
 import (
 	"errors"
+	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -40,11 +42,11 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		},
 		{
 			Name:  "IRONIC_LISTEN_PORT",
-			Value: strconv.Itoa(int(ironic.Spec.APIPort)),
+			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
 		},
 		{
 			Name:  "HTTP_PORT",
-			Value: strconv.Itoa(int(ironic.Spec.ImageServerPort)),
+			Value: strconv.Itoa(int(ironic.Spec.Networking.ImageServerPort)),
 		},
 		{
 			Name:  "LISTEN_ALL_INTERFACES",
@@ -118,7 +120,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 			result = append(result,
 				corev1.EnvVar{
 					Name:  "VMEDIA_TLS_PORT",
-					Value: strconv.Itoa(int(ironic.Spec.ImageServerTLSPort)),
+					Value: strconv.Itoa(int(ironic.Spec.Networking.ImageServerTLSPort)),
 				},
 			)
 		}
@@ -289,13 +291,13 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	httpdPorts = []corev1.ContainerPort{
 		{
 			Name:          imagesPortName,
-			ContainerPort: ironic.Spec.ImageServerPort,
+			ContainerPort: ironic.Spec.Networking.ImageServerPort,
 		},
 	}
 
 	apiPort := corev1.ContainerPort{
 		Name:          ironicPortName,
-		ContainerPort: ironic.Spec.APIPort,
+		ContainerPort: ironic.Spec.Networking.APIPort,
 	}
 
 	if ironic.Spec.TLSSecretName == "" {
@@ -305,12 +307,82 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 		if !ironic.Spec.DisableVirtualMediaTLS {
 			httpdPorts = append(httpdPorts, corev1.ContainerPort{
 				Name:          imagesTLSPortName,
-				ContainerPort: ironic.Spec.ImageServerTLSPort,
+				ContainerPort: ironic.Spec.Networking.ImageServerTLSPort,
 			})
 		}
 	}
 
 	return
+}
+
+func buildDHCPRange(dhcp *metal3api.DHCP) string {
+	prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+	if err != nil {
+		return "" // don't disable your webhooks people
+	}
+
+	return fmt.Sprintf("%s,%s,%d", dhcp.FirstIP, dhcp.LastIP, prefix.Bits())
+}
+
+func buildDNSIP(dhcp *metal3api.DHCP) string {
+	if dhcp.ServeDNS {
+		return "provisioning" // magical value for serving DNS from the provisioning host using its settings
+	}
+
+	if dhcp.DNSAddress != "" {
+		return dhcp.DNSAddress
+	}
+
+	return ""
+}
+
+func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
+	dhcp := ironic.Spec.Networking.DHCP
+
+	envVars := buildCommonEnvVars(ironic)
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "DHCP_RANGE",
+		Value: buildDHCPRange(dhcp),
+	})
+
+	dns := buildDNSIP(dhcp)
+	if dns != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "DNS_IP",
+			Value: dns,
+		})
+	}
+	if dhcp.GatewayAddress != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "GATEWAY_IP",
+			Value: dhcp.GatewayAddress,
+		})
+	}
+	if len(dhcp.Hosts) > 0 {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "DHCP_HOSTS",
+			Value: strings.Join(dhcp.Hosts, ";"),
+		})
+	}
+	if len(dhcp.Ignore) > 0 {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "DHCP_IGNORE",
+			Value: strings.Join(dhcp.Ignore, ","),
+		})
+	}
+
+	return corev1.Container{
+		Name:            "dnsmasq",
+		Image:           ironic.Spec.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Command:         []string{"/bin/rundnsmasq"},
+		// TODO(dtantsur): livenessProbe+readinessProbe
+		Env: envVars,
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(ironicUser),
+			RunAsGroup: pointer.Int64(ironicGroup),
+		},
+	}
 }
 
 func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (corev1.PodTemplateSpec, error) {
@@ -383,6 +455,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 				RunAsGroup: pointer.Int64(ironicGroup),
 			},
 		},
+	}
+	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.Distributed {
+		containers = append(containers, newDnsmasqContainer(ironic))
 	}
 
 	return corev1.PodTemplateSpec{

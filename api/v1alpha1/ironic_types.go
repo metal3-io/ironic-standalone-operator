@@ -38,6 +38,47 @@ type Inspection struct {
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
+type DHCP struct {
+	// NetworkCIDR is a CIRD of the provisioning network.
+	NetworkCIDR string `json:"networkCIDR,omitempty"`
+
+	// FirstIP is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	// If not set, the 10th IP from NetworkCIDR is used (e.g. .10 for /24).
+	// +optional
+	FirstIP string `json:"firstIP,omitempty"`
+
+	// LastIP is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	// If not set, the 2nd IP from the end of NetworkCIDR is used (e.g. .253 for /24).
+	// +optional
+	LastIP string `json:"lastIP,omitempty"`
+
+	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
+	// Must not be set together with DNSAddress.
+	// +optional
+	ServeDNS bool `json:"serveDNS,omitempty"`
+
+	// DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
+	// Must not be set together with ServeDNS.
+	// +optional
+	DNSAddress string `json:"dnsAddress,omitempty"`
+
+	// GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+	// +optional
+	GatewayAddress string `json:"gatewayAddress,omitempty"`
+
+	// Hosts is a set of DHCP host records to pass to dnsmasq.
+	// Check the dnsmasq documentation on dhcp-host for an explanation of the format.
+	// There is no API-side validation. Most users will leave this unset.
+	// +optional
+	Hosts []string `json:"hosts,omitempty"`
+
+	// Ignore is set of dnsmasq tags to ignore and not provide any DHCP.
+	// Check the dnsmasq documentation on dhcp-ignore for an explanation of the format.
+	// There is no API-side validation. Most users will leave this unset.
+	// +optional
+	Ignore []string `json:"ignore,omitempty"`
+}
+
 // Networking defines networking settings for Ironic
 type Networking struct {
 	// Interface is a Linux network device to listen on.
@@ -62,6 +103,28 @@ type Networking struct {
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
+
+	// APIPort is the public port used for Ironic.
+	// +kubebuilder:default=6385
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	APIPort int32 `json:"apiPort,omitempty"`
+
+	// ImageServerPort is the public port used for serving images.
+	// +kubebuilder:default=8088
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	ImageServerPort int32 `json:"imageServerPort,omitempty"`
+
+	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
+	// +kubebuilder:default=8089
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
+
+	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
+	// The service is only deployed when this is set.
+	DHCP *DHCP `json:"dhcp,omitempty"`
 }
 
 // IronicSpec defines the desired state of Ironic
@@ -89,27 +152,8 @@ type IronicSpec struct {
 	Inspection Inspection `json:"inspection,omitempty"`
 
 	// Networking defines networking settings for Ironic.
-	// At least one of the subfield should be provided.
 	// +optional
 	Networking Networking `json:"networking,omitempty"`
-
-	// APIPort is the public port used for Ironic.
-	// +kubebuilder:default=6385
-	// +kubebuilder:validation:Minimum=1
-	// +optional
-	APIPort int32 `json:"apiPort,omitempty"`
-
-	// ImageServerPort is the public port used for serving images.
-	// +kubebuilder:default=8088
-	// +kubebuilder:validation:Minimum=1
-	// +optional
-	ImageServerPort int32 `json:"imageServerPort,omitempty"`
-
-	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
-	// +kubebuilder:default=8089
-	// +kubebuilder:validation:Minimum=1
-	// +optional
-	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
 
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.

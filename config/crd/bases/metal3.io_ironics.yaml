@@ -35,12 +35,6 @@ spec:
           spec:
             description: IronicSpec defines the desired state of Ironic
             properties:
-              apiPort:
-                default: 6385
-                description: APIPort is the public port used for Ironic.
-                format: int32
-                minimum: 1
-                type: integer
               apiSecretName:
                 description: APISecretName is the name of the secret with Ironic API
                   credentials.
@@ -63,19 +57,6 @@ spec:
                 description: Image is the Ironic image (including httpd).
                 minLength: 1
                 type: string
-              imageServerPort:
-                default: 8088
-                description: ImageServerPort is the public port used for serving images.
-                format: int32
-                minimum: 1
-                type: integer
-              imageServerTLSPort:
-                default: 8089
-                description: ImageServerTLSPort is the public port used for serving
-                  virtual media images over TLS.
-                format: int32
-                minimum: 1
-                type: integer
               inspection:
                 description: Inspection defines inspection settings
                 properties:
@@ -92,17 +73,85 @@ spec:
                     type: array
                 type: object
               networking:
-                description: Networking defines networking settings for Ironic. At
-                  least one of the subfield should be provided.
+                description: Networking defines networking settings for Ironic.
                 properties:
+                  apiPort:
+                    default: 6385
+                    description: APIPort is the public port used for Ironic.
+                    format: int32
+                    minimum: 1
+                    type: integer
                   bindInterface:
                     description: BindInterface makes Ironic API bound to only one
                       interface.
                     type: boolean
+                  dhcp:
+                    description: DHCP is a configuration of DHCP for the network boot
+                      service (dnsmasq). The service is only deployed when this is
+                      set.
+                    properties:
+                      dnsAddress:
+                        description: DNSAddress is the IP address of the DNS server
+                          to pass to hosts via DHCP. Must not be set together with
+                          ServeDNS.
+                        type: string
+                      firstIP:
+                        description: FirstIP is the first IP that can be given to
+                          hosts. Must be inside NetworkCIDR. If not set, the 10th
+                          IP from NetworkCIDR is used (e.g. .10 for /24).
+                        type: string
+                      gatewayAddress:
+                        description: GatewayAddress is the IP address of the gateway
+                          to pass to hosts via DHCP.
+                        type: string
+                      hosts:
+                        description: Hosts is a set of DHCP host records to pass to
+                          dnsmasq. Check the dnsmasq documentation on dhcp-host for
+                          an explanation of the format. There is no API-side validation.
+                          Most users will leave this unset.
+                        items:
+                          type: string
+                        type: array
+                      ignore:
+                        description: Ignore is set of dnsmasq tags to ignore and not
+                          provide any DHCP. Check the dnsmasq documentation on dhcp-ignore
+                          for an explanation of the format. There is no API-side validation.
+                          Most users will leave this unset.
+                        items:
+                          type: string
+                        type: array
+                      lastIP:
+                        description: LastIP is the last IP that can be given to hosts.
+                          Must be inside NetworkCIDR. If not set, the 2nd IP from
+                          the end of NetworkCIDR is used (e.g. .253 for /24).
+                        type: string
+                      networkCIDR:
+                        description: NetworkCIDR is a CIRD of the provisioning network.
+                        type: string
+                      serveDNS:
+                        description: ServeDNS is set to true to pass the provisioning
+                          host as the DNS server on the provisioning network. Must
+                          not be set together with DNSAddress.
+                        type: boolean
+                    type: object
                   externalIP:
                     description: ExternalIP is used for accessing API and the image
                       server from remote hosts.
                     type: string
+                  imageServerPort:
+                    default: 8088
+                    description: ImageServerPort is the public port used for serving
+                      images.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  imageServerTLSPort:
+                    default: 8089
+                    description: ImageServerTLSPort is the public port used for serving
+                      virtual media images over TLS.
+                    format: int32
+                    minimum: 1
+                    type: integer
                   interface:
                     description: Interface is a Linux network device to listen on.
                       Detected from IPAddress if missing.

@@ -19,8 +19,9 @@ package v1alpha1
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 
+	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,7 +48,34 @@ func (r *Ironic) Default() {
 	setDefaults(&r.Spec)
 }
 
-func setDefaults(ironic *IronicSpec) {}
+func setDHCPDefaults(dhcp *DHCP, provCIDR netip.Prefix) {
+	provIP := provCIDR.Addr()
+	if dhcp.FirstIP == "" {
+		firstIP := provIP
+		for i := 0; i < 10; i++ {
+			firstIP = firstIP.Next()
+		}
+		if firstIP.IsValid() && provCIDR.Contains(firstIP) {
+			dhcp.FirstIP = firstIP.String()
+		}
+	}
+	if dhcp.LastIP == "" {
+		lastIP := netipx.PrefixLastIP(provCIDR).Prev().Prev()
+		if lastIP.IsValid() && provCIDR.Contains(lastIP) {
+			dhcp.LastIP = lastIP.String()
+		}
+	}
+}
+
+func setDefaults(ironic *IronicSpec) {
+	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		// Let the validation hook do the actual validation
+		if err == nil {
+			setDHCPDefaults(dhcp, provCIDR)
+		}
+	}
+}
 
 //+kubebuilder:webhook:path=/validate-metal3-io-v1alpha1-ironic,mutating=false,failurePolicy=fail,sideEffects=None,groups=metal3.io,resources=ironics,verbs=create;update,versions=v1alpha1,name=vironic.kb.io,admissionReviewVersions=v1
 
@@ -70,6 +98,80 @@ func (r *Ironic) ValidateDelete() (warnings admission.Warnings, err error) {
 	return nil, nil
 }
 
+func validateIP(ip string) error {
+	if ip == "" {
+		return nil
+	}
+
+	if _, err := netip.ParseAddr(ip); err != nil {
+		return fmt.Errorf("%s is not a valid IP address: %w", ip, err)
+	}
+
+	return nil
+}
+
+func validateIPinPrefix(ip string, prefix netip.Prefix) error {
+	if ip == "" {
+		return nil
+	}
+
+	parsed, err := netip.ParseAddr(ip)
+	if err != nil {
+		return fmt.Errorf("%s is not a valid IP address: %w", ip, err)
+	}
+
+	if !prefix.Contains(parsed) {
+		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+	}
+
+	return nil
+}
+
+func validateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
+	if ironic.Networking.IPAddress == "" {
+		return errors.New("networking.ipAddress is required when DHCP is used")
+	}
+	if dhcp.NetworkCIDR == "" {
+		return errors.New("networking.dhcp.networkCIRD is required when DHCP is used")
+	}
+	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
+		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
+	}
+
+	provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
+	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+	if err != nil {
+		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+	}
+
+	if !provCIDR.Contains(provIP) {
+		return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+	}
+
+	if err := validateIPinPrefix(dhcp.FirstIP, provCIDR); err != nil {
+		return err
+	}
+
+	if err := validateIPinPrefix(dhcp.LastIP, provCIDR); err != nil {
+		return err
+	}
+
+	if err := validateIP(dhcp.DNSAddress); err != nil {
+		return err
+	}
+
+	if err := validateIP(dhcp.GatewayAddress); err != nil {
+		return err
+	}
+
+	// These are supposed to be populated by the webhook
+	if dhcp.FirstIP == "" || dhcp.LastIP == "" {
+		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
+	}
+
+	return nil
+}
+
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	if ironic.APISecretName == "" {
 		return errors.New("apiSecretName is required")
@@ -83,8 +185,18 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return errors.New("cannot change to a new database or remove it")
 	}
 
-	if ironic.Networking.IPAddress != "" && net.ParseIP(ironic.Networking.IPAddress) == nil {
-		return fmt.Errorf("%s is not a valid IP address", ironic.Networking.IPAddress)
+	if err := validateIP(ironic.Networking.IPAddress); err != nil {
+		return err
+	}
+
+	if err := validateIP(ironic.Networking.ExternalIP); err != nil {
+		return err
+	}
+
+	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+		if err := validateDHCP(ironic, dhcp); err != nil {
+			return err
+		}
 	}
 
 	// TODO(dtantsur): implement and remove (comment out for local testing)
