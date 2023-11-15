@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
@@ -620,11 +622,13 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (meta
 }
 
 func removeIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic) error {
-	return nil // TODO(dtantsur): migration, cannot use ownership
+	err := cctx.KubeClient.AppsV1().DaemonSets(ironic.Namespace).Delete(context.Background(), ironic.Name, metav1.DeleteOptions{})
+	return client.IgnoreNotFound(err)
 }
 
 func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) error {
-	return nil // TODO(dtantsur): migration, cannot use ownership
+	err := cctx.KubeClient.AppsV1().Deployments(ironic.Namespace).Delete(context.Background(), ironic.Name, metav1.DeleteOptions{})
+	return client.IgnoreNotFound(err)
 }
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
