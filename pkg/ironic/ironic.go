@@ -473,6 +473,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 	}
 	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.Distributed {
+		err := metal3api.ValidateDHCP(&ironic.Spec, ironic.Spec.Networking.DHCP)
+		if err != nil {
+			return corev1.PodTemplateSpec{}, err
+		}
 		containers = append(containers, newDnsmasqContainer(ironic))
 	}
 

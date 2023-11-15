@@ -127,7 +127,7 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	return nil
 }
 
-func validateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
+func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 	if ironic.Networking.IPAddress == "" {
 		return errors.New("networking.ipAddress is required when DHCP is used")
 	}
@@ -194,7 +194,7 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	}
 
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
-		if err := validateDHCP(ironic, dhcp); err != nil {
+		if err := ValidateDHCP(ironic, dhcp); err != nil {
 			return err
 		}
 	}
