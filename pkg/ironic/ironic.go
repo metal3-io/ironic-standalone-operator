@@ -381,6 +381,10 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64(ironicUser),
 			RunAsGroup: pointer.Int64(ironicGroup),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
+			},
 		},
 	}
 }
@@ -406,6 +410,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
 			},
 			// FIXME(dtantsur): this should be the default in the image:
 			// https://github.com/metal3-io/ironic-ipa-downloader/pull/43
@@ -427,6 +434,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
 			},
 			Ports: ironicPorts,
 		},
@@ -441,6 +451,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
 			},
 			Ports: httpdPorts,
 		},
@@ -453,6 +466,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
 			},
 		},
 	}
