@@ -63,11 +63,7 @@ http_basic_auth_user_file = /etc/ironic/htpasswd
 auth_type = http_basic
 username = %s
 password = %s
-[inspector]
-auth_type = http_basic
-username = %s
-password = %s
-`, user, password, user, password)
+`, user, password)
 }
 
 func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {

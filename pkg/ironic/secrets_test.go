@@ -67,10 +67,6 @@ http_basic_auth_user_file = /etc/ironic/htpasswd
 auth_type = http_basic
 username = admin
 password = password
-[inspector]
-auth_type = http_basic
-username = admin
-password = password
 `
 	testCases := []struct {
 		Scenario string

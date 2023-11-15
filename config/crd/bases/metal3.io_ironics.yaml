@@ -139,14 +139,14 @@ spec:
                       server from remote hosts.
                     type: string
                   imageServerPort:
-                    default: 8088
+                    default: 6180
                     description: ImageServerPort is the public port used for serving
                       images.
                     format: int32
                     minimum: 1
                     type: integer
                   imageServerTLSPort:
-                    default: 8089
+                    default: 6183
                     description: ImageServerTLSPort is the public port used for serving
                       virtual media images over TLS.
                     format: int32

@@ -26,10 +26,8 @@ const (
 	imagesPortName    = "image-svc"
 	imagesTLSPortName = "image-svc-tls"
 
-	ironicUser     = 997
-	ironicGroup    = 994
-	inspectorUser  = 996
-	inspectorGroup = 993
+	ironicUser  = 997
+	ironicGroup = 994
 
 	authDir   = "/auth"
 	certsDir  = "/certs"
@@ -98,22 +96,14 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	}
 
 	if ironic.Spec.TLSSecretName != "" {
-		// Ironic and Inspector will listen on a Unix socket, httpd will be responsible for serving HTTPS.
+		// Ironic will listen on a Unix socket, httpd will be responsible for serving HTTPS.
 		result = append(result, []corev1.EnvVar{
 			{
 				Name:  "IRONIC_PRIVATE_PORT",
 				Value: "unix",
 			},
 			{
-				Name:  "IRONIC_INSPECTOR_PRIVATE_PORT",
-				Value: "unix",
-			},
-			{
 				Name:  "IRONIC_REVERSE_PROXY_SETUP",
-				Value: "true",
-			},
-			{
-				Name:  "INSPECTOR_REVERSE_PROXY_SETUP",
 				Value: "true",
 			},
 		}...)
@@ -151,13 +141,9 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
 			Value: strconv.FormatBool(ironic.Spec.Distributed),
 		},
-		// TODO(dtantsur): try to get rid of these eventually (especially once inspector is gone)
+		// TODO(dtantsur): try to get rid of this one eventually
 		{
 			Name:  "IRONIC_INSECURE",
-			Value: "true",
-		},
-		{
-			Name:  "IRONIC_INSPECTOR_INSECURE",
 			Value: "true",
 		},
 	}...)
@@ -211,14 +197,6 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 				},
 			},
 		},
-		{
-			Name: "inspector-auth",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: ironic.Spec.APISecretName,
-				},
-			},
-		},
 	}
 	mounts = []corev1.VolumeMount{
 		{
@@ -228,10 +206,6 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		{
 			Name:      "ironic-auth",
 			MountPath: authDir + "/ironic",
-		},
-		{
-			Name:      "inspector-auth",
-			MountPath: authDir + "/ironic-inspector",
 		},
 	}
 
@@ -250,13 +224,6 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			corev1.VolumeMount{
 				Name:      "cert-ironic",
 				MountPath: certsDir + "/ironic",
-				ReadOnly:  true,
-			},
-			// NOTE(dtantsur): in theory, inspector can use different TLS settings, but we're getting rid of inspector,
-			// so I don't want any API bits to rely on its presence.
-			corev1.VolumeMount{
-				Name:      "cert-ironic",
-				MountPath: certsDir + "/ironic-inspector",
 				ReadOnly:  true,
 			},
 		)

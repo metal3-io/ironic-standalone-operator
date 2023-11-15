@@ -22,8 +22,8 @@ import (
 
 const (
 	DefaultAPIPort            int32  = 6385
-	DefaultImageServerPort    int32  = 8088
-	DefaultImageServerTLSPort int32  = 8089
+	DefaultImageServerPort    int32  = 6180
+	DefaultImageServerTLSPort int32  = 6183
 	DefaultIronicImage        string = "quay.io/metal3-io/ironic"
 
 	IronicFinalizer string = "ironic.metal3.io"
@@ -111,13 +111,13 @@ type Networking struct {
 	APIPort int32 `json:"apiPort,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
-	// +kubebuilder:default=8088
+	// +kubebuilder:default=6180
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	ImageServerPort int32 `json:"imageServerPort,omitempty"`
 
 	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
-	// +kubebuilder:default=8089
+	// +kubebuilder:default=6183
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
