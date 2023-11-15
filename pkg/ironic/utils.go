@@ -18,10 +18,9 @@ import (
 )
 
 const (
-	probeInitialDelay     = 30
-	probePeriod           = 30
-	probeTimeout          = 10
-	probeFailureThreshold = 10
+	probeInitialDelay     = 1
+	probeTimeout          = 5
+	probeFailureThreshold = 12
 )
 
 type ControllerContext struct {
@@ -110,9 +109,9 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: handler,
-		// NOTE(dtantsur): these are used in the old Kustomize based deployment, I haven't put any thoughts in them.
+		// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
+		// Also be conservative about failing the pod since Ironic restars are not cheap (the database is wiped).
 		InitialDelaySeconds: probeInitialDelay,
-		PeriodSeconds:       probePeriod,
 		TimeoutSeconds:      probeTimeout,
 		FailureThreshold:    probeFailureThreshold,
 	}
