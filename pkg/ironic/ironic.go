@@ -336,6 +336,21 @@ func buildDNSIP(dhcp *metal3api.DHCP) string {
 	return ""
 }
 
+func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path string) corev1.ProbeHandler {
+	proto := "http"
+	if https {
+		proto = "https"
+	}
+
+	// NOTE(dtantsur): we could use HTTP GET probe but we cannot pass the certificate there.
+	url := fmt.Sprintf("%s://127.0.0.1:%d%s", proto, port, path)
+	return corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"curl", "-sSfk", url},
+		},
+	}
+}
+
 func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
@@ -371,6 +386,12 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		})
 	}
 
+	probe := newProbe(corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"},
+		},
+	})
+
 	return corev1.Container{
 		Name:            "dnsmasq",
 		Image:           ironic.Spec.Image,
@@ -386,6 +407,8 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
 			},
 		},
+		LivenessProbe:  probe,
+		ReadinessProbe: probe,
 	}
 }
 
@@ -422,15 +445,17 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
 
+	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLSSecretName != "", int(ironic.Spec.Networking.APIPort), "/v1")
+	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), "/images")
+
 	containers := []corev1.Container{
 		{
 			Name:            "ironic",
 			Image:           ironic.Spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runironic"},
-			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          buildIronicEnvVars(ironic, db, htpasswd),
-			VolumeMounts: mounts,
+			Env:             buildIronicEnvVars(ironic, db, htpasswd),
+			VolumeMounts:    mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -438,16 +463,17 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 					Drop: []corev1.Capability{"ALL"},
 				},
 			},
-			Ports: ironicPorts,
+			Ports:          ironicPorts,
+			LivenessProbe:  newProbe(ironicHandler),
+			ReadinessProbe: newProbe(ironicHandler),
 		},
 		{
 			Name:            "httpd",
 			Image:           ironic.Spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runhttpd"},
-			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          buildHttpdEnvVars(ironic),
-			VolumeMounts: mounts,
+			Env:             buildHttpdEnvVars(ironic),
+			VolumeMounts:    mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -455,7 +481,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 					Drop: []corev1.Capability{"ALL"},
 				},
 			},
-			Ports: httpdPorts,
+			Ports:          httpdPorts,
+			LivenessProbe:  newProbe(httpdHandler),
+			ReadinessProbe: newProbe(httpdHandler),
 		},
 		{
 			Name:            "ramdisk-logs",

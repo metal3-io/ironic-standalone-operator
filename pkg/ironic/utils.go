@@ -17,6 +17,13 @@ import (
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
 )
 
+const (
+	probeInitialDelay     = 30
+	probePeriod           = 30
+	probeTimeout          = 10
+	probeFailureThreshold = 10
+)
+
 type ControllerContext struct {
 	Context    context.Context
 	Client     client.Client
@@ -98,4 +105,15 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 	}
 	sort.Strings(endpoints)
 	return
+}
+
+func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: handler,
+		// NOTE(dtantsur): these are used in the old Kustomize based deployment, I haven't put any thoughts in them.
+		InitialDelaySeconds: probeInitialDelay,
+		PeriodSeconds:       probePeriod,
+		TimeoutSeconds:      probeTimeout,
+		FailureThreshold:    probeFailureThreshold,
+	}
 }

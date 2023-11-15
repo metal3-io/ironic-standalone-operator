@@ -89,18 +89,26 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 			Value: "true",
 		},
 	}...)
+
+	probe := newProbe(corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{"sh", "-c", "mysqladmin status -u$(printenv MARIADB_USER) -p$(printenv MARIADB_PASSWORD)"},
+		},
+	})
+
 	containers := []corev1.Container{
 		{
 			Name:            "mariadb",
 			Image:           db.Spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
-			// TODO(dtantsur): livenessProbe+readinessProbe
-			Env:          envVars,
-			VolumeMounts: mounts,
+			Env:             envVars,
+			VolumeMounts:    mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(databaseUser),
 				RunAsGroup: pointer.Int64(databaseUser),
 			},
+			LivenessProbe:  probe,
+			ReadinessProbe: probe,
 		},
 	}
 
