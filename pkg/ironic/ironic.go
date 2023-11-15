@@ -146,6 +146,11 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 			Name:  "IRONIC_INSECURE",
 			Value: "true",
 		},
+		// NOTE(dtantsur): this is not strictly correct but is required for JSON RPC authentication
+		{
+			Name:  "IRONIC_DEPLOYMENT",
+			Value: "Conductor",
+		},
 	}...)
 
 	if db != nil {
@@ -158,7 +163,9 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		)
 	}
 
-	if htpasswd != "" {
+	// When TLS is used, httpd is responsible for authentication.
+	// When JSON RPC is enabled, the password is required for it as well.
+	if htpasswd != "" && (ironic.Spec.TLSSecretName == "" || ironic.Spec.Distributed) {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -177,8 +184,27 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 	return result
 }
 
-func buildHttpdEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
-	return buildCommonEnvVars(ironic)
+func buildHttpdEnvVars(ironic *metal3api.Ironic, htpasswd string) []corev1.EnvVar {
+	result := buildCommonEnvVars(ironic)
+
+	// When TLS is used, httpd is responsible for authentication
+	if htpasswd != "" && ironic.Spec.TLSSecretName != "" {
+		result = append(result,
+			corev1.EnvVar{
+				Name: "IRONIC_HTPASSWD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: htpasswd,
+						},
+						Key: htpasswdKey,
+					},
+				},
+			},
+		)
+	}
+
+	return result
 }
 
 func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
@@ -203,10 +229,12 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			Name:      "ironic-shared",
 			MountPath: sharedDir,
 		},
-		{
+	}
+	if ironic.Spec.Distributed {
+		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "ironic-auth",
-			MountPath: authDir + "/ironic",
-		},
+			MountPath: authDir + "/ironic-rpc",
+		})
 	}
 
 	if ironic.Spec.TLSSecretName != "" {
@@ -441,7 +469,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Image:           ironic.Spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runhttpd"},
-			Env:             buildHttpdEnvVars(ironic),
+			Env:             buildHttpdEnvVars(ironic, htpasswd),
 			VolumeMounts:    mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),

@@ -63,7 +63,8 @@ func TestSecretNeedsUpdating(t *testing.T) {
 [DEFAULT]
 auth_strategy = http_basic
 http_basic_auth_user_file = /etc/ironic/htpasswd
-[ironic]
+[json_rpc]
+auth_strategy = http_basic
 auth_type = http_basic
 username = admin
 password = password

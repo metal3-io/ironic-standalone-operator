@@ -59,7 +59,8 @@ func getAuthConfig(secret *corev1.Secret) string {
 [DEFAULT]
 auth_strategy = http_basic
 http_basic_auth_user_file = /etc/ironic/htpasswd
-[ironic]
+[json_rpc]
+auth_strategy = http_basic
 auth_type = http_basic
 username = %s
 password = %s
