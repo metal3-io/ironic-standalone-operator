@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
@@ -88,6 +89,22 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		}
 	} else {
 		return r.cleanUp(cctx, db)
+	}
+
+	if db.Spec.CredentialsSecretName == "" {
+		apiSecret, err := generateSecret(cctx, db, &db.ObjectMeta)
+		if err != nil {
+			return true, err
+		}
+
+		cctx.Logger.Info("updating database to use the newly generated secret", "Secret", apiSecret.Name)
+		db.Spec.CredentialsSecretName = apiSecret.Name
+		err = cctx.Client.Update(cctx.Context, db)
+		if err != nil {
+			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
+		}
+
+		return true, nil
 	}
 
 	status, hosts, err := ironic.EnsureDatabase(cctx, db)

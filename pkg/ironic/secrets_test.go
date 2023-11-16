@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsValidUser(t *testing.T) {
@@ -167,4 +168,18 @@ password = password
 			assert.Equal(t, tc.ExpectedChanged, changed)
 		})
 	}
+}
+
+func TestGenerateSecret(t *testing.T) {
+	meta := &metav1.ObjectMeta{
+		Name:      "my-ironic",
+		Namespace: "test",
+	}
+	secret, err := GenerateSecret(meta)
+	assert.NoError(t, err)
+	assert.NotNil(t, secret)
+	assert.Len(t, secret.Data["password"], passwordLength)
+	assert.NotEqual(t, "", secret.Data["htpasswd"])
+	assert.NotEqual(t, "", secret.Data["auth-config"])
+	assert.Equal(t, "test", secret.Namespace)
 }

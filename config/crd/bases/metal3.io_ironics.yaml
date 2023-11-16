@@ -37,7 +37,7 @@ spec:
             properties:
               apiSecretName:
                 description: APISecretName is the name of the secret with Ironic API
-                  credentials.
+                  credentials. A new secret will be created if this field is empty.
                 type: string
               databaseName:
                 description: DatabaseName defines database settings for Ironic.
@@ -181,8 +181,6 @@ spec:
                 description: TLSSecretName is the name of the secret with the API
                   TLS certificate.
                 type: string
-            required:
-            - apiSecretName
             type: object
           status:
             description: IronicStatus defines the observed state of Ironic

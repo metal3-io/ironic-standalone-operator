@@ -36,6 +36,8 @@ type IronicDatabaseSpec struct {
 	ExternalIP string `json:"externalIP,omitempty"`
 
 	// CredentialsSecretName is the name of the secret with database credentials.
+	// A new secret will be created if this field is empty.
+	// +optional
 	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
 
 	// TLSSecretName is the name of the secret with the database TLS certificate.

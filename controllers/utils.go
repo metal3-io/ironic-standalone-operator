@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,4 +81,24 @@ func getDatabase(cctx ironic.ControllerContext, name types.NamespacedName) (*met
 	}
 
 	return db, nil
+}
+
+func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *metav1.ObjectMeta) (secret *corev1.Secret, err error) {
+	secret, err = ironic.GenerateSecret(meta)
+	if err != nil {
+		return
+	}
+
+	err = controllerutil.SetControllerReference(owner, secret, cctx.Scheme)
+	if err != nil {
+		return
+	}
+
+	err = cctx.Client.Create(cctx.Context, secret)
+	if err != nil {
+		err = fmt.Errorf("cannot create an API credentials secret: %w", err)
+		return
+	}
+
+	return
 }

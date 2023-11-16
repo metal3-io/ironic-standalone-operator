@@ -161,6 +161,8 @@ type IronicSpec struct {
 	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
 
 	// APISecretName is the name of the secret with Ironic API credentials.
+	// A new secret will be created if this field is empty.
+	// +optional
 	APISecretName string `json:"apiSecretName"`
 
 	// TLSSecretName is the name of the secret with the API TLS certificate.

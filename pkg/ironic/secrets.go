@@ -1,22 +1,48 @@
 package ironic
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strings"
 	"unicode"
 
 	"github.com/go-logr/logr"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func checkValidUser(user string) error {
 	for i, r := range user {
-		if !unicode.IsLetter(r) && !unicode.IsNumber(r) {
+		if !unicode.IsLetter(r) && !unicode.IsNumber(r) && r != '-' && r != '_' {
 			return fmt.Errorf("username cannot contain symbol %v (position %d)", r, i)
 		}
 	}
 	return nil
+}
+
+// NOTE(dtantsur): this excludes most symbols that are hard to use in shell, or
+// cause errors when substituting in SQL files, or are incompatible with
+// the way MariaDB password is provided in ironic.conf. Make up for it by
+// generating an absurdly long password.
+const (
+	passwordCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+	passwordLength  = 32
+)
+
+func generatePassword() ([]byte, error) {
+	password := make([]byte, passwordLength)
+	maxIdx := big.NewInt(int64(len(passwordCharset)))
+	for i := 0; i < passwordLength; i++ {
+		idx, err := rand.Int(rand.Reader, maxIdx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot generate a new password: %w", err)
+		}
+		password[i] = passwordCharset[idx.Int64()]
+	}
+
+	return password, nil
 }
 
 func generateHtpasswd(user, password string) (string, error) {
@@ -50,7 +76,10 @@ func htpasswdFromSecret(secret *corev1.Secret) (string, error) {
 	return generateHtpasswd(string(user), string(password))
 }
 
-const htpasswdKey = "htpasswd"
+const (
+	htpasswdKey   = "htpasswd"
+	authConfigKey = "auth-config"
+)
 
 func getAuthConfig(secret *corev1.Secret) string {
 	user := secret.Data["username"]
@@ -71,11 +100,11 @@ func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 	existing := secret.Data[htpasswdKey]
 	user, password, ok := strings.Cut(string(existing), ":")
 	if ok && user != "" && password != "" {
-		newUser, ok := secret.Data["username"]
+		newUser, ok := secret.Data[corev1.BasicAuthUsernameKey]
 		if ok && string(newUser) == user {
-			newPassword, ok := secret.Data["password"]
+			newPassword, ok := secret.Data[corev1.BasicAuthPasswordKey]
 			if ok && bcrypt.CompareHashAndPassword([]byte(password), []byte(newPassword)) == nil {
-				authConfig := secret.Data["auth-config"]
+				authConfig := secret.Data[authConfigKey]
 				if string(authConfig) == getAuthConfig(secret) {
 					// All good, keep the secret the way it is
 					return false
@@ -95,8 +124,8 @@ func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 	return true
 }
 
-func UpdateSecret(cctx ControllerContext, secret *corev1.Secret) (bool, error) {
-	if !secretNeedsUpdating(secret, cctx.Logger) {
+func UpdateSecret(secret *corev1.Secret, logger logr.Logger) (bool, error) {
+	if !secretNeedsUpdating(secret, logger) {
 		return false, nil
 	}
 
@@ -105,8 +134,32 @@ func UpdateSecret(cctx ControllerContext, secret *corev1.Secret) (bool, error) {
 		return false, err
 	}
 	secret.Data[htpasswdKey] = []byte(new)
-	secret.Data["auth-config"] = []byte(getAuthConfig(secret))
+	secret.Data[authConfigKey] = []byte(getAuthConfig(secret))
 	return true, nil
 }
 
-// func GenerateSimpleSecret(
+func GenerateSecret(owner *metav1.ObjectMeta) (*corev1.Secret, error) {
+	pwd, err := generatePassword()
+	if err != nil {
+		return nil, err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-", owner.Name),
+			Namespace:    owner.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.BasicAuthUsernameKey: []byte(owner.Name),
+			corev1.BasicAuthPasswordKey: pwd,
+		},
+		Type: corev1.SecretTypeBasicAuth,
+	}
+
+	_, err = UpdateSecret(secret, logr.Discard())
+	if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
+}

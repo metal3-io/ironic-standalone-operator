@@ -37,7 +37,8 @@ spec:
             properties:
               credentialsSecretName:
                 description: CredentialsSecretName is the name of the secret with
-                  database credentials.
+                  database credentials. A new secret will be created if this field
+                  is empty.
                 type: string
               externalIP:
                 description: ExternalIP can be set to use an existing MariaDB installation

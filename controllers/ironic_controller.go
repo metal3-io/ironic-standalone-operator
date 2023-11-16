@@ -121,7 +121,21 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	var apiSecret *corev1.Secret
-	if ironicConf.Spec.APISecretName != "" {
+	if ironicConf.Spec.APISecretName == "" {
+		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta)
+		if err != nil {
+			return true, err
+		}
+
+		cctx.Logger.Info("updating Ironic to use the newly generated secret", "Secret", apiSecret.Name)
+		ironicConf.Spec.APISecretName = apiSecret.Name
+		err = cctx.Client.Update(cctx.Context, ironicConf)
+		if err != nil {
+			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
+		}
+
+		return true, nil
+	} else {
 		secretName := types.NamespacedName{
 			Namespace: ironicConf.Namespace,
 			Name:      ironicConf.Spec.APISecretName,
@@ -141,7 +155,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			return
 		}
 
-		changed, err := ironic.UpdateSecret(cctx, apiSecret)
+		changed, err := ironic.UpdateSecret(apiSecret, cctx.Logger)
 		if err != nil {
 			return true, err
 		}
