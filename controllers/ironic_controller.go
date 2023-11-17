@@ -99,72 +99,14 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return r.cleanUp(cctx, ironicConf)
 	}
 
-	var db *metal3api.IronicDatabase
-	if ironicConf.Spec.DatabaseRef.Name != "" {
-		dbName := types.NamespacedName{
-			Namespace: ironicConf.Namespace,
-			Name:      ironicConf.Spec.DatabaseRef.Name,
-		}
-		db = &metal3api.IronicDatabase{}
-		err = cctx.Client.Get(cctx.Context, dbName, db)
-		if err != nil {
-			return true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseRef.Name, err)
-		}
-
-		oldReferences := db.GetOwnerReferences()
-		controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
-		if !reflect.DeepEqual(oldReferences, db.GetOwnerReferences()) {
-			cctx.Logger.Info("updating owner reference", "Database", db.Name)
-			err = cctx.Client.Update(cctx.Context, db)
-			requeue = true
-			return
-		}
+	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicConf)
+	if requeue || err != nil {
+		return
 	}
 
-	var apiSecret *corev1.Secret
-	if ironicConf.Spec.CredentialsRef.Name == "" {
-		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service")
-		if err != nil {
-			return true, err
-		}
-
-		cctx.Logger.Info("updating Ironic to use the newly generated secret", "Secret", apiSecret.Name)
-		ironicConf.Spec.CredentialsRef.Name = apiSecret.Name
-		err = cctx.Client.Update(cctx.Context, ironicConf)
-		if err != nil {
-			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
-		}
-
-		return true, nil
-	} else {
-		secretName := types.NamespacedName{
-			Namespace: ironicConf.Namespace,
-			Name:      ironicConf.Spec.CredentialsRef.Name,
-		}
-		apiSecret = &corev1.Secret{}
-		err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
-		if err != nil {
-			return true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.CredentialsRef.Name, err)
-		}
-
-		oldReferences := apiSecret.GetOwnerReferences()
-		controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
-		if !reflect.DeepEqual(oldReferences, apiSecret.GetOwnerReferences()) {
-			cctx.Logger.Info("updating owner reference", "Secret", apiSecret.Name)
-			err = cctx.Client.Update(cctx.Context, apiSecret)
-			requeue = true
-			return
-		}
-
-		changed, err := ironic.UpdateSecret(apiSecret, cctx.Logger)
-		if err != nil {
-			return true, err
-		}
-		if changed {
-			cctx.Logger.Info("updating htpasswd", "Secret", apiSecret.Name)
-			err = cctx.Client.Update(cctx.Context, apiSecret)
-			return true, err
-		}
+	db, requeue, err := r.ensureDatabase(cctx, ironicConf)
+	if requeue || err != nil {
+		return
 	}
 
 	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
@@ -185,6 +127,81 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		ironicConf.Status = *newStatus
 		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 	}
+	return
+}
+
+func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (apiSecret *corev1.Secret, requeue bool, err error) {
+	if ironicConf.Spec.CredentialsRef.Name == "" {
+		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service")
+		if err != nil {
+			return nil, true, err
+		}
+
+		cctx.Logger.Info("updating Ironic to use the newly generated secret", "Secret", apiSecret.Name)
+		ironicConf.Spec.CredentialsRef.Name = apiSecret.Name
+		err = cctx.Client.Update(cctx.Context, ironicConf)
+		if err != nil {
+			return nil, true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
+		}
+
+		requeue = true
+		return
+	}
+
+	secretName := types.NamespacedName{
+		Namespace: ironicConf.Namespace,
+		Name:      ironicConf.Spec.CredentialsRef.Name,
+	}
+	apiSecret = &corev1.Secret{}
+	err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
+	if err != nil {
+		return nil, true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.CredentialsRef.Name, err)
+	}
+
+	oldReferences := apiSecret.GetOwnerReferences()
+	controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
+	if !reflect.DeepEqual(oldReferences, apiSecret.GetOwnerReferences()) {
+		cctx.Logger.Info("updating owner reference", "Secret", apiSecret.Name)
+		err = cctx.Client.Update(cctx.Context, apiSecret)
+		requeue = true
+		return
+	}
+
+	requeue, err = ironic.UpdateSecret(apiSecret, cctx.Logger)
+	if err != nil {
+		return nil, true, err
+	}
+	if requeue {
+		cctx.Logger.Info("updating htpasswd", "Secret", apiSecret.Name)
+		err = cctx.Client.Update(cctx.Context, apiSecret)
+	}
+
+	return
+}
+
+func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (db *metal3api.IronicDatabase, requeue bool, err error) {
+	if ironicConf.Spec.DatabaseRef.Name == "" {
+		return
+	}
+
+	dbName := types.NamespacedName{
+		Namespace: ironicConf.Namespace,
+		Name:      ironicConf.Spec.DatabaseRef.Name,
+	}
+	db = &metal3api.IronicDatabase{}
+	err = cctx.Client.Get(cctx.Context, dbName, db)
+	if err != nil {
+		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseRef.Name, err)
+	}
+
+	oldReferences := db.GetOwnerReferences()
+	controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
+	if !reflect.DeepEqual(oldReferences, db.GetOwnerReferences()) {
+		cctx.Logger.Info("updating owner reference", "Database", db.Name)
+		err = cctx.Client.Update(cctx.Context, db)
+		requeue = true
+	}
+
 	return
 }
 

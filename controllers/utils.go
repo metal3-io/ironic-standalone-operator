@@ -18,6 +18,7 @@ import (
 func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
 	changed := controllerutil.AddFinalizer(obj, IronicFinalizer)
 	if changed {
+		cctx.Logger.Info(fmt.Sprintf("adding finalizer %s", IronicFinalizer))
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
 			return false, fmt.Errorf("failed to add finalizer: %w", err)
@@ -31,6 +32,7 @@ func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, er
 func removeFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
 	changed := controllerutil.RemoveFinalizer(obj, IronicFinalizer)
 	if changed {
+		cctx.Logger.Info(fmt.Sprintf("removing finalizer %s", IronicFinalizer))
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
 			return false, fmt.Errorf("failed to remove finalizer: %w", err)
