@@ -132,7 +132,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (apiSecret *corev1.Secret, requeue bool, err error) {
 	if ironicConf.Spec.CredentialsRef.Name == "" {
-		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service")
+		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service", true)
 		if err != nil {
 			return nil, true, err
 		}

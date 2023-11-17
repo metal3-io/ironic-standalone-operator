@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -171,16 +172,25 @@ password = password
 }
 
 func TestGenerateSecret(t *testing.T) {
-	meta := &metav1.ObjectMeta{
-		Name:      "my-ironic",
-		Namespace: "test",
+	for _, tc := range []bool{true, false} {
+		t.Run(fmt.Sprintf("extra-%v", tc), func(t *testing.T) {
+			meta := &metav1.ObjectMeta{
+				Name:      "my-ironic",
+				Namespace: "test",
+			}
+			secret, err := GenerateSecret(meta, "foo", tc)
+			assert.NoError(t, err)
+			assert.NotNil(t, secret)
+			assert.Len(t, secret.Data["password"], passwordLength)
+			if tc {
+				assert.NotNil(t, secret.Data["htpasswd"])
+				assert.NotNil(t, secret.Data["auth-config"])
+			} else {
+				assert.Nil(t, secret.Data["htpasswd"])
+				assert.Nil(t, secret.Data["auth-config"])
+			}
+			assert.Equal(t, "test", secret.Namespace)
+			assert.Equal(t, "my-ironic-foo-", secret.GenerateName)
+		})
 	}
-	secret, err := GenerateSecret(meta, "foo")
-	assert.NoError(t, err)
-	assert.NotNil(t, secret)
-	assert.Len(t, secret.Data["password"], passwordLength)
-	assert.NotEqual(t, "", secret.Data["htpasswd"])
-	assert.NotEqual(t, "", secret.Data["auth-config"])
-	assert.Equal(t, "test", secret.Namespace)
-	assert.Equal(t, "my-ironic-foo-", secret.GenerateName)
 }

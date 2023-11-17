@@ -138,7 +138,7 @@ func UpdateSecret(secret *corev1.Secret, logger logr.Logger) (bool, error) {
 	return true, nil
 }
 
-func GenerateSecret(owner *metav1.ObjectMeta, name string) (*corev1.Secret, error) {
+func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*corev1.Secret, error) {
 	pwd, err := generatePassword()
 	if err != nil {
 		return nil, err
@@ -156,9 +156,11 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string) (*corev1.Secret, erro
 		Type: corev1.SecretTypeBasicAuth,
 	}
 
-	_, err = UpdateSecret(secret, logr.Discard())
-	if err != nil {
-		return nil, err
+	if extraFields {
+		_, err = UpdateSecret(secret, logr.Discard())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return secret, nil
