@@ -175,11 +175,12 @@ func TestGenerateSecret(t *testing.T) {
 		Name:      "my-ironic",
 		Namespace: "test",
 	}
-	secret, err := GenerateSecret(meta)
+	secret, err := GenerateSecret(meta, "foo")
 	assert.NoError(t, err)
 	assert.NotNil(t, secret)
 	assert.Len(t, secret.Data["password"], passwordLength)
 	assert.NotEqual(t, "", secret.Data["htpasswd"])
 	assert.NotEqual(t, "", secret.Data["auth-config"])
 	assert.Equal(t, "test", secret.Namespace)
+	assert.Equal(t, "my-ironic-foo-", secret.GenerateName)
 }

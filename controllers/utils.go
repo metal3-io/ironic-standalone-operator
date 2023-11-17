@@ -83,8 +83,8 @@ func getDatabase(cctx ironic.ControllerContext, name types.NamespacedName) (*met
 	return db, nil
 }
 
-func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *metav1.ObjectMeta) (secret *corev1.Secret, err error) {
-	secret, err = ironic.GenerateSecret(meta)
+func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *metav1.ObjectMeta, name string) (secret *corev1.Secret, err error) {
+	secret, err = ironic.GenerateSecret(meta, name)
 	if err != nil {
 		return
 	}

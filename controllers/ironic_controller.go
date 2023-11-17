@@ -123,7 +123,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 	var apiSecret *corev1.Secret
 	if ironicConf.Spec.CredentialsRef.Name == "" {
-		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta)
+		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service")
 		if err != nil {
 			return true, err
 		}

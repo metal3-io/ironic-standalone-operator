@@ -97,7 +97,7 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 	}
 
 	if db.Spec.CredentialsRef.Name == "" {
-		apiSecret, err := generateSecret(cctx, db, &db.ObjectMeta)
+		apiSecret, err := generateSecret(cctx, db, &db.ObjectMeta, "database")
 		if err != nil {
 			return true, err
 		}
