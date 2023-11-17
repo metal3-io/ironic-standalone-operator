@@ -130,8 +130,9 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 }
 
 func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
-	if ironic.Networking.IPAddress == "" {
-		return errors.New("networking.ipAddress is required when DHCP is used")
+	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
+	if !hasNetworking {
+		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
 	if dhcp.NetworkCIDR == "" {
 		return errors.New("networking.dhcp.networkCIRD is required when DHCP is used")
@@ -189,6 +190,10 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 
 	if err := validateIP(ironic.Networking.ExternalIP); err != nil {
 		return err
+	}
+
+	if ironic.Distributed && ironic.Networking.IPAddress != "" {
+		return errors.New("networking.ipAddress makes no sense with distributed architecture")
 	}
 
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
