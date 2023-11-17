@@ -17,16 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	DefaultAPIPort            int32  = 6385
-	DefaultImageServerPort    int32  = 6180
-	DefaultImageServerTLSPort int32  = 6183
-	DefaultIronicImage        string = "quay.io/metal3-io/ironic"
-
-	IronicFinalizer string = "ironic.metal3.io"
 )
 
 // Inspection defines inspection settings
@@ -39,24 +31,6 @@ type Inspection struct {
 }
 
 type DHCP struct {
-	// NetworkCIDR is a CIRD of the provisioning network.
-	NetworkCIDR string `json:"networkCIDR,omitempty"`
-
-	// FirstIP is the first IP that can be given to hosts. Must be inside NetworkCIDR.
-	// If not set, the 10th IP from NetworkCIDR is used (e.g. .10 for /24).
-	// +optional
-	FirstIP string `json:"firstIP,omitempty"`
-
-	// LastIP is the last IP that can be given to hosts. Must be inside NetworkCIDR.
-	// If not set, the 2nd IP from the end of NetworkCIDR is used (e.g. .253 for /24).
-	// +optional
-	LastIP string `json:"lastIP,omitempty"`
-
-	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
-	// Must not be set together with DNSAddress.
-	// +optional
-	ServeDNS bool `json:"serveDNS,omitempty"`
-
 	// DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
 	// Must not be set together with ServeDNS.
 	// +optional
@@ -77,38 +51,46 @@ type DHCP struct {
 	// There is no API-side validation. Most users will leave this unset.
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
+
+	// NetworkCIDR is a CIRD of the provisioning network. Required.
+	NetworkCIDR string `json:"networkCIDR,omitempty"`
+
+	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	// If not set, the 10th IP from NetworkCIDR is used (e.g. .10 for /24).
+	// +optional
+	RangeBegin string `json:"rangeBegin,omitempty"`
+
+	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	// If not set, the 2nd IP from the end of NetworkCIDR is used (e.g. .253 for /24).
+	// +optional
+	RangeEnd string `json:"rangeEnd,omitempty"`
+
+	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
+	// Must not be set together with DNSAddress.
+	// +optional
+	ServeDNS bool `json:"serveDNS,omitempty"`
 }
 
 // Networking defines networking settings for Ironic
 type Networking struct {
-	// Interface is a Linux network device to listen on.
-	// Detected from IPAddress if missing.
-	// +optional
-	Interface string `json:"interface,omitempty"`
-
-	// IPAddress is the main IP address to listen on and use for communication.
-	// Detected from Interface if missing.
-	// +optional
-	IPAddress string `json:"ipAddress,omitempty"`
-
-	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
-	// Only set if no other options can be used.
-	// +optional
-	MACAddresses []string `json:"macAddresses,omitempty"`
-
-	// BindInterface makes Ironic API bound to only one interface.
-	// +optional
-	BindInterface bool `json:"bindInterface,omitempty"`
-
-	// ExternalIP is used for accessing API and the image server from remote hosts.
-	// +optional
-	ExternalIP string `json:"externalIP,omitempty"`
-
 	// APIPort is the public port used for Ironic.
 	// +kubebuilder:default=6385
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	APIPort int32 `json:"apiPort,omitempty"`
+
+	// BindInterface makes Ironic API bound to only one interface.
+	// +optional
+	BindInterface bool `json:"bindInterface,omitempty"`
+
+	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
+	// The service is only deployed when this is set.
+	DHCP *DHCP `json:"dhcp,omitempty"`
+
+	// ExternalIP is used for accessing API and the image server from remote hosts.
+	// This settings only applies to virtual media deployments.
+	// +optional
+	ExternalIP string `json:"externalIP,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180
@@ -122,31 +104,60 @@ type Networking struct {
 	// +optional
 	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
 
-	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
-	// The service is only deployed when this is set.
-	DHCP *DHCP `json:"dhcp,omitempty"`
+	// Interface is a Linux network device to listen on.
+	// Detected from IPAddress if missing.
+	// +optional
+	Interface string `json:"interface,omitempty"`
+
+	// IPAddress is the main IP address to listen on and use for communication.
+	// Detected from Interface if missing. Cannot be provided for a distributed architecture.
+	// +optional
+	IPAddress string `json:"ipAddress,omitempty"`
+
+	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
+	// Only set if no other options can be used.
+	// +optional
+	MACAddresses []string `json:"macAddresses,omitempty"`
+}
+
+type Images struct {
+	// Ironic is the Ironic image (including httpd).
+	// +kubebuilder:default=quay.io/metal3-io/ironic
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	Ironic string `json:"ironic,omitempty"`
+
+	// RamdiskDownloader is the image to be used at pod initialization to download the IPA ramdisk.
+	// +kubebuilder:default=quay.io/metal3-io/ironic-ipa-downloader
+	// +optional
+	RamdiskDownloader string `json:"ramdiskDownloader,omitempty"`
 }
 
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
-	// Image is the Ironic image (including httpd).
-	// +kubebuilder:default=quay.io/metal3-io/ironic
-	// +kubebuilder:validation:MinLength=1
+	// CredentialsRef is a reference to the secret with Ironic API credentials.
+	// A new secret will be created if this field is empty.
 	// +optional
-	Image string `json:"image,omitempty"`
+	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef,omitempty"`
 
-	// RamdiskDownloaderImage is the image to be used at pod initialization to download the IPA ramdisk.
-	// +kubebuilder:default=quay.io/metal3-io/ironic-ipa-downloader
+	// DatabaseRef defines database settings for Ironic.
+	// If missing, a local SQLite database will be used. Must be provided for a distributed architecture.
 	// +optional
-	RamdiskDownloaderImage string `json:"ramdiskDownloaderImage,omitempty"`
+	DatabaseRef corev1.LocalObjectReference `json:"databaseRef,omitempty"`
+
+	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
+	// which may be required for hardware that cannot accept HTTPS links.
+	// +optional
+	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
 
 	// Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
-	// Requires database to be installed and linked to DatabaseName.
+	// Requires database to be installed and linked to DatabaseRef.
+	// EXPERIMENTAL: do not use (validation will fail)!
 	// +optional
 	Distributed bool `json:"distributed,omitempty"`
 
-	// DatabaseName defines database settings for Ironic.
-	DatabaseName string `json:"databaseName,omitempty"`
+	// Images is a collection of container images to deploy from.
+	Images Images `json:"images,omitempty"`
 
 	// Inspection defines inspection settings
 	Inspection Inspection `json:"inspection,omitempty"`
@@ -155,19 +166,9 @@ type IronicSpec struct {
 	// +optional
 	Networking Networking `json:"networking,omitempty"`
 
-	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
-	// which may be required for hardware that cannot accept HTTPS links.
+	// TLSSecretName is a reference to the secret with the database TLS certificate.
 	// +optional
-	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
-
-	// APISecretName is the name of the secret with Ironic API credentials.
-	// A new secret will be created if this field is empty.
-	// +optional
-	APISecretName string `json:"apiSecretName"`
-
-	// TLSSecretName is the name of the secret with the API TLS certificate.
-	// +optional
-	TLSSecretName string `json:"tlsSecretName,omitempty"`
+	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
 
 	// RamdiskSSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
 	// +optional
@@ -176,10 +177,6 @@ type IronicSpec struct {
 
 // IronicStatus defines the observed state of Ironic
 type IronicStatus struct {
-	// IronicEndpoints is the available API endpoints of Ironic.
-	// +optional
-	IronicEndpoints []string `json:"ironicEndpoint,omitempty"`
-
 	// Conditions describe the state of the Ironic deployment.
 	// +patchMergeKey=type
 	// +patchStrategy=merge

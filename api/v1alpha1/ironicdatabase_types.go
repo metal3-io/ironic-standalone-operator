@@ -17,43 +17,30 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	DefaultDatabaseImage string = "quay.io/metal3-io/mariadb"
 )
 
 // IronicDatabaseSpec defines the desired state of IronicDatabase
 type IronicDatabaseSpec struct {
+	// CredentialsSecretRef is a reference to the secret with database credentials.
+	// A new secret will be created if this field is empty.
+	// +optional
+	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef,omitempty"`
+
 	// Image is the MariaDB image.
 	// +kubebuilder:default=quay.io/metal3-io/mariadb
 	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Image string `json:"image,omitempty"`
 
-	// ExternalIP can be set to use an existing MariaDB installation instead of a managed one.
-	ExternalIP string `json:"externalIP,omitempty"`
-
-	// CredentialsSecretName is the name of the secret with database credentials.
-	// A new secret will be created if this field is empty.
+	// TLSSecretName is a reference to the secret with the database TLS certificate.
 	// +optional
-	CredentialsSecretName string `json:"credentialsSecretName,omitempty"`
-
-	// TLSSecretName is the name of the secret with the database TLS certificate.
-	// +optional
-	TLSSecretName string `json:"tlsSecretName,omitempty"`
+	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
 }
 
 // IronicDatabaseStatus defines the observed state of IronicDatabase
 type IronicDatabaseStatus struct {
-	// ServiceName is the name of the Kubernetes service for the database.
-	// +optional
-	ServiceName string `json:"serviceName,omitempty"`
-
-	// Hosts is a list of available database hosts.
-	Hosts []string `json:"hosts,omitempty"`
-
 	// Conditions describe the state of the Ironic deployment.
 	// +patchMergeKey=type
 	// +patchStrategy=merge

@@ -1,7 +1,6 @@
 package v1alpha1
 
 import (
-	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,12 +34,11 @@ func TestDHCPDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dhcp := &DHCP{}
-			cidr := netip.MustParsePrefix(tc.Prefix)
+			dhcp := &DHCP{NetworkCIDR: tc.Prefix}
 
-			setDHCPDefaults(dhcp, cidr)
-			assert.Equal(t, tc.ExpectedFirst, dhcp.FirstIP)
-			assert.Equal(t, tc.ExpectedLast, dhcp.LastIP)
+			SetDHCPDefaults(dhcp)
+			assert.Equal(t, tc.ExpectedFirst, dhcp.RangeBegin)
+			assert.Equal(t, tc.ExpectedLast, dhcp.RangeEnd)
 		})
 	}
 }

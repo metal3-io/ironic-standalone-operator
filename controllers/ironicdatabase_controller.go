@@ -28,10 +28,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-operator/pkg/ironic"
+)
+
+const (
+	IronicFinalizer string = "ironic.metal3.io"
 )
 
 // IronicDatabaseReconciler reconciles a IronicDatabase object
@@ -39,6 +43,7 @@ type IronicDatabaseReconciler struct {
 	client.Client
 	KubeClient kubernetes.Interface
 	Scheme     *runtime.Scheme
+	Log        logr.Logger
 }
 
 //+kubebuilder:rbac:groups=metal3.io,resources=ironicdatabases,verbs=get;list;watch;create;update;patch;delete
@@ -53,7 +58,7 @@ type IronicDatabaseReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("IronicDatabase", req.NamespacedName)
+	logger := r.Log.WithValues("IronicDatabase", req.NamespacedName)
 	logger.Info("starting reconcile")
 
 	cctx := ironic.ControllerContext{
@@ -91,14 +96,14 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return r.cleanUp(cctx, db)
 	}
 
-	if db.Spec.CredentialsSecretName == "" {
+	if db.Spec.CredentialsRef.Name == "" {
 		apiSecret, err := generateSecret(cctx, db, &db.ObjectMeta)
 		if err != nil {
 			return true, err
 		}
 
 		cctx.Logger.Info("updating database to use the newly generated secret", "Secret", apiSecret.Name)
-		db.Spec.CredentialsSecretName = apiSecret.Name
+		db.Spec.CredentialsRef.Name = apiSecret.Name
 		err = cctx.Client.Update(cctx.Context, db)
 		if err != nil {
 			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
@@ -107,7 +112,7 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return true, nil
 	}
 
-	status, hosts, err := ironic.EnsureDatabase(cctx, db)
+	status, err := ironic.EnsureDatabase(cctx, db)
 	newStatus := db.Status.DeepCopy()
 	if err != nil {
 		cctx.Logger.Error(err, "failed to create or update database")
@@ -119,8 +124,6 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 	} else {
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "database is available")
 		setCondition(cctx, &newStatus.Conditions, db.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "database is available")
-		newStatus.ServiceName = ironic.DatabaseDeploymentName(db)
-		newStatus.Hosts = hosts
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &db.Status) {
@@ -133,7 +136,7 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 }
 
 func (r *IronicDatabaseReconciler) cleanUp(cctx ironic.ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
-	if !slices.Contains(db.Finalizers, metal3api.IronicFinalizer) {
+	if !slices.Contains(db.Finalizers, IronicFinalizer) {
 		return false, nil
 	}
 

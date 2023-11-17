@@ -100,6 +100,7 @@ func main() {
 		Client:     mgr.GetClient(),
 		KubeClient: kubeClient,
 		Scheme:     mgr.GetScheme(),
+		Log:        ctrl.Log.WithName("controllers").WithName("Ironic"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)
@@ -114,6 +115,7 @@ func main() {
 		Client:     mgr.GetClient(),
 		KubeClient: kubeClient,
 		Scheme:     mgr.GetScheme(),
+		Log:        ctrl.Log.WithName("controllers").WithName("IronicDatabase"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IronicDatabase")
 		os.Exit(1)

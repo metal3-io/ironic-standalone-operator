@@ -35,28 +35,53 @@ spec:
           spec:
             description: IronicSpec defines the desired state of Ironic
             properties:
-              apiSecretName:
-                description: APISecretName is the name of the secret with Ironic API
-                  credentials. A new secret will be created if this field is empty.
-                type: string
-              databaseName:
-                description: DatabaseName defines database settings for Ironic.
-                type: string
+              credentialsRef:
+                description: CredentialsRef is a reference to the secret with Ironic
+                  API credentials. A new secret will be created if this field is empty.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              databaseRef:
+                description: DatabaseRef defines database settings for Ironic. If
+                  missing, a local SQLite database will be used. Must be provided
+                  for a distributed architecture.
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               disableVirtualMediaTLS:
                 description: DisableVirtualMediaTLS turns off TLS on the virtual media
                   server, which may be required for hardware that cannot accept HTTPS
                   links.
                 type: boolean
               distributed:
-                description: Distributed causes Ironic to be deployed as a DaemonSet
+                description: 'Distributed causes Ironic to be deployed as a DaemonSet
                   on control plane nodes instead of a deployment with 1 replica. Requires
-                  database to be installed and linked to DatabaseName.
+                  database to be installed and linked to DatabaseRef. EXPERIMENTAL:
+                  do not use (validation will fail)!'
                 type: boolean
-              image:
-                default: quay.io/metal3-io/ironic
-                description: Image is the Ironic image (including httpd).
-                minLength: 1
-                type: string
+              images:
+                description: Images is a collection of container images to deploy
+                  from.
+                properties:
+                  ironic:
+                    default: quay.io/metal3-io/ironic
+                    description: Ironic is the Ironic image (including httpd).
+                    minLength: 1
+                    type: string
+                  ramdiskDownloader:
+                    default: quay.io/metal3-io/ironic-ipa-downloader
+                    description: RamdiskDownloader is the image to be used at pod
+                      initialization to download the IPA ramdisk.
+                    type: string
+                type: object
               inspection:
                 description: Inspection defines inspection settings
                 properties:
@@ -95,11 +120,6 @@ spec:
                           to pass to hosts via DHCP. Must not be set together with
                           ServeDNS.
                         type: string
-                      firstIP:
-                        description: FirstIP is the first IP that can be given to
-                          hosts. Must be inside NetworkCIDR. If not set, the 10th
-                          IP from NetworkCIDR is used (e.g. .10 for /24).
-                        type: string
                       gatewayAddress:
                         description: GatewayAddress is the IP address of the gateway
                           to pass to hosts via DHCP.
@@ -120,13 +140,19 @@ spec:
                         items:
                           type: string
                         type: array
-                      lastIP:
-                        description: LastIP is the last IP that can be given to hosts.
-                          Must be inside NetworkCIDR. If not set, the 2nd IP from
-                          the end of NetworkCIDR is used (e.g. .253 for /24).
-                        type: string
                       networkCIDR:
                         description: NetworkCIDR is a CIRD of the provisioning network.
+                          Required.
+                        type: string
+                      rangeBegin:
+                        description: RangeBegin is the first IP that can be given
+                          to hosts. Must be inside NetworkCIDR. If not set, the 10th
+                          IP from NetworkCIDR is used (e.g. .10 for /24).
+                        type: string
+                      rangeEnd:
+                        description: RangeEnd is the last IP that can be given to
+                          hosts. Must be inside NetworkCIDR. If not set, the 2nd IP
+                          from the end of NetworkCIDR is used (e.g. .253 for /24).
                         type: string
                       serveDNS:
                         description: ServeDNS is set to true to pass the provisioning
@@ -136,7 +162,8 @@ spec:
                     type: object
                   externalIP:
                     description: ExternalIP is used for accessing API and the image
-                      server from remote hosts.
+                      server from remote hosts. This settings only applies to virtual
+                      media deployments.
                     type: string
                   imageServerPort:
                     default: 6180
@@ -158,7 +185,8 @@ spec:
                     type: string
                   ipAddress:
                     description: IPAddress is the main IP address to listen on and
-                      use for communication. Detected from Interface if missing.
+                      use for communication. Detected from Interface if missing. Cannot
+                      be provided for a distributed architecture.
                     type: string
                   macAddresses:
                     description: MACAddresses can be provided to make the start script
@@ -168,19 +196,20 @@ spec:
                       type: string
                     type: array
                 type: object
-              ramdiskDownloaderImage:
-                default: quay.io/metal3-io/ironic-ipa-downloader
-                description: RamdiskDownloaderImage is the image to be used at pod
-                  initialization to download the IPA ramdisk.
-                type: string
               ramdiskSSHKey:
                 description: RamdiskSSHKey is the contents of the public key to inject
                   into the ramdisk for debugging purposes.
                 type: string
-              tlsSecretName:
-                description: TLSSecretName is the name of the secret with the API
+              tlsRef:
+                description: TLSSecretName is a reference to the secret with the database
                   TLS certificate.
-                type: string
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: IronicStatus defines the observed state of Ironic
@@ -257,11 +286,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              ironicEndpoint:
-                description: IronicEndpoints is the available API endpoints of Ironic.
-                items:
-                  type: string
-                type: array
             type: object
         type: object
     served: true

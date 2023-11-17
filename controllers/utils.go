@@ -16,7 +16,7 @@ import (
 )
 
 func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
-	changed := controllerutil.AddFinalizer(obj, metal3api.IronicFinalizer)
+	changed := controllerutil.AddFinalizer(obj, IronicFinalizer)
 	if changed {
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {
@@ -29,7 +29,7 @@ func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, er
 }
 
 func removeFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
-	changed := controllerutil.RemoveFinalizer(obj, metal3api.IronicFinalizer)
+	changed := controllerutil.RemoveFinalizer(obj, IronicFinalizer)
 	if changed {
 		err := cctx.Client.Update(cctx.Context, obj)
 		if err != nil {

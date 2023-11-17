@@ -35,24 +35,32 @@ spec:
           spec:
             description: IronicDatabaseSpec defines the desired state of IronicDatabase
             properties:
-              credentialsSecretName:
-                description: CredentialsSecretName is the name of the secret with
+              credentialsRef:
+                description: CredentialsSecretRef is a reference to the secret with
                   database credentials. A new secret will be created if this field
                   is empty.
-                type: string
-              externalIP:
-                description: ExternalIP can be set to use an existing MariaDB installation
-                  instead of a managed one.
-                type: string
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
               image:
                 default: quay.io/metal3-io/mariadb
                 description: Image is the MariaDB image.
                 minLength: 1
                 type: string
-              tlsSecretName:
-                description: TLSSecretName is the name of the secret with the database
+              tlsRef:
+                description: TLSSecretName is a reference to the secret with the database
                   TLS certificate.
-                type: string
+                properties:
+                  name:
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: IronicDatabaseStatus defines the observed state of IronicDatabase
@@ -129,15 +137,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              hosts:
-                description: Hosts is a list of available database hosts.
-                items:
-                  type: string
-                type: array
-              serviceName:
-                description: ServiceName is the name of the Kubernetes service for
-                  the database.
-                type: string
             type: object
         type: object
     served: true

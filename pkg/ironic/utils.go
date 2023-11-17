@@ -10,6 +10,8 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,6 +23,8 @@ const (
 	probeInitialDelay     = 1
 	probeTimeout          = 5
 	probeFailureThreshold = 12
+
+	serviceDNSSuffix = "svc"
 )
 
 type ControllerContext struct {
@@ -115,4 +119,8 @@ func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 		TimeoutSeconds:      probeTimeout,
 		FailureThreshold:    probeFailureThreshold,
 	}
+}
+
+func isReady(conditions []metav1.Condition) bool {
+	return meta.IsStatusConditionTrue(conditions, string(metal3api.IronicStatusAvailable))
 }

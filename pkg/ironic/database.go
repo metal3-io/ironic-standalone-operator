@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"fmt"
-	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,12 +18,12 @@ const (
 	databaseUser    = 27
 )
 
-func DatabaseDeploymentName(db *metal3api.IronicDatabase) string {
+func databaseDeploymentName(db *metal3api.IronicDatabase) string {
 	return fmt.Sprintf("%s-database", db.Name)
 }
 
-func databaseDNSName(db *metal3api.IronicDatabase) string {
-	return fmt.Sprintf("%s.%s.svc:%d", db.Status.ServiceName, db.Namespace, databasePort)
+func DatabaseDNSName(db *metal3api.IronicDatabase) string {
+	return fmt.Sprintf("%s.%s.%s:%d", databaseDeploymentName(db), db.Namespace, serviceDNSSuffix, databasePort)
 }
 
 func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
@@ -37,10 +36,8 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 			Name: "MARIADB_USER",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: db.Spec.CredentialsSecretName,
-					},
-					Key: "username",
+					LocalObjectReference: db.Spec.CredentialsRef,
+					Key:                  "username",
 				},
 			},
 		},
@@ -48,10 +45,8 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 			Name: "MARIADB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: db.Spec.CredentialsSecretName,
-					},
-					Key: "password",
+					LocalObjectReference: db.Spec.CredentialsRef,
+					Key:                  "password",
 				},
 			},
 		},
@@ -63,12 +58,12 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 	volumes := []corev1.Volume{}
 	mounts := []corev1.VolumeMount{}
 
-	if db.Spec.TLSSecretName != "" {
+	if db.Spec.TLSRef.Name != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: db.Spec.TLSSecretName,
+					SecretName: db.Spec.TLSRef.Name,
 				},
 			},
 		})
@@ -125,7 +120,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 
 func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
 	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: DatabaseDeploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
@@ -145,9 +140,9 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	return getDeploymentStatus(deploy)
 }
 
-func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, []string, error) {
+func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
 	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: DatabaseDeploymentName(db), Namespace: db.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
@@ -168,16 +163,13 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 		return controllerutil.SetControllerReference(db, service, cctx.Scheme)
 	})
 	if err != nil || len(service.Spec.ClusterIPs) == 0 {
-		return metal3api.IronicStatusProgressing, nil, err
+		return metal3api.IronicStatusProgressing, err
 	}
-
-	hosts := service.Spec.ClusterIPs
-	sort.Strings(hosts)
-	return metal3api.IronicStatusAvailable, hosts, nil
+	return metal3api.IronicStatusAvailable, nil
 }
 
 // EnsureDatabase ensures MariaDB is running with the current configuration.
-func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, endpoints []string, err error) {
+func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, err error) {
 	status, err = ensureDatabaseDeployment(cctx, db)
 	if err != nil || status != metal3api.IronicStatusAvailable {
 		return

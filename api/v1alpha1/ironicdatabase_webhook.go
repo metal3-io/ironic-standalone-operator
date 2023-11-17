@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"errors"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -27,7 +25,7 @@ import (
 )
 
 // log is for logging in this package.
-var ironicdatabaselog = logf.Log.WithName("ironicdatabase-resource")
+var ironicdatabaselog = logf.Log.WithName("webhooks").WithName("IronicDatabase")
 
 func (r *IronicDatabase) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -65,9 +63,5 @@ func (r *IronicDatabase) ValidateDelete() (warnings admission.Warnings, err erro
 }
 
 func validateDatabase(db *IronicDatabaseSpec, old *IronicDatabaseSpec) error {
-	if db.ExternalIP != "" && db.CredentialsSecretName == "" {
-		return errors.New("external database requires credentials")
-	}
-
 	return nil
 }

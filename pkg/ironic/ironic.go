@@ -34,6 +34,10 @@ const (
 	sharedDir = "/shared"
 )
 
+func ironicDeploymentName(ironic *metal3api.Ironic) string {
+	return fmt.Sprintf("%s-service", ironic.Name)
+}
+
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	result := []corev1.EnvVar{
 		{
@@ -95,7 +99,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		)
 	}
 
-	if ironic.Spec.TLSSecretName != "" {
+	if ironic.Spec.TLSRef.Name != "" {
 		// Ironic will listen on a Unix socket, httpd will be responsible for serving HTTPS.
 		result = append(result, []corev1.EnvVar{
 			{
@@ -158,14 +162,14 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		result = append(result,
 			corev1.EnvVar{
 				Name:  "MARIADB_HOST",
-				Value: databaseDNSName(db),
+				Value: DatabaseDNSName(db),
 			},
 		)
 	}
 
 	// When TLS is used, httpd is responsible for authentication.
 	// When JSON RPC is enabled, the password is required for it as well.
-	if htpasswd != "" && (ironic.Spec.TLSSecretName == "" || ironic.Spec.Distributed) {
+	if htpasswd != "" && (ironic.Spec.TLSRef.Name == "" || ironic.Spec.Distributed) {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -188,7 +192,7 @@ func buildHttpdEnvVars(ironic *metal3api.Ironic, htpasswd string) []corev1.EnvVa
 	result := buildCommonEnvVars(ironic)
 
 	// When TLS is used, httpd is responsible for authentication
-	if htpasswd != "" && ironic.Spec.TLSSecretName != "" {
+	if htpasswd != "" && ironic.Spec.TLSRef.Name != "" {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -219,7 +223,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			Name: "ironic-auth",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: ironic.Spec.APISecretName,
+					SecretName: ironic.Spec.CredentialsRef.Name,
 				},
 			},
 		},
@@ -237,13 +241,13 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		})
 	}
 
-	if ironic.Spec.TLSSecretName != "" {
+	if ironic.Spec.TLSRef.Name != "" {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: "cert-ironic",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: ironic.Spec.TLSSecretName,
+						SecretName: ironic.Spec.TLSRef.Name,
 					},
 				},
 			},
@@ -266,12 +270,12 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		}
 	}
 
-	if db != nil && db.Spec.TLSSecretName != "" {
+	if db != nil && db.Spec.TLSRef.Name != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: db.Spec.TLSSecretName,
+					SecretName: db.Spec.TLSRef.Name,
 				},
 			},
 		})
@@ -297,7 +301,7 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 		ContainerPort: ironic.Spec.Networking.APIPort,
 	}
 
-	if ironic.Spec.TLSSecretName == "" {
+	if ironic.Spec.TLSRef.Name == "" {
 		ironicPorts = append(ironicPorts, apiPort)
 	} else {
 		httpdPorts = append(httpdPorts, apiPort)
@@ -318,7 +322,7 @@ func buildDHCPRange(dhcp *metal3api.DHCP) string {
 		return "" // don't disable your webhooks people
 	}
 
-	return fmt.Sprintf("%s,%s,%d", dhcp.FirstIP, dhcp.LastIP, prefix.Bits())
+	return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
 }
 
 func buildDNSIP(dhcp *metal3api.DHCP) string {
@@ -391,7 +395,7 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 
 	return corev1.Container{
 		Name:            "dnsmasq",
-		Image:           ironic.Spec.Image,
+		Image:           ironic.Spec.Images.Ironic,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"/bin/rundnsmasq"},
 		// TODO(dtantsur): livenessProbe+readinessProbe
@@ -424,7 +428,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 	initContainers := []corev1.Container{
 		{
 			Name:            "ipa-downloader",
-			Image:           ironic.Spec.RamdiskDownloaderImage,
+			Image:           ironic.Spec.Images.RamdiskDownloader,
 			ImagePullPolicy: corev1.PullAlways,
 			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
@@ -442,13 +446,13 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
 
-	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLSSecretName != "", int(ironic.Spec.Networking.APIPort), "/v1")
+	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLSRef.Name != "", int(ironic.Spec.Networking.APIPort), "/v1")
 	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), "/images")
 
 	containers := []corev1.Container{
 		{
 			Name:            "ironic",
-			Image:           ironic.Spec.Image,
+			Image:           ironic.Spec.Images.Ironic,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runironic"},
 			Env:             buildIronicEnvVars(ironic, db, htpasswd),
@@ -466,7 +470,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 		{
 			Name:            "httpd",
-			Image:           ironic.Spec.Image,
+			Image:           ironic.Spec.Images.Ironic,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runhttpd"},
 			Env:             buildHttpdEnvVars(ironic, htpasswd),
@@ -484,7 +488,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 		{
 			Name:            "ramdisk-logs",
-			Image:           ironic.Spec.Image,
+			Image:           ironic.Spec.Images.Ironic,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runlogwatch.sh"},
 			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
@@ -498,6 +502,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 	}
 	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.Distributed {
+		metal3api.SetDHCPDefaults(ironic.Spec.Networking.DHCP)
 		err := metal3api.ValidateDHCP(&ironic.Spec, ironic.Spec.Networking.DHCP)
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
@@ -580,15 +585,13 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 	return getDeploymentStatus(deploy)
 }
 
-func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (metal3api.IronicStatusConditionType, []string, error) {
+func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (metal3api.IronicStatusConditionType, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
 	}
 	exposedPort := 80
-	proto := "http"
-	if ironic.Spec.TLSSecretName != "" {
+	if ironic.Spec.TLSRef.Name != "" {
 		exposedPort = 443
-		proto = "https"
 	}
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
@@ -610,10 +613,10 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (meta
 		return controllerutil.SetControllerReference(ironic, service, cctx.Scheme)
 	})
 	if err != nil || len(service.Spec.ClusterIPs) == 0 {
-		return metal3api.IronicStatusProgressing, nil, err
+		return metal3api.IronicStatusProgressing, err
 	}
 
-	return metal3api.IronicStatusAvailable, buildEndpoints(service.Spec.ClusterIPs, exposedPort, proto), nil
+	return metal3api.IronicStatusAvailable, nil
 }
 
 func removeIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic) error {
@@ -627,10 +630,10 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 }
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
-func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, endpoints []string, err error) {
-	if db != nil && len(db.Status.Hosts) == 0 {
+func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, err error) {
+	if db != nil && !isReady(db.Status.Conditions) {
 		cctx.Logger.Info("database is not ready yet")
-		return metal3api.IronicStatusProgressing, nil, nil
+		return metal3api.IronicStatusProgressing, nil
 	}
 
 	if ironic.Spec.Distributed {
@@ -653,9 +656,9 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 
 	// Let the service be created while Ironic is being deployed, but do
 	// not report overall success until both are done.
-	serviceStatus, endpoints, err := ensureIronicService(cctx, ironic)
+	serviceStatus, err := ensureIronicService(cctx, ironic)
 	if err != nil || serviceStatus != metal3api.IronicStatusAvailable {
-		return serviceStatus, nil, err
+		return serviceStatus, err
 	}
 
 	return

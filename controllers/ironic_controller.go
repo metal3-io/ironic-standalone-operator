@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-operator/pkg/ironic"
 )
@@ -44,6 +44,7 @@ type IronicReconciler struct {
 	client.Client
 	KubeClient kubernetes.Interface
 	Scheme     *runtime.Scheme
+	Log        logr.Logger
 }
 
 //+kubebuilder:rbac:groups=metal3.io,resources=ironics,verbs=get;list;watch;create;update;patch;delete
@@ -59,7 +60,7 @@ type IronicReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("Ironic", req.NamespacedName)
+	logger := r.Log.WithValues("Ironic", req.NamespacedName)
 	logger.Info("starting reconcile")
 
 	cctx := ironic.ControllerContext{
@@ -99,15 +100,15 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	var db *metal3api.IronicDatabase
-	if ironicConf.Spec.DatabaseName != "" {
+	if ironicConf.Spec.DatabaseRef.Name != "" {
 		dbName := types.NamespacedName{
 			Namespace: ironicConf.Namespace,
-			Name:      ironicConf.Spec.DatabaseName,
+			Name:      ironicConf.Spec.DatabaseRef.Name,
 		}
 		db = &metal3api.IronicDatabase{}
 		err = cctx.Client.Get(cctx.Context, dbName, db)
 		if err != nil {
-			return true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
+			return true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseRef.Name, err)
 		}
 
 		oldReferences := db.GetOwnerReferences()
@@ -121,14 +122,14 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	var apiSecret *corev1.Secret
-	if ironicConf.Spec.APISecretName == "" {
+	if ironicConf.Spec.CredentialsRef.Name == "" {
 		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta)
 		if err != nil {
 			return true, err
 		}
 
 		cctx.Logger.Info("updating Ironic to use the newly generated secret", "Secret", apiSecret.Name)
-		ironicConf.Spec.APISecretName = apiSecret.Name
+		ironicConf.Spec.CredentialsRef.Name = apiSecret.Name
 		err = cctx.Client.Update(cctx.Context, ironicConf)
 		if err != nil {
 			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
@@ -138,12 +139,12 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	} else {
 		secretName := types.NamespacedName{
 			Namespace: ironicConf.Namespace,
-			Name:      ironicConf.Spec.APISecretName,
+			Name:      ironicConf.Spec.CredentialsRef.Name,
 		}
 		apiSecret = &corev1.Secret{}
 		err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
 		if err != nil {
-			return true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.APISecretName, err)
+			return true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.CredentialsRef.Name, err)
 		}
 
 		oldReferences := apiSecret.GetOwnerReferences()
@@ -166,7 +167,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
-	status, endpoints, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
+	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
 	if err != nil {
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
@@ -177,7 +178,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	} else {
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "ironic is available")
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "ironic is available")
-		newStatus.IronicEndpoints = endpoints
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {
@@ -189,7 +189,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 }
 
 func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (bool, error) {
-	if !slices.Contains(ironicConf.Finalizers, metal3api.IronicFinalizer) {
+	if !slices.Contains(ironicConf.Finalizers, IronicFinalizer) {
 		return false, nil
 	}
 

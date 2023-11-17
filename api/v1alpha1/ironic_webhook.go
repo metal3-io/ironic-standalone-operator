@@ -30,7 +30,7 @@ import (
 )
 
 // log is for logging in this package.
-var ironiclog = logf.Log.WithName("ironic-resource")
+var ironiclog = logf.Log.WithName("webhooks").WithName("Ironic")
 
 func (r *Ironic) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -48,32 +48,34 @@ func (r *Ironic) Default() {
 	setDefaults(&r.Spec)
 }
 
-func setDHCPDefaults(dhcp *DHCP, provCIDR netip.Prefix) {
+func SetDHCPDefaults(dhcp *DHCP) {
+	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+	if err != nil {
+		// Let the validation hook do the actual validation
+		return
+	}
+
 	provIP := provCIDR.Addr()
-	if dhcp.FirstIP == "" {
+	if dhcp.RangeBegin == "" {
 		firstIP := provIP
 		for i := 0; i < 10; i++ {
 			firstIP = firstIP.Next()
 		}
 		if firstIP.IsValid() && provCIDR.Contains(firstIP) {
-			dhcp.FirstIP = firstIP.String()
+			dhcp.RangeBegin = firstIP.String()
 		}
 	}
-	if dhcp.LastIP == "" {
+	if dhcp.RangeEnd == "" {
 		lastIP := netipx.PrefixLastIP(provCIDR).Prev().Prev()
 		if lastIP.IsValid() && provCIDR.Contains(lastIP) {
-			dhcp.LastIP = lastIP.String()
+			dhcp.RangeEnd = lastIP.String()
 		}
 	}
 }
 
 func setDefaults(ironic *IronicSpec) {
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
-		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-		// Let the validation hook do the actual validation
-		if err == nil {
-			setDHCPDefaults(dhcp, provCIDR)
-		}
+		SetDHCPDefaults(dhcp)
 	}
 }
 
@@ -148,11 +150,11 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 		return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
 	}
 
-	if err := validateIPinPrefix(dhcp.FirstIP, provCIDR); err != nil {
+	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
 		return err
 	}
 
-	if err := validateIPinPrefix(dhcp.LastIP, provCIDR); err != nil {
+	if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
 		return err
 	}
 
@@ -165,7 +167,7 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 	}
 
 	// These are supposed to be populated by the webhook
-	if dhcp.FirstIP == "" || dhcp.LastIP == "" {
+	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
 		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
 	}
 
@@ -173,15 +175,11 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 }
 
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
-	if ironic.APISecretName == "" {
-		return errors.New("apiSecretName is required")
-	}
-
-	if ironic.Distributed && ironic.DatabaseName == "" {
+	if ironic.Distributed && ironic.DatabaseRef.Name == "" {
 		return errors.New("database is required for distributed architecture")
 	}
 
-	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
+	if old != nil && old.DatabaseRef.Name != "" && old.DatabaseRef.Name != ironic.DatabaseRef.Name {
 		return errors.New("cannot change to a new database or remove it")
 	}
 
