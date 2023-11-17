@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -199,6 +200,12 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
 		if err := ValidateDHCP(ironic, dhcp); err != nil {
 			return err
+		}
+	}
+
+	if ironic.Images.AgentDownloadURL != "" {
+		if _, err := url.Parse(ironic.Images.AgentDownloadURL); err != nil {
+			return fmt.Errorf("images.agentDownloadURL is not a valid URL: %w", err)
 		}
 	}
 

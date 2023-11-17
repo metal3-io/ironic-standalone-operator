@@ -121,6 +121,15 @@ type Networking struct {
 }
 
 type Images struct {
+	// AgentBranch is the branch of IPA to download. The main branch is used by default.
+	// +optional
+	AgentBranch string `json:"agentBranch,omitempty"`
+
+	// AgentDownloadURL is the base URL from which IPA should be downloaded.
+	// The default value should be good for most users.
+	// +optional
+	AgentDownloadURL string `json:"agentDownloadURL,omitempty"`
+
 	// Ironic is the Ironic image (including httpd).
 	// +kubebuilder:default=quay.io/metal3-io/ironic
 	// +kubebuilder:validation:MinLength=1

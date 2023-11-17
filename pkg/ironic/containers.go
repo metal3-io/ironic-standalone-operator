@@ -412,6 +412,20 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		htpasswd = apiSecret.Name
 	}
 
+	var ipaDownloaderVars []corev1.EnvVar
+	if ironic.Spec.Images.AgentDownloadURL != "" {
+		ipaDownloaderVars = append(ipaDownloaderVars, corev1.EnvVar{
+			Name:  "IPA_BASEURI",
+			Value: ironic.Spec.Images.AgentDownloadURL,
+		})
+	}
+	if ironic.Spec.Images.AgentBranch != "" {
+		ipaDownloaderVars = append(ipaDownloaderVars, corev1.EnvVar{
+			Name:  "IPA_BRANCH",
+			Value: ironic.Spec.Images.AgentBranch,
+		})
+	}
+
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
 	initContainers := []corev1.Container{
@@ -419,6 +433,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Name:            "ipa-downloader",
 			Image:           ironic.Spec.Images.RamdiskDownloader,
 			ImagePullPolicy: corev1.PullAlways,
+			Env:             ipaDownloaderVars,
 			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
@@ -427,9 +442,6 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 					Drop: []corev1.Capability{"ALL"},
 				},
 			},
-			// FIXME(dtantsur): this should be the default in the image:
-			// https://github.com/metal3-io/ironic-ipa-downloader/pull/43
-			Command: []string{"/usr/local/bin/get-resource.sh"},
 		},
 	}
 

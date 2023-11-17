@@ -71,6 +71,14 @@ spec:
                 description: Images is a collection of container images to deploy
                   from.
                 properties:
+                  agentBranch:
+                    description: AgentBranch is the branch of IPA to download. The
+                      main branch is used by default.
+                    type: string
+                  agentDownloadURL:
+                    description: AgentDownloadURL is the base URL from which IPA should
+                      be downloaded. The default value should be good for most users.
+                    type: string
                   ironic:
                     default: quay.io/metal3-io/ironic
                     description: Ironic is the Ironic image (including httpd).
