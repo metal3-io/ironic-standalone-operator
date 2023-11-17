@@ -95,12 +95,15 @@ spec:
                 properties:
                   collectors:
                     description: Collectors is a list of inspection collectors to
-                      enable.
+                      enable. See https://docs.openstack.org/ironic-python-agent/latest/admin/how_it_works.html#inspection-data
+                      for details.
                     items:
                       type: string
                     type: array
                   vlanInterfaces:
-                    description: List of interfaces to inspect for VLANs.
+                    description: List of interfaces to inspect for VLANs. This can
+                      be interface names (to collect all VLANs using LLDP) or pairs
+                      <interface>.<vlan ID>.
                     items:
                       type: string
                     type: array
@@ -171,7 +174,8 @@ spec:
                   externalIP:
                     description: ExternalIP is used for accessing API and the image
                       server from remote hosts. This settings only applies to virtual
-                      media deployments.
+                      media deployments. The IP will not be accessed from the cluster
+                      itself.
                     type: string
                   imageServerPort:
                     default: 6180
@@ -204,6 +208,12 @@ spec:
                       type: string
                     type: array
                 type: object
+              ramdiskExtraKernelParams:
+                description: RamdiskExtraKernelParams is a string with kernel parameters
+                  to pass to the provisioning/inspection ramdisk. Will not take effect
+                  if the host uses a pre-built ISO (either through its PreprovisioningImage
+                  or via the DEPLOY_ISO_URL baremetal-operator parameter).
+                type: string
               ramdiskSSHKey:
                 description: RamdiskSSHKey is the contents of the public key to inject
                   into the ramdisk for debugging purposes.

@@ -124,3 +124,25 @@ func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 func isReady(conditions []metav1.Condition) bool {
 	return meta.IsStatusConditionTrue(conditions, string(metal3api.IronicStatusAvailable))
 }
+
+func appendStringEnv(envVars []corev1.EnvVar, name string, value string) []corev1.EnvVar {
+	if value != "" {
+		return append(envVars, corev1.EnvVar{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return envVars
+}
+
+func appendListOfStringsEnv(envVars []corev1.EnvVar, name string, value []string, sep string) []corev1.EnvVar {
+	if len(value) > 0 {
+		return append(envVars, corev1.EnvVar{
+			Name:  name,
+			Value: strings.Join(value, sep),
+		})
+	}
+
+	return envVars
+}

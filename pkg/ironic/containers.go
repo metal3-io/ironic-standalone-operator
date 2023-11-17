@@ -111,14 +111,17 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		}
 	}
 
-	if ironic.Spec.RamdiskSSHKey != "" {
-		result = append(result,
-			corev1.EnvVar{
-				Name:  "IRONIC_RAMDISK_SSH_KEY",
-				Value: strings.Trim(ironic.Spec.RamdiskSSHKey, " \t\n\r"),
-			},
-		)
-	}
+	result = appendStringEnv(result,
+		"IRONIC_KERNEL_PARAMS", strings.Trim(ironic.Spec.RamdiskExtraKernelParams, " \t\n\r"))
+
+	result = appendStringEnv(result,
+		"IRONIC_RAMDISK_SSH_KEY", strings.Trim(ironic.Spec.RamdiskSSHKey, " \t\n\r"))
+
+	result = appendListOfStringsEnv(result,
+		"IRONIC_IPA_COLLECTORS", ironic.Spec.Inspection.Collectors, ",")
+
+	result = appendListOfStringsEnv(result,
+		"IRONIC_INSPECTOR_VLAN_INTERFACES", ironic.Spec.Inspection.VLANInterfaces, ",")
 
 	return result
 }
@@ -173,6 +176,8 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 			},
 		)
 	}
+
+	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", ironic.Spec.Networking.ExternalIP)
 
 	return result
 }
@@ -350,31 +355,14 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		Value: buildDHCPRange(dhcp),
 	})
 
-	dns := buildDNSIP(dhcp)
-	if dns != "" {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "DNS_IP",
-			Value: dns,
-		})
-	}
-	if dhcp.GatewayAddress != "" {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "GATEWAY_IP",
-			Value: dhcp.GatewayAddress,
-		})
-	}
-	if len(dhcp.Hosts) > 0 {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "DHCP_HOSTS",
-			Value: strings.Join(dhcp.Hosts, ";"),
-		})
-	}
-	if len(dhcp.Ignore) > 0 {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "DHCP_IGNORE",
-			Value: strings.Join(dhcp.Ignore, ","),
-		})
-	}
+	envVars = appendStringEnv(envVars,
+		"DNS_IP", buildDNSIP(dhcp))
+	envVars = appendStringEnv(envVars,
+		"GATEWAY_IP", dhcp.GatewayAddress)
+	envVars = appendListOfStringsEnv(envVars,
+		"DHCP_HOSTS", dhcp.Hosts, ";")
+	envVars = appendListOfStringsEnv(envVars,
+		"DHCP_IGNORE", dhcp.Ignore, ",")
 
 	probe := newProbe(corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
@@ -413,18 +401,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 	}
 
 	var ipaDownloaderVars []corev1.EnvVar
-	if ironic.Spec.Images.AgentDownloadURL != "" {
-		ipaDownloaderVars = append(ipaDownloaderVars, corev1.EnvVar{
-			Name:  "IPA_BASEURI",
-			Value: ironic.Spec.Images.AgentDownloadURL,
-		})
-	}
-	if ironic.Spec.Images.AgentBranch != "" {
-		ipaDownloaderVars = append(ipaDownloaderVars, corev1.EnvVar{
-			Name:  "IPA_BRANCH",
-			Value: ironic.Spec.Images.AgentBranch,
-		})
-	}
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"IPA_BASEURI", ironic.Spec.Images.AgentDownloadURL)
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"IPA_BRANCH", ironic.Spec.Images.AgentBranch)
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]

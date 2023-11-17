@@ -24,9 +24,13 @@ import (
 // Inspection defines inspection settings
 type Inspection struct {
 	// Collectors is a list of inspection collectors to enable.
+	// See https://docs.openstack.org/ironic-python-agent/latest/admin/how_it_works.html#inspection-data for details.
+	// +optional
 	Collectors []string `json:"collectors,omitempty"`
 
 	// List of interfaces to inspect for VLANs.
+	// This can be interface names (to collect all VLANs using LLDP) or pairs <interface>.<vlan ID>.
+	// +optional
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
@@ -88,7 +92,7 @@ type Networking struct {
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
-	// This settings only applies to virtual media deployments.
+	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 
@@ -178,6 +182,11 @@ type IronicSpec struct {
 	// TLSSecretName is a reference to the secret with the database TLS certificate.
 	// +optional
 	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
+
+	// RamdiskExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
+	// Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
+	// +optional
+	RamdiskExtraKernelParams string `json:"ramdiskExtraKernelParams,omitempty"`
 
 	// RamdiskSSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
 	// +optional
