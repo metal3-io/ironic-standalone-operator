@@ -16,10 +16,6 @@ import (
 	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
 )
 
-const (
-	ironicAppName = "ironic-service"
-)
-
 func ironicDeploymentName(ironic *metal3api.Ironic) string {
 	return fmt.Sprintf("%s-service", ironic.Name)
 }
@@ -39,7 +35,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	_, err = controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic daemon set")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicAppName}
+			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
@@ -68,7 +64,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 	_, err = controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicAppName}
+			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
@@ -100,9 +96,9 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (meta
 			cctx.Logger.Info("creating a new ironic service")
 			service.ObjectMeta.Labels = make(map[string]string)
 		}
-		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = databaseAppName
+		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = ironicDeploymentName(ironic)
 
-		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: ironicAppName}
+		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
 				Protocol:   corev1.ProtocolTCP,

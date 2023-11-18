@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	databaseAppName = "ironic-database"
-	databasePort    = 3306
-	databaseUser    = 27
+	databasePort = 3306
+	databaseUser = 27
 )
 
 func databaseDeploymentName(db *metal3api.IronicDatabase) string {
@@ -109,7 +108,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{metal3api.IronicOperatorLabel: databaseAppName},
+			Labels: map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)},
 		},
 		Spec: corev1.PodSpec{
 			Containers: containers,
@@ -125,7 +124,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new deployment")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseAppName}
+			matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
@@ -149,9 +148,9 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 			cctx.Logger.Info("creating a new service")
 			service.ObjectMeta.Labels = make(map[string]string)
 		}
-		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = databaseAppName
+		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = databaseDeploymentName(db)
 
-		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: databaseAppName}
+		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
 				Protocol: corev1.ProtocolTCP,

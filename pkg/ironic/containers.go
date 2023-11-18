@@ -493,7 +493,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{metal3api.IronicOperatorLabel: ironicAppName},
+			Labels: map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)},
 		},
 		Spec: corev1.PodSpec{
 			Containers:     containers,
