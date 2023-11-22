@@ -93,7 +93,10 @@ $ curl -k -u "$IRONIC_USER:$IRONIC_PASSWORD" https://10.89.0.2:6385/v1/drivers
 ### More detailed example
 
 In this example, a MariaDB database is used instead of SQLite, and a
-provisioning network is configured:
+provisioning network is configured. You will need to generate your TLS
+certificates with one more `subjectAltName` in the format `<database
+name>-database.<namespace>.svc` (in this example, `ironic-database.test.svc`).
+Then another resource needs to be created for the database itself:
 
 ```yaml
 ---
@@ -124,6 +127,8 @@ spec:
       rangeEnd: 10.89.0.100
   ramdiskSSHKey: "<YOUR SSH PUBLIC KEY HERE>"
 ```
+
+This example also shows configuring DHCP for network booting.
 
 ## OpenShift notes
 
