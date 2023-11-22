@@ -126,7 +126,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
-func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string) []corev1.EnvVar {
+func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string, domain string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
 	result = append(result, []corev1.EnvVar{
 		{
@@ -154,7 +154,7 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		result = append(result,
 			corev1.EnvVar{
 				Name:  "MARIADB_HOST",
-				Value: DatabaseDNSName(db),
+				Value: DatabaseDNSName(db, domain),
 			},
 		)
 	}
@@ -390,7 +390,7 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 	}
 }
 
-func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (corev1.PodTemplateSpec, error) {
+func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
 		if len(apiSecret.Data[htpasswdKey]) == 0 {
@@ -436,7 +436,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Image:           ironic.Spec.Images.Ironic,
 			ImagePullPolicy: corev1.PullAlways,
 			Command:         []string{"/bin/runironic"},
-			Env:             buildIronicEnvVars(ironic, db, htpasswd),
+			Env:             buildIronicEnvVars(ironic, db, htpasswd, domain),
 			VolumeMounts:    mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),

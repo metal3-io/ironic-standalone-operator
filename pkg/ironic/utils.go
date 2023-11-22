@@ -33,6 +33,7 @@ type ControllerContext struct {
 	KubeClient kubernetes.Interface
 	Scheme     *runtime.Scheme
 	Logger     logr.Logger
+	Domain     string
 }
 
 func getDeploymentStatus(deploy *appsv1.Deployment) (metal3api.IronicStatusConditionType, error) {

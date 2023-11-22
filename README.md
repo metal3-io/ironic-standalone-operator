@@ -93,9 +93,15 @@ $ curl -k -u "$IRONIC_USER:$IRONIC_PASSWORD" https://10.89.0.2:6385/v1/drivers
 ### More detailed example
 
 In this example, a MariaDB database is used instead of SQLite, and a
-provisioning network is configured. You will need to generate your TLS
-certificates with one more `subjectAltName` in the format `<database
-name>-database.<namespace>.svc` (in this example, `ironic-database.test.svc`).
+provisioning network is configured.
+
+You will need to generate your TLS certificates with one more `subjectAltName`
+in the format `<database name>-database.<namespace>.svc` (in this example,
+`ironic-database.test.svc`). If you want to include the domain, you need to
+pass the `CLUSTER_DOMAIN` environment variable to the operator. For example,
+`CLUSTER_DOMAIN=cluster.local` will result in
+`ironic-database.test.svc.cluster.local` used by Ironic to access the database.
+
 Then another resource needs to be created for the database itself:
 
 ```yaml

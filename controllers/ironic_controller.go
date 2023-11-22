@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"time"
 
@@ -63,12 +64,15 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger := r.Log.WithValues("Ironic", req.NamespacedName)
 	logger.Info("starting reconcile")
 
+	domain := os.Getenv("CLUSTER_DOMAIN")
+
 	cctx := ironic.ControllerContext{
 		Context:    ctx,
 		Client:     r.Client,
 		KubeClient: r.KubeClient,
 		Scheme:     r.Scheme,
 		Logger:     logger,
+		Domain:     domain,
 	}
 
 	ironicConf, err := getIronic(cctx, req.NamespacedName)
