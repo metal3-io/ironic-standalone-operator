@@ -17,8 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
+	"runtime"
+	"strconv"
+	"strings"
 
 	"k8s.io/client-go/kubernetes"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -26,12 +31,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	cliflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	metal3iov1alpha1 "github.com/metal3-io/ironic-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-operator/controllers"
@@ -39,7 +46,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -50,17 +57,55 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+const (
+	TLSVersion12 = "TLS12"
+	TLSVersion13 = "TLS13"
+)
+
+var tlsSupportedVersions = []string{TLSVersion12, TLSVersion13}
+
+type TLSOptions struct {
+	TLSMaxVersion   string
+	TLSMinVersion   string
+	TLSCipherSuites string
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var webhookPort int
+	var watchNamespace string
+	var tlsOptions TLSOptions
+	var controllerConcurrency int
+	var clusterDomain string
+
+	tlsCipherPreferredValues := cliflag.PreferredTLSCipherNames()
+	tlsCipherInsecureValues := cliflag.InsecureTLSCipherNames()
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "Port to use for webhooks (0 to disable)")
+	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
+		"Namespace that the controller watches to reconcile resources.")
+	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion12,
+		"The minimum TLS version in use by the webhook server.\n"+
+			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")))
+	flag.StringVar(&tlsOptions.TLSMaxVersion, "tls-max-version", TLSVersion13,
+		"The maximum TLS version in use by the webhook server.\n"+
+			fmt.Sprintf("Possible values are %s.", strings.Join(tlsSupportedVersions, ", ")))
+	flag.StringVar(&tlsOptions.TLSCipherSuites, "tls-cipher-suites", "",
+		"Comma-separated list of cipher suites for the webhook server. "+
+			"If omitted, the default Go cipher suites will be used. \n"+
+			"Preferred values: "+strings.Join(tlsCipherPreferredValues, ", ")+". \n"+
+			"Insecure values: "+strings.Join(tlsCipherInsecureValues, ", ")+".")
+	flag.IntVar(&controllerConcurrency, "controller-concurrency", 0,
+		"Number of resources of each type to process simultaneously.")
+	flag.StringVar(&clusterDomain, "cluster-domain", os.Getenv("CLUSTER_DOMAIN"),
+		"Domain name of the current cluster, e.g. cluster.local.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -72,25 +117,29 @@ func main() {
 	config := ctrl.GetConfigOrDie()
 	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-operator"))
 
-	mgr, err := ctrl.NewManager(config, ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   webhookPort,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "24a9bf77.metal3.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
-	})
+	tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(tlsOptions)
+	if err != nil {
+		setupLog.Error(err, "unable to add TLS settings to the webhook server")
+		os.Exit(1)
+	}
+
+	ctrlOpts := ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    webhookPort,
+			TLSOpts: tlsOptionOverrides,
+		}),
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "ironic.metal3.io",
+		LeaderElectionNamespace: watchNamespace,
+	}
+	if watchNamespace != "" {
+		ctrlOpts.Cache.Namespaces = []string{watchNamespace}
+	}
+
+	mgr, err := ctrl.NewManager(config, ctrlOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -101,6 +150,7 @@ func main() {
 		KubeClient: kubeClient,
 		Scheme:     mgr.GetScheme(),
 		Log:        ctrl.Log.WithName("controllers").WithName("Ironic"),
+		Domain:     clusterDomain,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)
@@ -142,4 +192,110 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// GetTLSOptionOverrideFuncs returns a list of TLS configuration overrides to be used
+// by the webhook server.
+func GetTLSOptionOverrideFuncs(options TLSOptions) ([]func(*tls.Config), error) {
+	var tlsOptions []func(config *tls.Config)
+
+	tlsMinVersion, err := GetTLSVersion(options.TLSMinVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsMaxVersion, err := GetTLSVersion(options.TLSMaxVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	if tlsMaxVersion != 0 && tlsMinVersion > tlsMaxVersion {
+		return nil, fmt.Errorf("TLS version flag min version (%s) is greater than max version (%s)",
+			options.TLSMinVersion, options.TLSMaxVersion)
+	}
+
+	tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+		cfg.MinVersion = tlsMinVersion
+	})
+
+	tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+		cfg.MaxVersion = tlsMaxVersion
+	})
+	// Cipher suites should not be set if empty.
+	if tlsMinVersion >= tls.VersionTLS13 &&
+		options.TLSCipherSuites != "" {
+		setupLog.Info("warning: Cipher suites should not be set for TLS version 1.3. Ignoring ciphers")
+		options.TLSCipherSuites = ""
+	}
+
+	if options.TLSCipherSuites != "" {
+		tlsCipherSuites := strings.Split(options.TLSCipherSuites, ",")
+		suites, err := cliflag.TLSCipherSuites(tlsCipherSuites)
+		if err != nil {
+			return nil, err
+		}
+
+		insecureCipherValues := cliflag.InsecureTLSCipherNames()
+		for _, cipher := range tlsCipherSuites {
+			for _, insecureCipherName := range insecureCipherValues {
+				if insecureCipherName == cipher {
+					setupLog.Info(fmt.Sprintf("warning: use of insecure cipher '%s' detected.", cipher))
+				}
+			}
+		}
+		tlsOptions = append(tlsOptions, func(cfg *tls.Config) {
+			cfg.CipherSuites = suites
+		})
+	}
+
+	return tlsOptions, nil
+}
+
+// GetTLSVersion returns the corresponding tls.Version or error.
+func GetTLSVersion(version string) (uint16, error) {
+	var v uint16
+
+	switch version {
+	case TLSVersion12:
+		v = tls.VersionTLS12
+	case TLSVersion13:
+		v = tls.VersionTLS13
+	default:
+		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", version, strings.Join(tlsSupportedVersions, ", "))
+	}
+	return v, nil
+}
+
+func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
+	if controllerConcurrency > 0 {
+		ctrl.Log.Info(fmt.Sprintf("controller concurrency will be set to %d according to command line flag", controllerConcurrency))
+		return controllerConcurrency, nil
+	} else if controllerConcurrency < 0 {
+		return 0, fmt.Errorf("controller concurrency value: %d is invalid", controllerConcurrency)
+	}
+
+	// controller-concurrency value is 0 i.e. no values passed via the flag
+	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
+	maxConcurrentReconciles := runtime.NumCPU()
+	if maxConcurrentReconciles > 8 {
+		maxConcurrentReconciles = 8
+	}
+	if maxConcurrentReconciles < 2 {
+		maxConcurrentReconciles = 2
+	}
+	if mcrEnv, ok := os.LookupEnv("CONTROLLER_CONCURRENCY"); ok {
+		mcr, err := strconv.Atoi(mcrEnv)
+		if err != nil {
+			return 0, fmt.Errorf("CONTROLLER_CONCURRENCY value: %s is invalid: %w", mcrEnv, err)
+		}
+		if mcr > 0 {
+			ctrl.Log.Info(fmt.Sprintf("CONTROLLER_CONCURRENCY of %d is set via an environment variable", mcr))
+			maxConcurrentReconciles = mcr
+		} else {
+			ctrl.Log.Info(fmt.Sprintf("Invalid CONTROLLER_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+		}
+	} else {
+		ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
+	}
+	return maxConcurrentReconciles, nil
 }
