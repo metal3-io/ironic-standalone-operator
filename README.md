@@ -1,6 +1,10 @@
 # Metal3 Ironic Operator
 
-Operator to maintain an Ironic deployment for Metal3.
+Operator to maintain an [Ironic][ironic] deployment for Metal3. See
+[architecture](ARCHITECTURE.md) for a quick overview of the deployed
+architecture.
+
+[ironic]: https://ironicbaremetal.org/
 
 ## Usage
 
@@ -97,10 +101,8 @@ provisioning network is configured.
 
 You will need to generate your TLS certificates with one more `subjectAltName`
 in the format `<database name>-database.<namespace>.svc` (in this example,
-`ironic-database.test.svc`). If you want to include the domain, you need to
-pass the `CLUSTER_DOMAIN` environment variable to the operator. For example,
-`CLUSTER_DOMAIN=cluster.local` will result in
-`ironic-database.test.svc.cluster.local` used by Ironic to access the database.
+`ironic-database.test.svc`). See [architecture
+guide](ARCHITECTURE.md#authentication-and-tls) for details.
 
 Then another resource needs to be created for the database itself:
 
