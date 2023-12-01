@@ -383,8 +383,7 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		Image:           ironic.Spec.Images.Ironic,
 		ImagePullPolicy: corev1.PullAlways,
 		Command:         []string{"/bin/rundnsmasq"},
-		// TODO(dtantsur): livenessProbe+readinessProbe
-		Env: envVars,
+		Env:             envVars,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64(ironicUser),
 			RunAsGroup: pointer.Int64(ironicGroup),
