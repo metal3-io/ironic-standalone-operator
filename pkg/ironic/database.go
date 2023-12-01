@@ -95,11 +95,10 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 
 	containers := []corev1.Container{
 		{
-			Name:            "mariadb",
-			Image:           db.Spec.Image,
-			ImagePullPolicy: corev1.PullAlways,
-			Env:             envVars,
-			VolumeMounts:    mounts,
+			Name:         "mariadb",
+			Image:        db.Spec.Image,
+			Env:          envVars,
+			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(databaseUser),
 				RunAsGroup: pointer.Int64(databaseUser),

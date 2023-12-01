@@ -379,11 +379,10 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 	})
 
 	return corev1.Container{
-		Name:            "dnsmasq",
-		Image:           ironic.Spec.Images.Ironic,
-		ImagePullPolicy: corev1.PullAlways,
-		Command:         []string{"/bin/rundnsmasq"},
-		Env:             envVars,
+		Name:    "dnsmasq",
+		Image:   ironic.Spec.Images.Ironic,
+		Command: []string{"/bin/rundnsmasq"},
+		Env:     envVars,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64(ironicUser),
 			RunAsGroup: pointer.Int64(ironicGroup),
@@ -417,11 +416,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 	sharedVolumeMount := mounts[0]
 	initContainers := []corev1.Container{
 		{
-			Name:            "ipa-downloader",
-			Image:           ironic.Spec.Images.RamdiskDownloader,
-			ImagePullPolicy: corev1.PullAlways,
-			Env:             ipaDownloaderVars,
-			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
+			Name:         "ipa-downloader",
+			Image:        ironic.Spec.Images.RamdiskDownloader,
+			Env:          ipaDownloaderVars,
+			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -439,12 +437,11 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	containers := []corev1.Container{
 		{
-			Name:            "ironic",
-			Image:           ironic.Spec.Images.Ironic,
-			ImagePullPolicy: corev1.PullAlways,
-			Command:         []string{"/bin/runironic"},
-			Env:             buildIronicEnvVars(ironic, db, htpasswd, domain),
-			VolumeMounts:    mounts,
+			Name:         "ironic",
+			Image:        ironic.Spec.Images.Ironic,
+			Command:      []string{"/bin/runironic"},
+			Env:          buildIronicEnvVars(ironic, db, htpasswd, domain),
+			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -457,12 +454,11 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			ReadinessProbe: newProbe(ironicHandler),
 		},
 		{
-			Name:            "httpd",
-			Image:           ironic.Spec.Images.Ironic,
-			ImagePullPolicy: corev1.PullAlways,
-			Command:         []string{"/bin/runhttpd"},
-			Env:             buildHttpdEnvVars(ironic, htpasswd),
-			VolumeMounts:    mounts,
+			Name:         "httpd",
+			Image:        ironic.Spec.Images.Ironic,
+			Command:      []string{"/bin/runhttpd"},
+			Env:          buildHttpdEnvVars(ironic, htpasswd),
+			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
@@ -475,11 +471,10 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			ReadinessProbe: newProbe(httpdHandler),
 		},
 		{
-			Name:            "ramdisk-logs",
-			Image:           ironic.Spec.Images.Ironic,
-			ImagePullPolicy: corev1.PullAlways,
-			Command:         []string{"/bin/runlogwatch.sh"},
-			VolumeMounts:    []corev1.VolumeMount{sharedVolumeMount},
+			Name:         "ramdisk-logs",
+			Image:        ironic.Spec.Images.Ironic,
+			Command:      []string{"/bin/runlogwatch.sh"},
+			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(ironicUser),
 				RunAsGroup: pointer.Int64(ironicGroup),
