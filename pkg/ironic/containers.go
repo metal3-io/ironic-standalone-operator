@@ -384,8 +384,9 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		Command: []string{"/bin/rundnsmasq"},
 		Env:     envVars,
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(ironicUser),
-			RunAsGroup: pointer.Int64(ironicGroup),
+			RunAsUser:                pointer.Int64(ironicUser),
+			RunAsGroup:               pointer.Int64(ironicGroup),
+			AllowPrivilegeEscalation: pointer.Bool(true),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
