@@ -137,16 +137,6 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
 			Value: strconv.FormatBool(ironic.Spec.Distributed),
 		},
-		// TODO(dtantsur): try to get rid of this one eventually
-		{
-			Name:  "IRONIC_INSECURE",
-			Value: "true",
-		},
-		// NOTE(dtantsur): this is not strictly correct but is required for JSON RPC authentication
-		{
-			Name:  "IRONIC_DEPLOYMENT",
-			Value: "Conductor",
-		},
 	}...)
 
 	if db != nil {
@@ -157,6 +147,20 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 				Value: DatabaseDNSName(db, domain),
 			},
 		)
+	}
+
+	if ironic.Spec.Distributed {
+		result = append(result, []corev1.EnvVar{
+			// NOTE(dtantsur): this is not strictly correct but is required for JSON RPC authentication
+			{
+				Name:  "IRONIC_DEPLOYMENT",
+				Value: "Conductor",
+			},
+			{
+				Name:  "IRONIC_INSECURE",
+				Value: strconv.FormatBool(ironic.Spec.DisableRPCHostValidation),
+			},
+		}...)
 	}
 
 	// When TLS is used, httpd is responsible for authentication.
