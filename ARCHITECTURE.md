@@ -72,4 +72,4 @@ webhook will reject setting `distributed` to `true`).
 The idea is to deploy ironic+httpd services in a daemon set on all control
 plane nodes, while keeping dnsmasq (if enabled) on only one of them. There
 are many unsolved issues with this setup - see
-[ironic-operator#3](https://github.com/dtantsur/ironic-operator/issues/3).
+[ironic-standalone-operator#3](https://github.com/dtantsur/ironic-standalone-operator/issues/3).

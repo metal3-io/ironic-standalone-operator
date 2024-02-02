@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	metal3api "github.com/metal3-io/ironic-operator/api/v1alpha1"
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 func ironicDeploymentName(ironic *metal3api.Ironic) string {

@@ -8,8 +8,8 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: ironic-operator
-repo: github.com/metal3-io/ironic-operator
+projectName: ironic-standalone-operator
+repo: github.com/metal3-io/ironic-standalone-operator
 resources:
 - api:
     crdVersion: v1
@@ -18,7 +18,7 @@ resources:
   domain: metal3.io
   group: metal3.io
   kind: Ironic
-  path: github.com/metal3-io/ironic-operator/api/v1alpha1
+  path: github.com/metal3-io/ironic-standalone-operator/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
@@ -31,7 +31,7 @@ resources:
   domain: metal3.io
   group: metal3.io
   kind: IronicDatabase
-  path: github.com/metal3-io/ironic-operator/api/v1alpha1
+  path: github.com/metal3-io/ironic-standalone-operator/api/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true

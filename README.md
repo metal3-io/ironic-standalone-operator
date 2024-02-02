@@ -86,7 +86,7 @@ By its nature, Ironic listens on a host network and thus is reachable on one of
 the Kubernetes nodes, even from the outside (note the port):
 
 ```
-$ kubectl get pod -n test -l metal3.io/ironic-operator=ironic-service -o wide
+$ kubectl get pod -n test -l metal3.io/ironic-standalone-operator=ironic-service -o wide
 NAME                              READY   STATUS    RESTARTS   AGE    IP            NODE                 NOMINATED NODE   READINESS GATES
 ironic-service-698899755d-6xzxl   4/4     Running   0          152m   10.89.0.2     kind-control-plane   <none>           <none>
 $ curl -k -u "$IRONIC_USER:$IRONIC_PASSWORD" https://10.89.0.2:6385/v1/drivers

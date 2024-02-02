@@ -4,9 +4,9 @@ metadata:
   labels:
     app.kubernetes.io/name: ironic
     app.kubernetes.io/instance: ironic-sample
-    app.kubernetes.io/part-of: ironic-operator
+    app.kubernetes.io/part-of: ironic-standalone-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: ironic-operator
+    app.kubernetes.io/created-by: ironic-standalone-operator
   name: ironic-sample
 spec:
   # TODO(user): Add fields here

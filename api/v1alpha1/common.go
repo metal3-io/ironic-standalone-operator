@@ -9,5 +9,5 @@ const (
 	// Progressing indicates that Ironic deployment is in progress
 	IronicStatusProgressing IronicStatusConditionType = "Progressing"
 
-	IronicOperatorLabel = "metal3.io/ironic-operator"
+	IronicOperatorLabel = "metal3.io/ironic-standalone-operator"
 )

@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: service
     app.kubernetes.io/instance: webhook-service
     app.kubernetes.io/component: webhook
-    app.kubernetes.io/created-by: ironic-operator
-    app.kubernetes.io/part-of: ironic-operator
+    app.kubernetes.io/created-by: ironic-standalone-operator
+    app.kubernetes.io/part-of: ironic-standalone-operator
     app.kubernetes.io/managed-by: kustomize
   name: webhook-service
   namespace: system

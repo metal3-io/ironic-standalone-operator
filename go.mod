@@ -1,4 +1,4 @@
-module github.com/metal3-io/ironic-operator
+module github.com/metal3-io/ironic-standalone-operator
 
 go 1.19
 

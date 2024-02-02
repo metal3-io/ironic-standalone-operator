@@ -40,8 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	metal3iov1alpha1 "github.com/metal3-io/ironic-operator/api/v1alpha1"
-	"github.com/metal3-io/ironic-operator/controllers"
+	metal3iov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+	"github.com/metal3-io/ironic-standalone-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -115,7 +115,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	config := ctrl.GetConfigOrDie()
-	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-operator"))
+	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-standalone-operator"))
 
 	tlsOptionOverrides, err := GetTLSOptionOverrideFuncs(tlsOptions)
 	if err != nil {
