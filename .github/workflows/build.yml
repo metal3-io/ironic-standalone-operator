@@ -21,3 +21,11 @@ jobs:
       run: sudo apt install -y podman
     - name: Build the image
       run: podman build .
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Generate manifests
+      run: make generate manifests
+    - name: Ensure there is no diff
+      run: git diff --exit-code
