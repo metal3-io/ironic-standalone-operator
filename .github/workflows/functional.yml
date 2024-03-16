@@ -1,0 +1,31 @@
+name: Functional
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  functional:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: helm/kind-action@v1
+      with:
+        cluster_name: kind
+    - name: Prepare and run the tests
+      run: NOCLEAN=1 ./test/functional.sh
+
+    - name: Show the deployment
+      run: kubectl get -o yaml -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
+      if: always()
+    - name: Show all pods
+      run: kubectl get -o yaml -n ironic-standalone-operator-system pod
+      if: always()
+    - name: Show the logs
+      run: kubectl logs -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
+      if: always()
+    - name: Show all Ironic objects
+      run: kubectl get -o yaml -A ironic
+      if: always()
