@@ -10,6 +10,7 @@ rules:
   resources:
   - secrets
   verbs:
+  - create
   - delete
   - get
   - list
@@ -20,6 +21,7 @@ rules:
   resources:
   - services
   verbs:
+  - create
   - delete
   - get
   - list
