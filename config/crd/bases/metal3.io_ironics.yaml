@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: ironics.metal3.io
 spec:
   group: metal3.io
@@ -21,14 +20,19 @@ spec:
         description: Ironic is the Schema for the ironics API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -36,42 +40,47 @@ spec:
             description: IronicSpec defines the desired state of Ironic
             properties:
               credentialsRef:
-                description: CredentialsRef is a reference to the secret with Ironic
-                  API credentials. A new secret will be created if this field is empty.
+                description: |-
+                  CredentialsRef is a reference to the secret with Ironic API credentials.
+                  A new secret will be created if this field is empty.
                 properties:
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
               databaseRef:
-                description: DatabaseRef defines database settings for Ironic. If
-                  missing, a local SQLite database will be used. Must be provided
-                  for a distributed architecture.
+                description: |-
+                  DatabaseRef defines database settings for Ironic.
+                  If missing, a local SQLite database will be used. Must be provided for a distributed architecture.
                 properties:
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
               disableRPCHostValidation:
-                description: DisableRPCHostValidation turns off TLS host validation
-                  for JSON RPC connections between Ironic instances. This reduces
-                  the security of TLS. Only use if you're unable to provide TLS certificates
-                  valid for JSON RPC. Has no effect if Distributed is not set to true.
+                description: |-
+                  DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
+                  This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
+                  Has no effect if Distributed is not set to true.
                 type: boolean
               disableVirtualMediaTLS:
-                description: DisableVirtualMediaTLS turns off TLS on the virtual media
-                  server, which may be required for hardware that cannot accept HTTPS
-                  links.
+                description: |-
+                  DisableVirtualMediaTLS turns off TLS on the virtual media server,
+                  which may be required for hardware that cannot accept HTTPS links.
                 type: boolean
               distributed:
-                description: 'Distributed causes Ironic to be deployed as a DaemonSet
-                  on control plane nodes instead of a deployment with 1 replica. Requires
-                  database to be installed and linked to DatabaseRef. EXPERIMENTAL:
-                  do not use (validation will fail)!'
+                description: |-
+                  Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
+                  Requires database to be installed and linked to DatabaseRef.
+                  EXPERIMENTAL: do not use (validation will fail)!
                 type: boolean
               images:
                 description: Images is a collection of container images to deploy
@@ -82,8 +91,9 @@ spec:
                       main branch is used by default.
                     type: string
                   agentDownloadURL:
-                    description: AgentDownloadURL is the base URL from which IPA should
-                      be downloaded. The default value should be good for most users.
+                    description: |-
+                      AgentDownloadURL is the base URL from which IPA should be downloaded.
+                      The default value should be good for most users.
                     type: string
                   ironic:
                     default: quay.io/metal3-io/ironic
@@ -100,16 +110,16 @@ spec:
                 description: Inspection defines inspection settings
                 properties:
                   collectors:
-                    description: Collectors is a list of inspection collectors to
-                      enable. See https://docs.openstack.org/ironic-python-agent/latest/admin/how_it_works.html#inspection-data
-                      for details.
+                    description: |-
+                      Collectors is a list of inspection collectors to enable.
+                      See https://docs.openstack.org/ironic-python-agent/latest/admin/how_it_works.html#inspection-data for details.
                     items:
                       type: string
                     type: array
                   vlanInterfaces:
-                    description: List of interfaces to inspect for VLANs. This can
-                      be interface names (to collect all VLANs using LLDP) or pairs
-                      <interface>.<vlan ID>.
+                    description: |-
+                      List of interfaces to inspect for VLANs.
+                      This can be interface names (to collect all VLANs using LLDP) or pairs <interface>.<vlan ID>.
                     items:
                       type: string
                     type: array
@@ -128,32 +138,32 @@ spec:
                       interface.
                     type: boolean
                   dhcp:
-                    description: DHCP is a configuration of DHCP for the network boot
-                      service (dnsmasq). The service is only deployed when this is
-                      set.
+                    description: |-
+                      DHCP is a configuration of DHCP for the network boot service (dnsmasq).
+                      The service is only deployed when this is set.
                     properties:
                       dnsAddress:
-                        description: DNSAddress is the IP address of the DNS server
-                          to pass to hosts via DHCP. Must not be set together with
-                          ServeDNS.
+                        description: |-
+                          DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
+                          Must not be set together with ServeDNS.
                         type: string
                       gatewayAddress:
                         description: GatewayAddress is the IP address of the gateway
                           to pass to hosts via DHCP.
                         type: string
                       hosts:
-                        description: Hosts is a set of DHCP host records to pass to
-                          dnsmasq. Check the dnsmasq documentation on dhcp-host for
-                          an explanation of the format. There is no API-side validation.
-                          Most users will leave this unset.
+                        description: |-
+                          Hosts is a set of DHCP host records to pass to dnsmasq.
+                          Check the dnsmasq documentation on dhcp-host for an explanation of the format.
+                          There is no API-side validation. Most users will leave this unset.
                         items:
                           type: string
                         type: array
                       ignore:
-                        description: Ignore is set of dnsmasq tags to ignore and not
-                          provide any DHCP. Check the dnsmasq documentation on dhcp-ignore
-                          for an explanation of the format. There is no API-side validation.
-                          Most users will leave this unset.
+                        description: |-
+                          Ignore is set of dnsmasq tags to ignore and not provide any DHCP.
+                          Check the dnsmasq documentation on dhcp-ignore for an explanation of the format.
+                          There is no API-side validation. Most users will leave this unset.
                         items:
                           type: string
                         type: array
@@ -162,26 +172,25 @@ spec:
                           Required.
                         type: string
                       rangeBegin:
-                        description: RangeBegin is the first IP that can be given
-                          to hosts. Must be inside NetworkCIDR. If not set, the 10th
-                          IP from NetworkCIDR is used (e.g. .10 for /24).
+                        description: |-
+                          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+                          If not set, the 10th IP from NetworkCIDR is used (e.g. .10 for /24).
                         type: string
                       rangeEnd:
-                        description: RangeEnd is the last IP that can be given to
-                          hosts. Must be inside NetworkCIDR. If not set, the 2nd IP
-                          from the end of NetworkCIDR is used (e.g. .253 for /24).
+                        description: |-
+                          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+                          If not set, the 2nd IP from the end of NetworkCIDR is used (e.g. .253 for /24).
                         type: string
                       serveDNS:
-                        description: ServeDNS is set to true to pass the provisioning
-                          host as the DNS server on the provisioning network. Must
-                          not be set together with DNSAddress.
+                        description: |-
+                          ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
+                          Must not be set together with DNSAddress.
                         type: boolean
                     type: object
                   externalIP:
-                    description: ExternalIP is used for accessing API and the image
-                      server from remote hosts. This settings only applies to virtual
-                      media deployments. The IP will not be accessed from the cluster
-                      itself.
+                    description: |-
+                      ExternalIP is used for accessing API and the image server from remote hosts.
+                      This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
                     type: string
                   imageServerPort:
                     default: 6180
@@ -198,27 +207,27 @@ spec:
                     minimum: 1
                     type: integer
                   interface:
-                    description: Interface is a Linux network device to listen on.
+                    description: |-
+                      Interface is a Linux network device to listen on.
                       Detected from IPAddress if missing.
                     type: string
                   ipAddress:
-                    description: IPAddress is the main IP address to listen on and
-                      use for communication. Detected from Interface if missing. Cannot
-                      be provided for a distributed architecture.
+                    description: |-
+                      IPAddress is the main IP address to listen on and use for communication.
+                      Detected from Interface if missing. Cannot be provided for a distributed architecture.
                     type: string
                   macAddresses:
-                    description: MACAddresses can be provided to make the start script
-                      pick the interface matching any of these addresses. Only set
-                      if no other options can be used.
+                    description: |-
+                      MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
+                      Only set if no other options can be used.
                     items:
                       type: string
                     type: array
                 type: object
               ramdiskExtraKernelParams:
-                description: RamdiskExtraKernelParams is a string with kernel parameters
-                  to pass to the provisioning/inspection ramdisk. Will not take effect
-                  if the host uses a pre-built ISO (either through its PreprovisioningImage
-                  or via the DEPLOY_ISO_URL baremetal-operator parameter).
+                description: |-
+                  RamdiskExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
+                  Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
                 type: string
               ramdiskSSHKey:
                 description: RamdiskSSHKey is the contents of the public key to inject
@@ -229,8 +238,10 @@ spec:
                   TLS certificate.
                 properties:
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                      TODO: Add other useful fields. apiVersion, kind, uid?
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
@@ -242,42 +253,42 @@ spec:
                 description: Conditions describe the state of the Ironic deployment.
                 items:
                   description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
@@ -291,11 +302,12 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
