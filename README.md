@@ -4,6 +4,10 @@ Operator to maintain an [Ironic][ironic] deployment for Metal3. See
 [architecture](ARCHITECTURE.md) for a quick overview of the deployed
 architecture.
 
+This project is **EXPERIMENTAL**. It's not currently integrated will with
+other Metal3 components, not fully tested in the CI and is not ready to be
+used in production.
+
 [ironic]: https://ironicbaremetal.org/
 
 ## Usage
