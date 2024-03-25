@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -82,6 +83,62 @@ var _ = BeforeSuite(func() {
 
 })
 
+func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
+	GinkgoHelper()
+
+	ironic := &metal3api.Ironic{}
+
+	By("waiting for Ironic deployment")
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+
+		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusAvailable))
+		if cond != nil && cond.Status == metav1.ConditionTrue {
+			return true
+		}
+
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic)
+		return false
+	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+
+	return ironic
+}
+
+func VerifyIronic(ironic *metal3api.Ironic) {
+	GinkgoHelper()
+
+	By("checking the service")
+
+	svc, err := clientset.CoreV1().Services(ironic.Namespace).Get(ctx, ironic.Name, metav1.GetOptions{})
+	GinkgoWriter.Printf("Ironic service: %+v\n", svc)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func DeleteAndWait(ironic *metal3api.Ironic) {
+	GinkgoHelper()
+
+	By("deleting Ironic")
+
+	name := types.NamespacedName{
+		Name:      ironic.Name,
+		Namespace: ironic.Namespace,
+	}
+	err := k8sClient.Delete(ctx, ironic)
+	Expect(err).NotTo(HaveOccurred())
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, name, ironic)
+		if err != nil && k8serrors.IsNotFound(err) {
+			return true
+		}
+		GinkgoWriter.Println("Ironic", name, "not deleted yet, error is", err)
+		Expect(err).NotTo(HaveOccurred())
+		return false
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+}
+
 var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
@@ -93,6 +150,15 @@ var _ = Describe("Ironic object tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			_ = clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+			Eventually(func() bool {
+				_, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+				if err != nil && k8serrors.IsNotFound(err) {
+					return true
+				}
+				GinkgoWriter.Println("Namespace", namespace, "not deleted yet, error is", err)
+				Expect(err).NotTo(HaveOccurred())
+				return false
+			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 		})
 	})
 
@@ -102,33 +168,21 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := metal3api.Ironic{
+		ironic := &metal3api.Ironic{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.Name,
 				Namespace: name.Namespace,
 			},
 		}
-		err := k8sClient.Create(ctx, &ironic)
+		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			DeleteAndWait(ironic)
+		})
 
-		var cond *metav1.Condition
-		for attempt := 0; attempt < 10; attempt += 1 {
-			err = k8sClient.Get(ctx, name, &ironic)
-			Expect(err).NotTo(HaveOccurred())
-
-			cond = meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusAvailable))
-			if cond != nil && cond.Status == metav1.ConditionTrue {
-				break
-			}
-
-			time.Sleep(5 * time.Second)
-		}
-
-		if cond == nil || cond.Status != metav1.ConditionTrue {
-			Fail("Ironic deployment never succeded")
-		}
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic)
 	})
-
 })
 
 var _ = AfterSuite(func() {

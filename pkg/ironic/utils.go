@@ -36,6 +36,60 @@ type ControllerContext struct {
 	Domain     string
 }
 
+func mergeContainers(target, source []corev1.Container) []corev1.Container {
+	if len(source) == 0 {
+		return source
+	}
+
+	if len(target) != len(source) {
+		// No way to reconcile different lists, re-create
+		target = make([]corev1.Container, len(source))
+	}
+
+	for idx, src := range source {
+		dest := &target[idx]
+		dest.Name = src.Name
+		dest.Image = src.Image
+		dest.Command = src.Command
+		dest.Ports = src.Ports
+		dest.Env = src.Env
+		dest.EnvFrom = src.EnvFrom
+		dest.VolumeMounts = src.VolumeMounts
+		dest.SecurityContext = src.SecurityContext
+		if src.LivenessProbe != nil {
+			dest.LivenessProbe = updateProbe(dest.LivenessProbe, src.LivenessProbe.ProbeHandler)
+		} else {
+			dest.LivenessProbe = nil
+		}
+		if src.ReadinessProbe != nil {
+			dest.ReadinessProbe = updateProbe(dest.ReadinessProbe, src.ReadinessProbe.ProbeHandler)
+		} else {
+			dest.ReadinessProbe = nil
+		}
+	}
+
+	return target
+}
+
+// mergePodTemplates updates an existing pod template, taking care to avoid
+// overriding defaulted values.
+func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplateSpec) {
+	if target.ObjectMeta.Labels == nil {
+		target.ObjectMeta.Labels = make(map[string]string, len(source.ObjectMeta.Labels))
+	}
+	for k, v := range source.ObjectMeta.Labels {
+		target.ObjectMeta.Labels[k] = v
+	}
+
+	target.Spec.InitContainers = mergeContainers(target.Spec.InitContainers, source.Spec.InitContainers)
+	target.Spec.Containers = mergeContainers(target.Spec.Containers, source.Spec.Containers)
+	target.Spec.Volumes = source.Spec.Volumes
+	target.Spec.HostNetwork = source.Spec.HostNetwork
+	if source.Spec.DNSPolicy != "" {
+		target.Spec.DNSPolicy = source.Spec.DNSPolicy
+	}
+}
+
 func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (metal3api.IronicStatusConditionType, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
@@ -119,15 +173,21 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 	return
 }
 
-func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: handler,
-		// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
-		// Also be conservative about failing the pod since Ironic restars are not cheap (the database is wiped).
-		InitialDelaySeconds: probeInitialDelay,
-		TimeoutSeconds:      probeTimeout,
-		FailureThreshold:    probeFailureThreshold,
+func updateProbe(current *corev1.Probe, handler corev1.ProbeHandler) *corev1.Probe {
+	if current == nil {
+		current = &corev1.Probe{}
 	}
+	current.ProbeHandler = handler
+	// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
+	// Also be conservative about failing the pod since Ironic restars are not cheap (the database is wiped).
+	current.InitialDelaySeconds = probeInitialDelay
+	current.TimeoutSeconds = probeTimeout
+	current.FailureThreshold = probeFailureThreshold
+	return current
+}
+
+func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
+	return updateProbe(nil, handler) // TODO: remove
 }
 
 func isReady(conditions []metav1.Condition) bool {
