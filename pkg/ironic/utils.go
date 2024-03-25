@@ -36,8 +36,10 @@ type ControllerContext struct {
 	Domain     string
 }
 
-func getDeploymentStatus(deploy *appsv1.Deployment) (metal3api.IronicStatusConditionType, error) {
+func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (metal3api.IronicStatusConditionType, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
+		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
+			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
 		return metal3api.IronicStatusProgressing, nil
 	}
 
@@ -56,12 +58,16 @@ func getDeploymentStatus(deploy *appsv1.Deployment) (metal3api.IronicStatusCondi
 	if available {
 		return metal3api.IronicStatusAvailable, nil
 	} else {
+		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
+			"Conditions", deploy.Status.Conditions)
 		return metal3api.IronicStatusProgressing, nil
 	}
 }
 
-func getDaemonSetStatus(deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditionType, error) {
+func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditionType, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
+		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
+			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
 		return metal3api.IronicStatusProgressing, nil
 	}
 
@@ -84,6 +90,8 @@ func getDaemonSetStatus(deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditi
 	if available {
 		return metal3api.IronicStatusAvailable, nil
 	} else {
+		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
+			"NumberUnavailable", deploy.Status.NumberUnavailable)
 		return metal3api.IronicStatusProgressing, nil
 	}
 }

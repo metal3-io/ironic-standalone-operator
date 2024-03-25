@@ -32,7 +32,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 			Namespace: ironic.Namespace,
 		},
 	}
-	_, err = controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic daemon set")
 			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
@@ -46,7 +46,10 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	if err != nil {
 		return metal3api.IronicStatusProgressing, err
 	}
-	return getDaemonSetStatus(deploy)
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("ironic daemon set", "DaemonSet", deploy.Name, "Status", result)
+	}
+	return getDaemonSetStatus(cctx, deploy)
 }
 
 func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status metal3api.IronicStatusConditionType, err error) {
@@ -61,7 +64,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 			Namespace: ironic.Namespace,
 		},
 	}
-	_, err = controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
 			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
@@ -80,7 +83,10 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 	if err != nil {
 		return metal3api.IronicStatusProgressing, err
 	}
-	return getDeploymentStatus(deploy)
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("ironic deployment", "Deployment", deploy.Name, "Status", result)
+	}
+	return getDeploymentStatus(cctx, deploy)
 }
 
 func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (metal3api.IronicStatusConditionType, error) {
@@ -91,7 +97,7 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (meta
 	if ironic.Spec.TLSRef.Name != "" {
 		exposedPort = 443
 	}
-	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
 			cctx.Logger.Info("creating a new ironic service")
 			service.ObjectMeta.Labels = make(map[string]string)
@@ -110,6 +116,9 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (meta
 
 		return controllerutil.SetControllerReference(ironic, service, cctx.Scheme)
 	})
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("ironic service", "Service", service.Name, "Status", result)
+	}
 	if err != nil || len(service.Spec.ClusterIPs) == 0 {
 		return metal3api.IronicStatusProgressing, err
 	}
