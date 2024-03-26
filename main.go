@@ -36,8 +36,10 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	cliflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	metal3iov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -123,9 +125,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	var watchNamespaces map[string]cache.Config
+	if watchNamespace != "" {
+		watchNamespaces = map[string]cache.Config{
+			watchNamespace: {},
+		}
+	}
+
 	ctrlOpts := ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
+		Scheme:  scheme,
+		Metrics: metricsserver.Options{BindAddress: metricsAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    webhookPort,
 			TLSOpts: tlsOptionOverrides,
@@ -134,9 +143,9 @@ func main() {
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "ironic.metal3.io",
 		LeaderElectionNamespace: watchNamespace,
-	}
-	if watchNamespace != "" {
-		ctrlOpts.Cache.Namespaces = []string{watchNamespace}
+		Cache: cache.Options{
+			DefaultNamespaces: watchNamespaces,
+		},
 	}
 
 	mgr, err := ctrl.NewManager(config, ctrlOpts)
