@@ -9,7 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -19,8 +19,8 @@ const (
 	imagesPortName    = "image-svc"
 	imagesTLSPortName = "image-svc-tls"
 
-	ironicUser  = 997
-	ironicGroup = 994
+	ironicUser  int64 = 997
+	ironicGroup int64 = 994
 
 	authDir   = "/auth"
 	certsDir  = "/certs"
@@ -384,9 +384,9 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 		Command: []string{"/bin/rundnsmasq"},
 		Env:     envVars,
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:                pointer.Int64(ironicUser),
-			RunAsGroup:               pointer.Int64(ironicGroup),
-			AllowPrivilegeEscalation: pointer.Bool(true),
+			RunAsUser:                ptr.To(ironicUser),
+			RunAsGroup:               ptr.To(ironicGroup),
+			AllowPrivilegeEscalation: ptr.To(true),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
@@ -422,8 +422,8 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Env:          ipaDownloaderVars,
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(ironicUser),
-				RunAsGroup: pointer.Int64(ironicGroup),
+				RunAsUser:  ptr.To(ironicUser),
+				RunAsGroup: ptr.To(ironicGroup),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -444,8 +444,8 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Env:          buildIronicEnvVars(ironic, db, htpasswd, domain),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(ironicUser),
-				RunAsGroup: pointer.Int64(ironicGroup),
+				RunAsUser:  ptr.To(ironicUser),
+				RunAsGroup: ptr.To(ironicGroup),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -461,8 +461,8 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Env:          buildHttpdEnvVars(ironic, htpasswd),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(ironicUser),
-				RunAsGroup: pointer.Int64(ironicGroup),
+				RunAsUser:  ptr.To(ironicUser),
+				RunAsGroup: ptr.To(ironicGroup),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -477,8 +477,8 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			Command:      []string{"/bin/runlogwatch.sh"},
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(ironicUser),
-				RunAsGroup: pointer.Int64(ironicGroup),
+				RunAsUser:  ptr.To(ironicUser),
+				RunAsGroup: ptr.To(ironicGroup),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},

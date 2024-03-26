@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -71,7 +71,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
-			deploy.Spec.Replicas = pointer.Int32(1)
+			deploy.Spec.Replicas = ptr.To(int32(1))
 		}
 		deploy.Spec.Template = template
 		// We cannot run two copies of Ironic in parallel

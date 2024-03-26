@@ -6,15 +6,15 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 const (
-	databasePort = 3306
-	databaseUser = 27
+	databasePort       = 3306
+	databaseUser int64 = 27
 )
 
 func databaseDeploymentName(db *metal3api.IronicDatabase) string {
@@ -100,8 +100,8 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 			Env:          envVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(databaseUser),
-				RunAsGroup: pointer.Int64(databaseUser),
+				RunAsUser:  ptr.To(databaseUser),
+				RunAsGroup: ptr.To(databaseUser),
 			},
 			LivenessProbe:  probe,
 			ReadinessProbe: probe,
@@ -130,7 +130,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: matchLabels,
 			}
-			deploy.Spec.Replicas = pointer.Int32(1)
+			deploy.Spec.Replicas = ptr.To(int32(1))
 		}
 		deploy.Spec.Template = newDatabasePodTemplate(db)
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)
