@@ -7,7 +7,7 @@ GitHub pull requests.
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 - [Certificate of Origin](#certificate-of-origin)
-   - [Git commit Sign-off](#git-commit-sign-off)
+  - [Git commit Sign-off](#git-commit-sign-off)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -26,8 +26,9 @@ Commit message should contain signed off section with full name and email. For e
   Signed-off-by: John Doe <jdoe@example.com>
  ```
 
-When making commits, include the `-s` flag and `Signed-off-by` section will be automatically
-added to your commit message. If you want GPG signing too, add the `-S` flag alongside `-s`.
+When making commits, include the `-s` flag and `Signed-off-by` section will be
+automatically added to your commit message. If you want GPG signing too, add
+the `-S` flag alongside `-s`.
 
 ```bash
   # Signing off commit
