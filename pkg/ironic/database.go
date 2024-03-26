@@ -123,7 +123,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
-	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new deployment")
 			matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
@@ -138,14 +138,17 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	if err != nil {
 		return metal3api.IronicStatusProgressing, err
 	}
-	return getDeploymentStatus(deploy)
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("database deployment", "Deployment", deploy.Name, "Status", result)
+	}
+	return getDeploymentStatus(cctx, deploy)
 }
 
 func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
-	_, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
 			cctx.Logger.Info("creating a new service")
 			service.ObjectMeta.Labels = make(map[string]string)
@@ -163,6 +166,9 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 
 		return controllerutil.SetControllerReference(db, service, cctx.Scheme)
 	})
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("database service", "Service", service.Name, "Status", result)
+	}
 	if err != nil || len(service.Spec.ClusterIPs) == 0 {
 		return metal3api.IronicStatusProgressing, err
 	}
