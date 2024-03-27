@@ -35,12 +35,10 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic daemon set")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
-			deploy.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: matchLabels,
-			}
 		}
-		deploy.Spec.Template = template
+		matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
+		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
+		mergePodTemplates(&deploy.Spec.Template, template)
 		return controllerutil.SetControllerReference(ironic, deploy, cctx.Scheme)
 	})
 	if err != nil {
@@ -67,13 +65,11 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
-			deploy.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: matchLabels,
-			}
-			deploy.Spec.Replicas = ptr.To(int32(1))
 		}
-		deploy.Spec.Template = template
+		matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
+		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
+		deploy.Spec.Replicas = ptr.To(int32(1))
+		mergePodTemplates(&deploy.Spec.Template, template)
 		// We cannot run two copies of Ironic in parallel
 		deploy.Spec.Strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RecreateDeploymentStrategyType,

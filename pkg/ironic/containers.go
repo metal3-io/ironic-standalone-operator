@@ -85,7 +85,8 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 				Name: "PROVISIONING_IP",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "status.hostIP",
+						APIVersion: "v1",
+						FieldPath:  "status.hostIP",
 					},
 				},
 			},
@@ -225,7 +226,8 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			Name: "ironic-auth",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: ironic.Spec.CredentialsRef.Name,
+					SecretName:  ironic.Spec.CredentialsRef.Name,
+					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
 		},
@@ -249,7 +251,8 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 				Name: "cert-ironic",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: ironic.Spec.TLSRef.Name,
+						SecretName:  ironic.Spec.TLSRef.Name,
+						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 					},
 				},
 			},
@@ -277,7 +280,8 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: db.Spec.TLSRef.Name,
+					SecretName:  db.Spec.TLSRef.Name,
+					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
 		})
@@ -294,13 +298,17 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	httpdPorts = []corev1.ContainerPort{
 		{
 			Name:          imagesPortName,
+			Protocol:      corev1.ProtocolTCP,
 			ContainerPort: ironic.Spec.Networking.ImageServerPort,
+			HostPort:      ironic.Spec.Networking.ImageServerPort,
 		},
 	}
 
 	apiPort := corev1.ContainerPort{
 		Name:          ironicPortName,
+		Protocol:      corev1.ProtocolTCP,
 		ContainerPort: ironic.Spec.Networking.APIPort,
+		HostPort:      ironic.Spec.Networking.APIPort,
 	}
 
 	if ironic.Spec.TLSRef.Name == "" {
@@ -310,7 +318,9 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 		if !ironic.Spec.DisableVirtualMediaTLS {
 			httpdPorts = append(httpdPorts, corev1.ContainerPort{
 				Name:          imagesTLSPortName,
+				Protocol:      corev1.ProtocolTCP,
 				ContainerPort: ironic.Spec.Networking.ImageServerTLSPort,
+				HostPort:      ironic.Spec.Networking.ImageServerTLSPort,
 			})
 		}
 	}

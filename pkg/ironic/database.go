@@ -6,6 +6,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -13,8 +14,9 @@ import (
 )
 
 const (
-	databasePort       = 3306
-	databaseUser int64 = 27
+	databasePortName       = "mariadb"
+	databasePort           = 3306
+	databaseUser     int64 = 27
 )
 
 func databaseDeploymentName(db *metal3api.IronicDatabase) string {
@@ -65,7 +67,8 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: db.Spec.TLSRef.Name,
+					SecretName:  db.Spec.TLSRef.Name,
+					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
 		})
@@ -103,6 +106,13 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 				RunAsUser:  ptr.To(databaseUser),
 				RunAsGroup: ptr.To(databaseUser),
 			},
+			Ports: []corev1.ContainerPort{
+				{
+					Name:          databasePortName,
+					Protocol:      corev1.ProtocolTCP,
+					ContainerPort: databasePort,
+				},
+			},
 			LivenessProbe:  probe,
 			ReadinessProbe: probe,
 		},
@@ -126,13 +136,11 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new deployment")
-			matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
-			deploy.Spec.Selector = &metav1.LabelSelector{
-				MatchLabels: matchLabels,
-			}
-			deploy.Spec.Replicas = ptr.To(int32(1))
 		}
-		deploy.Spec.Template = newDatabasePodTemplate(db)
+		matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
+		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
+		deploy.Spec.Replicas = ptr.To(int32(1))
+		mergePodTemplates(&deploy.Spec.Template, newDatabasePodTemplate(db))
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)
 	})
 	if err != nil {
@@ -158,8 +166,9 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
-				Protocol: corev1.ProtocolTCP,
-				Port:     databasePort,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       databasePort,
+				TargetPort: intstr.FromString(databasePortName),
 			},
 		}
 		service.Spec.Type = corev1.ServiceTypeClusterIP
