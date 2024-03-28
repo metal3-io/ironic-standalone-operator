@@ -15,22 +15,17 @@ jobs:
       with:
         cluster_name: kind
     - name: Prepare tests
-      run: ./test/prepare.sh
+      run: LOGDIR=/tmp/logs ./test/prepare.sh
     - name: Run tests
-      run: cd test && go test -timeout 60m
-    # TODO(dtantsur): turn this into a normal artifact collection
-    - name: Show any local logs
-      run: cat test/*.log
+      run: |
+        cd test
+        LOGDIR=/tmp/logs go test -timeout 60m
+    - name: Collect logs
+      run: LOGDIR=/tmp/logs ./test/collect-logs.sh
       if: always()
-    - name: Show the deployment
-      run: kubectl get -o yaml -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
-      if: always()
-    - name: Show all pods
-      run: kubectl get -o yaml -n ironic-standalone-operator-system pod
-      if: always()
-    - name: Show the logs
-      run: kubectl logs -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
-      if: always()
-    - name: Show all Ironic objects
-      run: kubectl get -o yaml -A ironic
+    - name: Upload logs artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: functional
+        path: /tmp/logs/*
       if: always()
