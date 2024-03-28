@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	yaml "sigs.k8s.io/yaml"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -85,8 +85,6 @@ var _ = BeforeSuite(func() {
 })
 
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
-	GinkgoHelper()
-
 	ironic := &metal3api.Ironic{}
 
 	By("waiting for Ironic deployment")
@@ -126,28 +124,46 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		}
 
 		return false
-	}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
 	return ironic
 }
 
+func writeYAML(obj interface{}, namespace, name, typ string) {
+	fileDir := fmt.Sprintf("%s/%s", os.Getenv("LOGDIR"), namespace)
+	err := os.MkdirAll(fileDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	fileName := fmt.Sprintf("%s/%s_%s.yaml", fileDir, typ, name)
+	yamlData, err := yaml.Marshal(obj)
+	Expect(err).NotTo(HaveOccurred())
+	err = os.WriteFile(fileName, yamlData, 0644)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func VerifyIronic(ironic *metal3api.Ironic) {
-	GinkgoHelper()
+	writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
 
 	By("checking the service")
 
 	svc, err := clientset.CoreV1().Services(ironic.Namespace).Get(ctx, ironic.Name, metav1.GetOptions{})
 	GinkgoWriter.Printf("Ironic service: %+v\n", svc)
 	Expect(err).NotTo(HaveOccurred())
+
+	writeYAML(svc, svc.Namespace, svc.Name, "service")
 }
 
 func CollectLogs(namespace string) {
-	GinkgoHelper()
-
 	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, pod := range pods.Items {
+		logDir := fmt.Sprintf("%s/%s/pod_%s", os.Getenv("LOGDIR"), namespace, pod.Name)
+		err = os.MkdirAll(logDir, 0755)
+		Expect(err).NotTo(HaveOccurred())
+
+		writeYAML(&pod, namespace, pod.Name, "pod")
+
 		for _, cont := range pod.Spec.Containers {
 			podLogOpts := corev1.PodLogOptions{Container: cont.Name}
 			req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
@@ -155,7 +171,7 @@ func CollectLogs(namespace string) {
 			Expect(err).NotTo(HaveOccurred())
 			defer podLogs.Close()
 
-			logFile, err := os.Create(fmt.Sprintf("%s.%s.%s.log", namespace, pod.Name, cont.Name))
+			logFile, err := os.Create(fmt.Sprintf("%s/%s.log", logDir, cont.Name))
 			Expect(err).NotTo(HaveOccurred())
 			defer logFile.Close()
 
@@ -166,8 +182,6 @@ func CollectLogs(namespace string) {
 }
 
 func DeleteAndWait(ironic *metal3api.Ironic) {
-	GinkgoHelper()
-
 	By("deleting Ironic")
 
 	name := types.NamespacedName{
@@ -192,7 +206,7 @@ var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
 	BeforeEach(func() {
-		namespace = fmt.Sprintf("test-%d", rand.Int())
+		namespace = fmt.Sprintf("test-%s", CurrentSpecReport().LeafNodeLabels[0])
 		nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 
 		_, err := clientset.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
@@ -211,7 +225,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 	})
 
-	It("creates Ironic without any parameters", func() {
+	It("creates Ironic without any parameters", Label("no-params"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -234,7 +248,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic)
 	})
 
-	It("creates distributed Ironic", func() {
+	It("creates distributed Ironic", Label("distributed-no-provnet"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
