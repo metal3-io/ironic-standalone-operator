@@ -1,3 +1,28 @@
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
+.DEFAULT_GOAL:=help
+
+GO_VERSION ?= 1.21.8
+GO := $(shell type -P go)
+# Use GOPROXY environment variable if set
+GOPROXY := $(shell $(GO) env GOPROXY)
+ifeq ($(GOPROXY),)
+GOPROXY := https://proxy.golang.org
+endif
+export GOPROXY
+
+# Drectories.
+# Full directory of where the Makefile resides
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+APIS_DIR := api
+TEST_DIR := test
+BIN_DIR := bin
+
+# Active module mode, as we use go modules to manage dependencies
+export GO111MODULE=on
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -56,11 +81,6 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
-
 RUNARGS ?=
 
 .PHONY: all
@@ -88,6 +108,15 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+.PHONY: modules
+modules: ## Runs go mod to ensure proper vendoring.
+	$(GO) mod tidy
+	$(GO) mod verify
+	cd $(APIS_DIR) && $(GO) mod tidy
+	cd $(APIS_DIR) && $(GO) mod verify
+	cd $(TEST_DIR) && $(GO) mod tidy
+	cd $(TEST_DIR) && $(GO) mod verify
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
