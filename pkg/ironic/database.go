@@ -33,8 +33,9 @@ func DatabaseDNSName(db *metal3api.IronicDatabase, domain string) string {
 func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "MARIADB_DATABASE",
-			Value: db.Name,
+			Name: "MARIADB_DATABASE",
+			// NOTE(dtantsur): MariaDB does not support all symbols possible in a valid name.
+			Value: "ironic",
 		},
 		{
 			Name: "MARIADB_USER",

@@ -14,9 +14,14 @@ jobs:
     - uses: helm/kind-action@v1
       with:
         cluster_name: kind
-    - name: Prepare and run the tests
-      run: NOCLEAN=1 ./test/functional.sh
-
+    - name: Prepare tests
+      run: ./test/prepare.sh
+    - name: Run tests
+      run: cd test && go test -timeout 60m
+    # TODO(dtantsur): turn this into a normal artifact collection
+    - name: Show any local logs
+      run: cat test/*.log
+      if: always()
     - name: Show the deployment
       run: kubectl get -o yaml -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
       if: always()

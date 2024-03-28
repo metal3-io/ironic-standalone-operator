@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"testing"
@@ -98,10 +99,34 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		if cond != nil && cond.Status == metav1.ConditionTrue {
 			return true
 		}
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
 
-		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic)
+		deployName := fmt.Sprintf("%s-service", name.Name)
+		if ironic.Spec.Distributed {
+			deploy, err := clientset.AppsV1().DaemonSets(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+			if err == nil {
+				GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
+			} else if !k8serrors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		} else {
+			deploy, err := clientset.AppsV1().Deployments(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+			if err == nil {
+				GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
+			} else if !k8serrors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		}
+
+		pods, err := clientset.CoreV1().Pods(name.Namespace).List(ctx, metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, pod := range pods.Items {
+			GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+		}
+
 		return false
-	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
 	return ironic
 }
@@ -114,6 +139,30 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 	svc, err := clientset.CoreV1().Services(ironic.Namespace).Get(ctx, ironic.Name, metav1.GetOptions{})
 	GinkgoWriter.Printf("Ironic service: %+v\n", svc)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func CollectLogs(namespace string) {
+	GinkgoHelper()
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, pod := range pods.Items {
+		for _, cont := range pod.Spec.Containers {
+			podLogOpts := corev1.PodLogOptions{Container: cont.Name}
+			req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
+			podLogs, err := req.Stream(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			defer podLogs.Close()
+
+			logFile, err := os.Create(fmt.Sprintf("%s.%s.%s.log", namespace, pod.Name, cont.Name))
+			Expect(err).NotTo(HaveOccurred())
+			defer logFile.Close()
+
+			_, err = io.Copy(logFile, podLogs)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
 }
 
 func DeleteAndWait(ironic *metal3api.Ironic) {
@@ -177,6 +226,46 @@ var _ = Describe("Ironic object tests", func() {
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic)
+	})
+
+	It("creates distributed Ironic", func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironicDb := &metal3api.IronicDatabase{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-db", name.Name),
+				Namespace: name.Namespace,
+			},
+		}
+
+		err := k8sClient.Create(ctx, ironicDb)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				DatabaseRef: corev1.LocalObjectReference{
+					Name: ironicDb.Name,
+				},
+				Distributed: true,
+			},
+		}
+		err = k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
 			DeleteAndWait(ironic)
 		})
 
