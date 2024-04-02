@@ -93,7 +93,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		err := k8sClient.Get(ctx, name, ironic)
 		Expect(err).NotTo(HaveOccurred())
 
-		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusAvailable))
+		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
 		if cond != nil && cond.Status == metav1.ConditionTrue {
 			return true
 		}

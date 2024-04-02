@@ -3,11 +3,12 @@ package v1alpha1
 type IronicStatusConditionType string
 
 const (
-	// Available indicates that Ironic is fully available
-	IronicStatusAvailable IronicStatusConditionType = "Available"
+	// Ready indicates that Ironic is fully available.
+	IronicStatusReady IronicStatusConditionType = "Ready"
 
-	// Progressing indicates that Ironic deployment is in progress
-	IronicStatusProgressing IronicStatusConditionType = "Progressing"
+	IronicReasonFailed     = "DeploymentFailed"
+	IronicReasonInProgress = "DeploymentInProgress"
+	IronicReasonAvailable  = "DeploymentAvailable"
 
 	IronicOperatorLabel = "metal3.io/ironic-standalone-operator"
 )
