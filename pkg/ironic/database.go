@@ -130,7 +130,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 	}
 }
 
-func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
+func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
@@ -145,7 +145,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)
 	})
 	if err != nil {
-		return metal3api.IronicStatusProgressing, err
+		return false, err
 	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("database deployment", "Deployment", deploy.Name, "Status", result)
@@ -153,7 +153,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 	return getDeploymentStatus(cctx, deploy)
 }
 
-func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (metal3api.IronicStatusConditionType, error) {
+func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
@@ -180,15 +180,15 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 		cctx.Logger.Info("database service", "Service", service.Name, "Status", result)
 	}
 	if err != nil || len(service.Spec.ClusterIPs) == 0 {
-		return metal3api.IronicStatusProgressing, err
+		return false, err
 	}
-	return metal3api.IronicStatusAvailable, nil
+	return true, nil
 }
 
 // EnsureDatabase ensures MariaDB is running with the current configuration.
-func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (status metal3api.IronicStatusConditionType, err error) {
-	status, err = ensureDatabaseDeployment(cctx, db)
-	if err != nil || status != metal3api.IronicStatusAvailable {
+func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (ready bool, err error) {
+	ready, err = ensureDatabaseDeployment(cctx, db)
+	if err != nil || !ready {
 		return
 	}
 

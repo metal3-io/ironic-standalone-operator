@@ -90,11 +90,11 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	}
 }
 
-func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (metal3api.IronicStatusConditionType, error) {
+func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (bool, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return metal3api.IronicStatusProgressing, nil
+		return false, nil
 	}
 
 	var available bool
@@ -105,24 +105,24 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (met
 		}
 		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Status == corev1.ConditionTrue {
 			err = fmt.Errorf("deployment failed: %s", cond.Message)
-			return metal3api.IronicStatusProgressing, err
+			return false, err
 		}
 	}
 
 	if available {
-		return metal3api.IronicStatusAvailable, nil
+		return true, nil
 	} else {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
 			"Conditions", deploy.Status.Conditions)
-		return metal3api.IronicStatusProgressing, nil
+		return false, nil
 	}
 }
 
-func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (metal3api.IronicStatusConditionType, error) {
+func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (bool, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return metal3api.IronicStatusProgressing, nil
+		return false, nil
 	}
 
 	var available bool
@@ -142,11 +142,11 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (metal
 	available = deploy.Status.NumberUnavailable == 0
 
 	if available {
-		return metal3api.IronicStatusAvailable, nil
+		return true, nil
 	} else {
 		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
 			"NumberUnavailable", deploy.Status.NumberUnavailable)
-		return metal3api.IronicStatusProgressing, nil
+		return false, nil
 	}
 }
 
@@ -191,7 +191,7 @@ func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 }
 
 func isReady(conditions []metav1.Condition) bool {
-	return meta.IsStatusConditionTrue(conditions, string(metal3api.IronicStatusAvailable))
+	return meta.IsStatusConditionTrue(conditions, string(metal3api.IronicStatusReady))
 }
 
 func appendStringEnv(envVars []corev1.EnvVar, name string, value string) []corev1.EnvVar {

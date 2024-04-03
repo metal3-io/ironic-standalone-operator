@@ -58,13 +58,7 @@ Status:
     Observed Generation:   2
     Reason:                DeploymentAvailable
     Status:                True
-    Type:                  Available
-    Last Transition Time:  2023-08-25T13:05:35Z
-    Message:               ironic is available
-    Observed Generation:   2
-    Reason:                DeploymentAvailable
-    Status:                False
-    Type:                  Progressing
+    Type:                  Ready
 ```
 
 Now you can see the service that can be used to access Ironic (it has the same

@@ -111,17 +111,18 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return
 	}
 
-	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
+	ready, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
 	if err != nil {
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentFailed", err.Error())
-	} else if status != metal3api.IronicStatusAvailable {
+		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
+			metal3api.IronicStatusReady, false, metal3api.IronicReasonFailed, err.Error())
+	} else if !ready {
 		cctx.Logger.Info("ironic deployment is still progressing")
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, false, "DeploymentInProgress", "deployment is not ready yet")
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusProgressing, true, "DeploymentInProgress", "deployment is in progress")
+		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
+			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "deployment is not ready yet")
 	} else {
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusAvailable, true, "DeploymentAvailable", "ironic is available")
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation, metal3api.IronicStatusProgressing, false, "DeploymentAvailable", "ironic is available")
+		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
+			metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, "ironic is available")
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {
