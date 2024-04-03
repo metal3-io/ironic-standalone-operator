@@ -14,6 +14,7 @@ jobs:
     - uses: helm/kind-action@v1
       with:
         cluster_name: kind
+        config: ./test/kind.yaml
     - name: Prepare tests
       run: LOGDIR=/tmp/logs ./test/prepare.sh
     - name: Run tests
