@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -28,6 +29,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/conductors"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -83,6 +89,20 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 })
+
+func NewNoAuthClient(endpoint string) (*gophercloud.ServiceClient, error) {
+	return noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
+		IronicEndpoint: endpoint,
+	})
+}
+
+func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.ServiceClient, error) {
+	return httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
+		IronicEndpoint:     endpoint,
+		IronicUser:         string(secret.Data[corev1.BasicAuthUsernameKey]),
+		IronicUserPassword: string(secret.Data[corev1.BasicAuthPasswordKey]),
+	})
+}
 
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{}
@@ -151,6 +171,57 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 	Expect(err).NotTo(HaveOccurred())
 
 	writeYAML(svc, svc.Namespace, svc.Name, "service")
+
+	Expect(svc.Spec.ClusterIPs).ToNot(BeEmpty())
+
+	By("fetching the authentication secret")
+
+	secret, err := clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.CredentialsRef.Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("checking Ironic authentication")
+
+	// Do not let the test get stuck here in case of connection issues
+	withTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	cli, err := NewNoAuthClient("http://127.0.0.1:6385")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(withTimeout)
+	Expect(err).To(HaveOccurred())
+
+	By("checking Ironic conductor list")
+
+	cli, err = NewHTTPBasicClient("http://127.0.0.1:6385", secret)
+	Expect(err).NotTo(HaveOccurred())
+	cli.Microversion = "1.81" // minimum version supported by BMO
+
+	conductorPager, err := conductors.List(cli, conductors.ListOpts{}).AllPages(withTimeout)
+	Expect(err).NotTo(HaveOccurred())
+	conductors, err := conductors.ExtractConductors(conductorPager)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(conductors).NotTo(BeEmpty())
+
+	By("creating and deleting a lot of Nodes")
+
+	withTimeout, cancel = context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	drivers := []string{"ipmi", "redfish"}
+	var nodeUUIDs []string
+	for idx := 0; idx < 100; idx++ {
+		node, err := nodes.Create(withTimeout, cli, nodes.CreateOpts{
+			Driver: drivers[rand.Intn(len(drivers))],
+			Name:   fmt.Sprintf("node-%d", idx),
+		}).Extract()
+		Expect(err).NotTo(HaveOccurred())
+		nodeUUIDs = append(nodeUUIDs, node.UUID)
+	}
+
+	for _, nodeUUID := range nodeUUIDs {
+		err = nodes.Delete(withTimeout, cli, nodeUUID).ExtractErr()
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func CollectLogs(namespace string) {
