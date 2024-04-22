@@ -197,6 +197,11 @@ type IronicSpec struct {
 	// RamdiskSSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
 	// +optional
 	RamdiskSSHKey string `json:"ramdiskSSHKey,omitempty"`
+	// NodeSelector is a selector which must be true for the Ironic pod to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // IronicStatus defines the observed state of Ironic

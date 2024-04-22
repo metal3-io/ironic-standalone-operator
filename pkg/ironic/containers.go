@@ -513,8 +513,9 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			InitContainers: initContainers,
 			Volumes:        volumes,
 			// Ironic needs to be accessed by external machines
-			HostNetwork: true,
-			DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
+			HostNetwork:  true,
+			DNSPolicy:    corev1.DNSClusterFirstWithHostNet,
+			NodeSelector: ironic.Spec.NodeSelector,
 		},
 	}, nil
 }
