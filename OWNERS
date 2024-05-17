@@ -1,9 +1,8 @@
-# See the OWNERS docs at https://go.k8s.io/owners
+# See the OWNERS docs at <https://go.k8s.io/owners>
 
 approvers:
- - dtantsur
+- ironic-standalone-operator-maintainers
 
 reviewers:
- - elfosardo
- - lentzi90
- - Rozzii
+- ironic-standalone-operator-maintainers
+- ironic-standalone-operator-reviewers
