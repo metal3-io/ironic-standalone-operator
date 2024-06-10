@@ -2,15 +2,22 @@ name: Functional
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   functional:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Calculate go version
+      id: vars
+      run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
+    - name: Set up Go
+      uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version: ${{ steps.vars.outputs.go_version }}
     - uses: helm/kind-action@v1
       with:
         cluster_name: kind

@@ -281,3 +281,7 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+##@ helpers:
+go-version: ## Print the go version we use to compile our binaries and images
+	@echo $(GO_VERSION)
