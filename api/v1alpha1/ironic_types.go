@@ -144,6 +144,11 @@ type Images struct {
 	// +kubebuilder:default=quay.io/metal3-io/ironic-ipa-downloader
 	// +optional
 	RamdiskDownloader string `json:"ramdiskDownloader,omitempty"`
+
+	// DisableRamdiskDownloader turns off the ramdisk downloader.
+	// +kubebuilder:default=false
+	// +optional
+	DisableRamdiskDownloader bool `json:"disableRamdiskDownloader,omitempty"`
 }
 
 // IronicSpec defines the desired state of Ironic
