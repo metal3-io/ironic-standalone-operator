@@ -105,6 +105,10 @@ spec:
                       AgentDownloadURL is the base URL from which IPA should be downloaded.
                       The default value should be good for most users.
                     type: string
+                  disableRamdiskDownloader:
+                    default: false
+                    description: DisableRamdiskDownloader turns off the ramdisk downloader.
+                    type: boolean
                   ironic:
                     default: quay.io/metal3-io/ironic
                     description: Ironic is the Ironic image (including httpd).
