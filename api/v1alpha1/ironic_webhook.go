@@ -203,7 +203,7 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		}
 	}
 
-	if ironic.Images.AgentDownloadURL != "" {
+	if !ironic.Images.DisableRamdiskDownloader && ironic.Images.AgentDownloadURL != "" {
 		if _, err := url.Parse(ironic.Images.AgentDownloadURL); err != nil {
 			return fmt.Errorf("images.agentDownloadURL is not a valid URL: %w", err)
 		}

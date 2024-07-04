@@ -417,32 +417,15 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		htpasswd = apiSecret.Name
 	}
 
-	var ipaDownloaderVars []corev1.EnvVar
-	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BASEURI", ironic.Spec.Images.AgentDownloadURL)
-	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BRANCH", ironic.Spec.Images.AgentBranch)
-
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
-	initContainers := []corev1.Container{
-		{
-			Name:         "ipa-downloader",
-			Image:        ironic.Spec.Images.RamdiskDownloader,
-			Env:          ipaDownloaderVars,
-			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  ptr.To(ironicUser),
-				RunAsGroup: ptr.To(ironicGroup),
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
-			},
-		},
+
+	var initContainers []corev1.Container
+	if !ironic.Spec.Images.DisableRamdiskDownloader {
+		initContainers = newInitContainers(ironic, sharedVolumeMount)
 	}
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
-
 	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLSRef.Name != "", int(ironic.Spec.Networking.APIPort), "/v1")
 	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), "/images")
 
@@ -518,4 +501,26 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 			NodeSelector: ironic.Spec.NodeSelector,
 		},
 	}, nil
+}
+
+func newInitContainers(ironic *metal3api.Ironic, sharedVolumeMount corev1.VolumeMount) []corev1.Container {
+	var ipaDownloaderVars []corev1.EnvVar
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars, "IPA_BASEURI", ironic.Spec.Images.AgentDownloadURL)
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars, "IPA_BRANCH", ironic.Spec.Images.AgentBranch)
+
+	return []corev1.Container{
+		{
+			Name:         "ipa-downloader",
+			Image:        ironic.Spec.Images.RamdiskDownloader,
+			Env:          ipaDownloaderVars,
+			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  ptr.To(ironicUser),
+				RunAsGroup: ptr.To(ironicGroup),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+			},
+		},
+	}
 }
