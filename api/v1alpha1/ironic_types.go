@@ -124,28 +124,6 @@ type Networking struct {
 	MACAddresses []string `json:"macAddresses,omitempty"`
 }
 
-type Images struct {
-	// AgentBranch is the branch of IPA to download. The main branch is used by default.
-	// +optional
-	AgentBranch string `json:"agentBranch,omitempty"`
-
-	// AgentDownloadURL is the base URL from which IPA should be downloaded.
-	// The default value should be good for most users.
-	// +optional
-	AgentDownloadURL string `json:"agentDownloadURL,omitempty"`
-
-	// Ironic is the Ironic image (including httpd).
-	// +kubebuilder:default=quay.io/metal3-io/ironic
-	// +kubebuilder:validation:MinLength=1
-	// +optional
-	Ironic string `json:"ironic,omitempty"`
-
-	// RamdiskDownloader is the image to be used at pod initialization to download the IPA ramdisk.
-	// +kubebuilder:default=quay.io/metal3-io/ironic-ipa-downloader
-	// +optional
-	RamdiskDownloader string `json:"ramdiskDownloader,omitempty"`
-}
-
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// CredentialsRef is a reference to the secret with Ironic API credentials.
@@ -175,9 +153,6 @@ type IronicSpec struct {
 	// +optional
 	Distributed bool `json:"distributed,omitempty"`
 
-	// Images is a collection of container images to deploy from.
-	Images Images `json:"images,omitempty"`
-
 	// Inspection defines inspection settings
 	Inspection Inspection `json:"inspection,omitempty"`
 
@@ -204,6 +179,12 @@ type IronicSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
+// InstalledVersion identifies which version of Ironic was installed.
+type InstalledVersion struct {
+	// Branch of Ironic that was installed.
+	Branch string `json:"branch"`
+}
+
 // IronicStatus defines the observed state of Ironic
 type IronicStatus struct {
 	// Conditions describe the state of the Ironic deployment.
@@ -213,6 +194,10 @@ type IronicStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	// InstalledVersion identifies which version of Ironic was installed.
+	// +optional
+	InstalledVersion *InstalledVersion `json:"installedVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -364,7 +364,7 @@ func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path str
 	}
 }
 
-func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
+func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
 	envVars := buildCommonEnvVars(ironic)
@@ -390,7 +390,7 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 
 	return corev1.Container{
 		Name:    "dnsmasq",
-		Image:   ironic.Spec.Images.Ironic,
+		Image:   versionInfo.IronicImage,
 		Command: []string{"/bin/rundnsmasq"},
 		Env:     envVars,
 		SecurityContext: &corev1.SecurityContext{
@@ -407,7 +407,7 @@ func newDnsmasqContainer(ironic *metal3api.Ironic) corev1.Container {
 	}
 }
 
-func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
+func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
 		if len(apiSecret.Data[htpasswdKey]) == 0 {
@@ -419,16 +419,16 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BASEURI", ironic.Spec.Images.AgentDownloadURL)
+		"IPA_BASEURI", cctx.VersionInfo.AgentDownloadURL)
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BRANCH", ironic.Spec.Images.AgentBranch)
+		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
 	initContainers := []corev1.Container{
 		{
 			Name:         "ipa-downloader",
-			Image:        ironic.Spec.Images.RamdiskDownloader,
+			Image:        cctx.VersionInfo.RamdiskDownloaderImage,
 			Env:          ipaDownloaderVars,
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
@@ -449,7 +449,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 	containers := []corev1.Container{
 		{
 			Name:         "ironic",
-			Image:        ironic.Spec.Images.Ironic,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
 			Env:          buildIronicEnvVars(ironic, db, htpasswd, domain),
 			VolumeMounts: mounts,
@@ -466,7 +466,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 		{
 			Name:         "httpd",
-			Image:        ironic.Spec.Images.Ironic,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runhttpd"},
 			Env:          buildHttpdEnvVars(ironic, htpasswd),
 			VolumeMounts: mounts,
@@ -483,7 +483,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		},
 		{
 			Name:         "ramdisk-logs",
-			Image:        ironic.Spec.Images.Ironic,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runlogwatch.sh"},
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
@@ -501,7 +501,7 @@ func newIronicPodTemplate(ironic *metal3api.Ironic, db *metal3api.IronicDatabase
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		containers = append(containers, newDnsmasqContainer(ironic))
+		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, ironic))
 	}
 
 	return corev1.PodTemplateSpec{

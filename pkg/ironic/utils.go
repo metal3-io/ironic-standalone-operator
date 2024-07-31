@@ -28,12 +28,13 @@ const (
 )
 
 type ControllerContext struct {
-	Context    context.Context
-	Client     client.Client
-	KubeClient kubernetes.Interface
-	Scheme     *runtime.Scheme
-	Logger     logr.Logger
-	Domain     string
+	Context     context.Context
+	Client      client.Client
+	KubeClient  kubernetes.Interface
+	Scheme      *runtime.Scheme
+	Logger      logr.Logger
+	Domain      string
+	VersionInfo VersionInfo
 }
 
 func mergeContainers(target, source []corev1.Container) []corev1.Container {

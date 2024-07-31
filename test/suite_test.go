@@ -115,6 +115,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 
 		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
 		if cond != nil && cond.Status == metav1.ConditionTrue {
+			Expect(ironic.Status.InstalledVersion).ToNot(BeNil())
 			return true
 		}
 		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)

@@ -42,10 +42,11 @@ import (
 // IronicReconciler reconciles a Ironic object
 type IronicReconciler struct {
 	client.Client
-	KubeClient kubernetes.Interface
-	Scheme     *runtime.Scheme
-	Log        logr.Logger
-	Domain     string
+	KubeClient  kubernetes.Interface
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	Domain      string
+	VersionInfo ironic.VersionInfo
 }
 
 //+kubebuilder:rbac:groups=metal3.io,resources=ironics,verbs=get;list;watch;create;update;patch;delete
@@ -65,12 +66,13 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger.Info("starting reconcile")
 
 	cctx := ironic.ControllerContext{
-		Context:    ctx,
-		Client:     r.Client,
-		KubeClient: r.KubeClient,
-		Scheme:     r.Scheme,
-		Logger:     logger,
-		Domain:     r.Domain,
+		Context:     ctx,
+		Client:      r.Client,
+		KubeClient:  r.KubeClient,
+		Scheme:      r.Scheme,
+		Logger:      logger,
+		Domain:      r.Domain,
+		VersionInfo: r.VersionInfo,
 	}
 
 	ironicConf, err := getIronic(cctx, req.NamespacedName)
@@ -113,6 +115,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 	ready, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
+	newStatus.InstalledVersion = nil
 	if err != nil {
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
 			metal3api.IronicStatusReady, false, metal3api.IronicReasonFailed, err.Error())
@@ -121,6 +124,9 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
 			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "deployment is not ready yet")
 	} else {
+		newStatus.InstalledVersion = &metal3api.InstalledVersion{
+			Branch: cctx.VersionInfo.InstalledVersion,
+		}
 		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
 			metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, "ironic is available")
 	}
