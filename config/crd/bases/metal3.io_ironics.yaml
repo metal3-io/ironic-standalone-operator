@@ -92,30 +92,6 @@ spec:
                   Requires database to be installed and linked to DatabaseRef.
                   EXPERIMENTAL: do not use (validation will fail)!
                 type: boolean
-              images:
-                description: Images is a collection of container images to deploy
-                  from.
-                properties:
-                  agentBranch:
-                    description: AgentBranch is the branch of IPA to download. The
-                      main branch is used by default.
-                    type: string
-                  agentDownloadURL:
-                    description: |-
-                      AgentDownloadURL is the base URL from which IPA should be downloaded.
-                      The default value should be good for most users.
-                    type: string
-                  ironic:
-                    default: quay.io/metal3-io/ironic
-                    description: Ironic is the Ironic image (including httpd).
-                    minLength: 1
-                    type: string
-                  ramdiskDownloader:
-                    default: quay.io/metal3-io/ironic-ipa-downloader
-                    description: RamdiskDownloader is the image to be used at pod
-                      initialization to download the IPA ramdisk.
-                    type: string
-                type: object
               inspection:
                 description: Inspection defines inspection settings
                 properties:
@@ -345,6 +321,16 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              installedVersion:
+                description: InstalledVersion identifies which version of Ironic was
+                  installed.
+                properties:
+                  branch:
+                    description: Branch of Ironic that was installed.
+                    type: string
+                required:
+                - branch
+                type: object
             type: object
         type: object
     served: true

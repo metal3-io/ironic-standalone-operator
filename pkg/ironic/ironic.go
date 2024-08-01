@@ -21,7 +21,7 @@ func ironicDeploymentName(ironic *metal3api.Ironic) string {
 }
 
 func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (ready bool, err error) {
-	template, err := newIronicPodTemplate(ironic, db, apiSecret, cctx.Domain)
+	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 }
 
 func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (ready bool, err error) {
-	template, err := newIronicPodTemplate(ironic, db, apiSecret, cctx.Domain)
+	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
 	if err != nil {
 		return
 	}

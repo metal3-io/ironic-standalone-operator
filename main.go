@@ -44,6 +44,7 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/controllers"
+	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -81,6 +82,7 @@ func main() {
 	var tlsOptions TLSOptions
 	var controllerConcurrency int
 	var clusterDomain string
+	var versionInfo ironic.VersionInfo
 
 	tlsCipherPreferredValues := cliflag.PreferredTLSCipherNames()
 	tlsCipherInsecureValues := cliflag.InsecureTLSCipherNames()
@@ -108,6 +110,16 @@ func main() {
 		"Number of resources of each type to process simultaneously.")
 	flag.StringVar(&clusterDomain, "cluster-domain", os.Getenv("CLUSTER_DOMAIN"),
 		"Domain name of the current cluster, e.g. cluster.local.")
+
+	flag.StringVar(&versionInfo.IronicImage, "ironic-image", os.Getenv("IRONIC_IMAGE"),
+		"Ironic image to install.")
+	flag.StringVar(&versionInfo.MariaDBImage, "mariadb-image", os.Getenv("MARIADB_IMAGE"),
+		"MariaDB image to install.")
+	flag.StringVar(&versionInfo.RamdiskDownloaderImage, "ramdisk-downloader-image", os.Getenv("RAMDISK_DOWNLOADER_IMAGE"),
+		"Ramdisk downloader image to install.")
+	flag.StringVar(&versionInfo.InstalledVersion, "ironic-version", os.Getenv("IRONIC_VERSION"),
+		"Branch of Ironic that the operator installs.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -155,11 +167,12 @@ func main() {
 	}
 
 	if err = (&controllers.IronicReconciler{
-		Client:     mgr.GetClient(),
-		KubeClient: kubeClient,
-		Scheme:     mgr.GetScheme(),
-		Log:        ctrl.Log.WithName("controllers").WithName("Ironic"),
-		Domain:     clusterDomain,
+		Client:      mgr.GetClient(),
+		KubeClient:  kubeClient,
+		Scheme:      mgr.GetScheme(),
+		Log:         ctrl.Log.WithName("controllers").WithName("Ironic"),
+		Domain:      clusterDomain,
+		VersionInfo: ironic.VersionInfoWithDefaults(versionInfo),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)
