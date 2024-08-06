@@ -89,6 +89,9 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	if source.Spec.DNSPolicy != "" {
 		target.Spec.DNSPolicy = source.Spec.DNSPolicy
 	}
+	if source.Spec.NodeSelector != nil {
+		target.Spec.NodeSelector = source.Spec.NodeSelector
+	}
 }
 
 func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (bool, error) {
