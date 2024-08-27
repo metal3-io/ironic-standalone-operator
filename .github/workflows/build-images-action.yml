@@ -1,0 +1,25 @@
+name: build-images-action
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+    - 'main'
+    - 'release-*'
+    tags:
+    - 'v*'
+
+jobs:
+  build_controller:
+    name: Build Ironic-standalone-operator container image
+    if: github.repository == 'metal3-io/ironic-standalone-operator'
+    uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
+    with:
+      image-name: 'ironic-standalone-operator'
+      pushImage: true
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
