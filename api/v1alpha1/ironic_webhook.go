@@ -176,8 +176,8 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 }
 
 func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
-	if ironic.Distributed && ironic.DatabaseRef.Name == "" {
-		return errors.New("database is required for distributed architecture")
+	if ironic.HighAvailability && ironic.DatabaseRef.Name == "" {
+		return errors.New("database is required for highly available architecture")
 	}
 
 	if old != nil && old.DatabaseRef.Name != "" && old.DatabaseRef.Name != ironic.DatabaseRef.Name {
@@ -192,8 +192,8 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return err
 	}
 
-	if ironic.Distributed && ironic.Networking.IPAddress != "" {
-		return errors.New("networking.ipAddress makes no sense with distributed architecture")
+	if ironic.HighAvailability && ironic.Networking.IPAddress != "" {
+		return errors.New("networking.ipAddress makes no sense with highly available architecture")
 	}
 
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
@@ -203,8 +203,8 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	}
 
 	// TODO(dtantsur): implement and remove (comment out for local testing)
-	if ironic.Distributed {
-		return errors.New("distributed architecture is experimental, please do not use")
+	if ironic.HighAvailability {
+		return errors.New("highly available architecture is experimental, please do not use")
 	}
 
 	return nil

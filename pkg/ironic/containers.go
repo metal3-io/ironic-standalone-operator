@@ -140,7 +140,7 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		},
 		{
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
-			Value: strconv.FormatBool(ironic.Spec.Distributed),
+			Value: strconv.FormatBool(ironic.Spec.HighAvailability),
 		},
 	}...)
 
@@ -154,7 +154,7 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 		)
 	}
 
-	if ironic.Spec.Distributed {
+	if ironic.Spec.HighAvailability {
 		result = append(result, []corev1.EnvVar{
 			// NOTE(dtantsur): this is not strictly correct but is required for JSON RPC authentication
 			{
@@ -170,7 +170,7 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 
 	// When TLS is used, httpd is responsible for authentication.
 	// When JSON RPC is enabled, the password is required for it as well.
-	if htpasswd != "" && (ironic.Spec.TLSRef.Name == "" || ironic.Spec.Distributed) {
+	if htpasswd != "" && (ironic.Spec.TLSRef.Name == "" || ironic.Spec.HighAvailability) {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -238,7 +238,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			MountPath: sharedDir,
 		},
 	}
-	if ironic.Spec.Distributed {
+	if ironic.Spec.HighAvailability {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "ironic-auth",
 			MountPath: authDir + "/ironic-rpc",
@@ -495,7 +495,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			},
 		},
 	}
-	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.Distributed {
+	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.HighAvailability {
 		metal3api.SetDHCPDefaults(ironic.Spec.Networking.DHCP)
 		err := metal3api.ValidateDHCP(&ironic.Spec, ironic.Spec.Networking.DHCP)
 		if err != nil {

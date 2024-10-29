@@ -114,7 +114,7 @@ type Networking struct {
 	Interface string `json:"interface,omitempty"`
 
 	// IPAddress is the main IP address to listen on and use for communication.
-	// Detected from Interface if missing. Cannot be provided for a distributed architecture.
+	// Detected from Interface if missing. Cannot be provided for a highly available architecture.
 	// +optional
 	IPAddress string `json:"ipAddress,omitempty"`
 
@@ -132,7 +132,7 @@ type IronicSpec struct {
 	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef,omitempty"`
 
 	// DatabaseRef defines database settings for Ironic.
-	// If missing, a local SQLite database will be used. Must be provided for a distributed architecture.
+	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
 	// +optional
 	DatabaseRef corev1.LocalObjectReference `json:"databaseRef,omitempty"`
 
@@ -143,15 +143,15 @@ type IronicSpec struct {
 
 	// DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
 	// This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
-	// Has no effect if Distributed is not set to true.
+	// Has no effect if HighAvailability is not set to true.
 	// +optional
 	DisableRPCHostValidation bool `json:"disableRPCHostValidation,omitempty"`
 
-	// Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
+	// HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
 	// Requires database to be installed and linked to DatabaseRef.
 	// EXPERIMENTAL: do not use (validation will fail)!
 	// +optional
-	Distributed bool `json:"distributed,omitempty"`
+	HighAvailability bool `json:"highAvailability,omitempty"`
 
 	// Inspection defines inspection settings
 	Inspection Inspection `json:"inspection,omitempty"`
