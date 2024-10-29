@@ -5,7 +5,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .DEFAULT_GOAL:=help
 
-GO_VERSION ?= 1.22.5
+GO_VERSION ?= 1.23.2
 GO := $(shell type -P go)
 # Use GOPROXY environment variable if set
 GOPROXY := $(shell $(GO) env GOPROXY)
