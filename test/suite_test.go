@@ -121,7 +121,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
 
 		deployName := fmt.Sprintf("%s-service", name.Name)
-		if ironic.Spec.Distributed {
+		if ironic.Spec.HighAvailability {
 			deploy, err := clientset.AppsV1().DaemonSets(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
 			if err == nil {
 				GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
@@ -320,7 +320,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic)
 	})
 
-	It("creates distributed Ironic", Label("distributed-no-provnet"), func() {
+	It("creates highly available Ironic", Label("high-availability-no-provnet"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -345,7 +345,7 @@ var _ = Describe("Ironic object tests", func() {
 				DatabaseRef: corev1.LocalObjectReference{
 					Name: ironicDb.Name,
 				},
-				Distributed: true,
+				HighAvailability: true,
 			},
 		}
 		err = k8sClient.Create(ctx, ironic)

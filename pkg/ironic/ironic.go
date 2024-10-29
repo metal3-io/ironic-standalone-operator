@@ -141,9 +141,9 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 		return
 	}
 
-	if ironic.Spec.Distributed {
+	if ironic.Spec.HighAvailability {
 		if db == nil {
-			return false, errors.New("database is required for distributed architecture")
+			return false, errors.New("database is required for highly available architecture")
 		}
 
 		err = removeIronicDeployment(cctx, ironic)

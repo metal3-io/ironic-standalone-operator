@@ -67,7 +67,7 @@ certificate must be valid for this name.
 ## HA setup
 
 HA setup is experimental and cannot be enabled by default (the validation
-webhook will reject setting `distributed` to `true`).
+webhook will reject setting `highAvailability` to `true`).
 
 The idea is to deploy ironic+httpd services in a daemon set on all control
 plane nodes, while keeping dnsmasq (if enabled) on only one of them. There

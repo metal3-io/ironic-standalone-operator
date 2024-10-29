@@ -60,7 +60,7 @@ spec:
               databaseRef:
                 description: |-
                   DatabaseRef defines database settings for Ironic.
-                  If missing, a local SQLite database will be used. Must be provided for a distributed architecture.
+                  If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
                 properties:
                   name:
                     default: ""
@@ -79,16 +79,16 @@ spec:
                 description: |-
                   DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
                   This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
-                  Has no effect if Distributed is not set to true.
+                  Has no effect if HighAvailability is not set to true.
                 type: boolean
               disableVirtualMediaTLS:
                 description: |-
                   DisableVirtualMediaTLS turns off TLS on the virtual media server,
                   which may be required for hardware that cannot accept HTTPS links.
                 type: boolean
-              distributed:
+              highAvailability:
                 description: |-
-                  Distributed causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
+                  HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
                   Requires database to be installed and linked to DatabaseRef.
                   EXPERIMENTAL: do not use (validation will fail)!
                 type: boolean
@@ -200,7 +200,7 @@ spec:
                   ipAddress:
                     description: |-
                       IPAddress is the main IP address to listen on and use for communication.
-                      Detected from Interface if missing. Cannot be provided for a distributed architecture.
+                      Detected from Interface if missing. Cannot be provided for a highly available architecture.
                     type: string
                   macAddresses:
                     description: |-
