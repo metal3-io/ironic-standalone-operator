@@ -202,9 +202,8 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		}
 	}
 
-	// TODO(dtantsur): implement and remove (comment out for local testing)
-	if ironic.HighAvailability {
-		return errors.New("highly available architecture is experimental, please do not use")
+	if !CurrentFeatureGate.Enabled(FeatureHighAvailability) {
+		return errors.New("highly available architecture is disabled via feature gate")
 	}
 
 	return nil
