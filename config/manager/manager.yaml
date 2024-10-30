@@ -41,9 +41,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        - --webhook-port 0  # FIXME(dtantsur): set up TLS and enable
-        # TODO(dtantsur): default to a published image
-        image: controller:latest
+        image: quay.io/metal3-io/ironic-standalone-operator:latest
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
