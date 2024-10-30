@@ -83,6 +83,7 @@ func main() {
 	var controllerConcurrency int
 	var clusterDomain string
 	var versionInfo ironic.VersionInfo
+	var featureGates map[string]bool
 
 	tlsCipherPreferredValues := cliflag.PreferredTLSCipherNames()
 	tlsCipherInsecureValues := cliflag.InsecureTLSCipherNames()
@@ -120,6 +121,16 @@ func main() {
 	flag.StringVar(&versionInfo.InstalledVersion, "ironic-version", os.Getenv("IRONIC_VERSION"),
 		"Branch of Ironic that the operator installs.")
 
+	featureGatesFlag := cliflag.NewMapStringBool(&featureGates)
+	if defaultFeatureGates := os.Getenv("FEATURE_GATES"); defaultFeatureGates != "" {
+		if err := featureGatesFlag.Set(defaultFeatureGates); err != nil {
+			setupLog.Error(err, "unable to parse feature gates")
+			os.Exit(1)
+		}
+	}
+	flag.Var(featureGatesFlag, "feature-gates", "A set of key=value pairs that describe feature gates:\n"+
+		strings.Join(metal3iov1alpha1.CurrentFeatureGate.KnownFeatures(), "\n"))
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -127,6 +138,13 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	if err := metal3iov1alpha1.CurrentFeatureGate.SetFromMap(featureGates); err != nil {
+		setupLog.Error(err, "unable to parse feature gates")
+		os.Exit(1)
+	}
+
+	setupLog.Info("enabling features", "FeatureGate", metal3iov1alpha1.CurrentFeatureGate.String())
 
 	config := ctrl.GetConfigOrDie()
 	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-standalone-operator"))
