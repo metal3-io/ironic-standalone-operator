@@ -7,7 +7,7 @@
 *.dll
 *.so
 *.dylib
-
+*.swp
 # Test binary, built with `go test -c`
 *.test
 
@@ -19,3 +19,7 @@ go.work
 
 # Generated binaries
 bin/
+
+# IDE files
+.idea
+.vscode/
