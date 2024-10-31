@@ -141,14 +141,9 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
 	}
 
-	provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
 	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
 	if err != nil {
 		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
-	}
-
-	if !provCIDR.Contains(provIP) {
-		return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
 	}
 
 	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
@@ -170,6 +165,14 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 	// These are supposed to be populated by the webhook
 	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
 		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
+	}
+
+	// Check that the provisioning IP is in the CIDR
+	if ironic.Networking.IPAddress != "" {
+		provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
+		if !provCIDR.Contains(provIP) {
+			return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+		}
 	}
 
 	return nil
