@@ -41,6 +41,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        envFrom:
+        - configMapRef:
+            name: ironic-standalone-operator-config
         image: quay.io/metal3-io/ironic-standalone-operator:latest
         name: manager
         securityContext:
