@@ -205,7 +205,7 @@ func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		}
 	}
 
-	if !CurrentFeatureGate.Enabled(FeatureHighAvailability) {
+	if ironic.HighAvailability && !CurrentFeatureGate.Enabled(FeatureHighAvailability) {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
 
