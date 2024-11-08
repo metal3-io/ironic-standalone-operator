@@ -1,0 +1,12 @@
+name: PR Verifier
+
+permissions: {}
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  verify:
+    name: verify PR contents
+    uses: metal3-io/project-infra/.github/workflows/pr-verifier.yaml@main
