@@ -3,9 +3,9 @@
 aliases:
   ironic-standalone-operator-maintainers:
   - dtantsur
+  - tuminoid
 
   ironic-standalone-operator-reviewers:
   - elfosardo
   - lentzi90
   - Rozzii
-  - tuminoid
