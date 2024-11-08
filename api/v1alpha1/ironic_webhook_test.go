@@ -135,7 +135,7 @@ func TestValidateIronic(t *testing.T) {
 				tc.OldIronic = &tc.Ironic
 			}
 
-			err := validateIronic(&tc.Ironic, tc.OldIronic)
+			err := ValidateIronic(&tc.Ironic, tc.OldIronic)
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 			} else {

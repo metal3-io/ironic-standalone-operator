@@ -130,7 +130,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 	}
 }
 
-func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
+func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (Status, error) {
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
@@ -145,15 +145,16 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)
 	})
 	if err != nil {
-		return false, err
+		return transientError(err)
 	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("database deployment", "Deployment", deploy.Name, "Status", result)
+		return updated()
 	}
 	return getDeploymentStatus(cctx, deploy)
 }
 
-func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (bool, error) {
+func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase) (Status, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: databaseDeploymentName(db), Namespace: db.Namespace},
 	}
@@ -178,17 +179,18 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 	})
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("database service", "Service", service.Name, "Status", result)
+		return updated()
 	}
-	if err != nil || len(service.Spec.ClusterIPs) == 0 {
-		return false, err
+	if err != nil {
+		return transientError(err)
 	}
-	return true, nil
+	return getServiceStatus(service)
 }
 
 // EnsureDatabase ensures MariaDB is running with the current configuration.
-func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (ready bool, err error) {
-	ready, err = ensureDatabaseDeployment(cctx, db)
-	if err != nil || !ready {
+func EnsureDatabase(cctx ControllerContext, db *metal3api.IronicDatabase) (status Status, err error) {
+	status, err = ensureDatabaseDeployment(cctx, db)
+	if err != nil || !status.IsReady() {
 		return
 	}
 

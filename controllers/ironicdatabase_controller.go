@@ -112,20 +112,14 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return true, nil
 	}
 
-	ready, err := ironic.EnsureDatabase(cctx, db)
+	status, err := ironic.EnsureDatabase(cctx, db)
 	newStatus := db.Status.DeepCopy()
 	if err != nil {
-		cctx.Logger.Error(err, "failed to create or update database")
-		setCondition(cctx, &newStatus.Conditions, db.Generation,
-			metal3api.IronicStatusReady, false, metal3api.IronicReasonFailed, err.Error())
-	} else if !ready {
-		requeue = true
-		setCondition(cctx, &newStatus.Conditions, db.Generation,
-			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "deployment is not ready yet")
-	} else {
-		setCondition(cctx, &newStatus.Conditions, db.Generation,
-			metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, "database is available")
+		cctx.Logger.Error(err, "potentially transient error, will retry")
+		return
 	}
+
+	requeue = setConditionsFromStatus(cctx, status, &newStatus.Conditions, db.Generation, "database")
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &db.Status) {
 		cctx.Logger.Info("updating status", "Status", newStatus)

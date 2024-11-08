@@ -94,11 +94,11 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	}
 }
 
-func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (bool, error) {
+func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Status, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return false, nil
+		return inProgress()
 	}
 
 	var available bool
@@ -109,24 +109,25 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (boo
 		}
 		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Status == corev1.ConditionTrue {
 			err = fmt.Errorf("deployment failed: %s", cond.Message)
-			return false, err
+			// TODO(dtantsur): can we determine if it's fatal or not?
+			return transientError(err)
 		}
 	}
 
 	if available {
-		return true, nil
+		return ready()
 	} else {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
 			"Conditions", deploy.Status.Conditions)
-		return false, nil
+		return inProgress()
 	}
 }
 
-func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (bool, error) {
+func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Status, error) {
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return false, nil
+		return inProgress()
 	}
 
 	var available bool
@@ -146,12 +147,21 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (bool,
 	available = deploy.Status.NumberUnavailable == 0
 
 	if available {
-		return true, nil
+		return ready()
 	} else {
 		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
 			"NumberUnavailable", deploy.Status.NumberUnavailable)
-		return false, nil
+		return inProgress()
 	}
+}
+
+func getServiceStatus(service *corev1.Service) (Status, error) {
+	// TODO(dtantsur): can we check anything else?
+	if len(service.Spec.ClusterIPs) == 0 {
+		return inProgress()
+	}
+
+	return ready()
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {

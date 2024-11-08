@@ -113,22 +113,19 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return
 	}
 
-	ready, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
+	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
 	newStatus := ironicConf.Status.DeepCopy()
 	newStatus.InstalledVersion = nil
 	if err != nil {
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
-			metal3api.IronicStatusReady, false, metal3api.IronicReasonFailed, err.Error())
-	} else if !ready {
-		cctx.Logger.Info("ironic deployment is still progressing")
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
-			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "deployment is not ready yet")
-	} else {
+		cctx.Logger.Error(err, "potentially transient error, will retry")
+		return
+	}
+
+	requeue = setConditionsFromStatus(cctx, status, &newStatus.Conditions, ironicConf.Generation, "ironic")
+	if !requeue {
 		newStatus.InstalledVersion = &metal3api.InstalledVersion{
 			Branch: cctx.VersionInfo.InstalledVersion,
 		}
-		setCondition(cctx, &newStatus.Conditions, ironicConf.Generation,
-			metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, "ironic is available")
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {
