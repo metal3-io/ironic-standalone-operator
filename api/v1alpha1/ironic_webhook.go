@@ -86,13 +86,13 @@ var _ webhook.Validator = &Ironic{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateCreate() (warnings admission.Warnings, err error) {
 	ironiclog.Info("validate create", "name", r.Name)
-	return nil, validateIronic(&r.Spec, nil)
+	return nil, ValidateIronic(&r.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Ironic) ValidateUpdate(old runtime.Object) (warnings admission.Warnings, err error) {
 	ironiclog.Info("validate update", "name", r.Name)
-	return nil, validateIronic(&r.Spec, &old.(*Ironic).Spec)
+	return nil, ValidateIronic(&r.Spec, &old.(*Ironic).Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -178,7 +178,7 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 	return nil
 }
 
-func validateIronic(ironic *IronicSpec, old *IronicSpec) error {
+func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	if ironic.HighAvailability && ironic.DatabaseRef.Name == "" {
 		return errors.New("database is required for highly available architecture")
 	}

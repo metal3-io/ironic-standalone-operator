@@ -104,3 +104,24 @@ func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *me
 
 	return
 }
+
+func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status, conditions *[]metav1.Condition, generation int64, resource string) (requeue bool) {
+	message := fmt.Sprintf("%s: %s", resource, status)
+
+	if !status.IsReady() {
+		reason := metal3api.IronicReasonInProgress
+		if status.IsError() {
+			reason = metal3api.IronicReasonFailed
+		}
+
+		cctx.Logger.Info(status.String())
+		setCondition(cctx, conditions, generation, metal3api.IronicStatusReady, false, reason, message)
+
+		requeue = status.Fatal == nil
+		return
+	}
+
+	setCondition(cctx, conditions, generation,
+		metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, message)
+	return
+}
