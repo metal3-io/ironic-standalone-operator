@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /mutate-metal3-io-v1alpha1-ironic
   failurePolicy: Fail
-  name: mironic.kb.io
+  name: mutate-ironic.metal3.io
   rules:
   - apiGroups:
     - metal3.io
@@ -32,7 +32,7 @@ webhooks:
       namespace: system
       path: /mutate-metal3-io-v1alpha1-ironicdatabase
   failurePolicy: Fail
-  name: mironicdatabase.kb.io
+  name: mutate-ironicdatabase.metal3.io
   rules:
   - apiGroups:
     - metal3.io
@@ -58,7 +58,7 @@ webhooks:
       namespace: system
       path: /validate-metal3-io-v1alpha1-ironic
   failurePolicy: Fail
-  name: vironic.kb.io
+  name: validate-ironic.metal3.io
   rules:
   - apiGroups:
     - metal3.io
@@ -78,7 +78,7 @@ webhooks:
       namespace: system
       path: /validate-metal3-io-v1alpha1-ironicdatabase
   failurePolicy: Fail
-  name: vironicdatabase.kb.io
+  name: validate-ironicdatabase.metal3.io
   rules:
   - apiGroups:
     - metal3.io
