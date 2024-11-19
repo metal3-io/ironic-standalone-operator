@@ -260,6 +260,16 @@ type Database struct {
 	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
 }
 
+type Overrides struct {
+	// Extra annotations to add to each container.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Extra labels to add to each container.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic.
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
@@ -305,6 +315,11 @@ type IronicSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Overrides for the generated Deployment or Daemon Set.
+	// EXPERIMENTAL: requires feature gate Overrides.
+	// +optional
+	Overrides *Overrides `json:"overrides,omitempty"`
 
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional

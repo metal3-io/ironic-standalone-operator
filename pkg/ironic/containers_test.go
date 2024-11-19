@@ -220,3 +220,39 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 
 	assert.Equal(t, expectedExtraVars, extraVars)
 }
+
+func TestAnnotationLabelOverrides(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{"htpasswd": []byte("abcd")},
+	}
+	ironic := &metal3api.Ironic{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "test",
+		},
+		Spec: metal3api.IronicSpec{
+			Overrides: &metal3api.Overrides{
+				Annotations: map[string]string{
+					"annotation.example.com": "my-annotation",
+				},
+				Labels: map[string]string{
+					"label.example.com": "my-label",
+				},
+			},
+		},
+	}
+
+	version, err := cctx.VersionInfo.WithIronicOverrides(ironic)
+	require.NoError(t, err)
+	cctx.VersionInfo = version
+
+	resources := Resources{Ironic: ironic, APISecret: secret}
+	podTemplate, err := newIronicPodTemplate(cctx, resources)
+	require.NoError(t, err)
+
+	assert.Equal(t, "my-annotation", podTemplate.Annotations["annotation.example.com"])
+	assert.NotEqual(t, "", podTemplate.Annotations["ironic.metal3.io/api-secret-version"])
+	assert.Equal(t, "my-label", podTemplate.Labels["label.example.com"])
+	assert.Equal(t, "test", podTemplate.Labels[metal3api.IronicServiceLabel])
+}

@@ -652,7 +652,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
-	return corev1.PodTemplateSpec{
+	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicAppLabel:     ironicDeploymentName(resources.Ironic),
@@ -670,5 +670,5 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			DNSPolicy:    corev1.DNSClusterFirstWithHostNet,
 			NodeSelector: resources.Ironic.Spec.NodeSelector,
 		},
-	}, nil
+	}), nil
 }

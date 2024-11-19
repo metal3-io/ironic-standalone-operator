@@ -155,6 +155,14 @@ More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/<br
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecoverrides">overrides</a></b></td>
+        <td>object</td>
+        <td>
+          Overrides for the generated Deployment or Daemon Set.
+EXPERIMENTAL: requires feature gate Overrides.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#ironicspectls">tls</a></b></td>
         <td>object</td>
         <td>
@@ -590,6 +598,41 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides
+<sup><sup>[↩ Parent](#ironicspec)</sup></sup>
+
+
+
+Overrides for the generated Deployment or Daemon Set.
+EXPERIMENTAL: requires feature gate Overrides.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          Extra annotations to add to each container.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          Extra labels to add to each container.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
