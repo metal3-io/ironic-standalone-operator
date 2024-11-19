@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -62,5 +64,9 @@ func (r *IronicDatabase) ValidateDelete() (warnings admission.Warnings, err erro
 }
 
 func validateDatabase(db *IronicDatabaseSpec, old *IronicDatabaseSpec) error {
+	if db.Overrides != nil && !CurrentFeatureGate.Enabled(FeatureOverrides) {
+		return errors.New("overrides are disabled via feature gate")
+	}
+
 	return nil
 }

@@ -33,6 +33,11 @@ type IronicDatabaseSpec struct {
 	// +optional
 	Image string `json:"image,omitempty"`
 
+	// Overrides for the generated Deployment or Daemon Set.
+	// EXPERIMENTAL: requires feature gate Overrides.
+	// +optional
+	Overrides *Overrides `json:"overrides,omitempty"`
+
 	// TLSCertificateName is a reference to the secret with the database TLS certificate.
 	// +optional
 	TLSCertificateName string `json:"tlsCertificateName,omitempty"`

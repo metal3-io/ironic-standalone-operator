@@ -7,11 +7,13 @@ import (
 
 const (
 	FeatureHighAvailability featuregate.Feature = "HighAvailability"
+	FeatureOverrides        featuregate.Feature = "Overrides"
 )
 
 var (
 	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{
 		FeatureHighAvailability: {Default: false, PreRelease: featuregate.Alpha},
+		FeatureOverrides:        {Default: false, PreRelease: featuregate.Beta},
 	}
 
 	CurrentFeatureGate = featuregate.NewFeatureGate()

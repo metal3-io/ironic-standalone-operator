@@ -64,6 +64,28 @@ func TestExpectedContainers(t *testing.T) {
 			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs"},
 			ExpectedInitContainerNames: []string{},
 		},
+		{
+			Scenario: "Overrides",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					InitContainers: []corev1.Container{
+						{
+							Name: "new-init",
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "new-1",
+						},
+						{
+							Name: "new-2",
+						},
+					},
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs", "new-1", "new-2"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader", "new-init"},
+		},
 	}
 
 	for _, tc := range testCases {

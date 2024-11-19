@@ -3,6 +3,7 @@ package ironic
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"sort"
 	"strings"
@@ -228,4 +229,48 @@ func appendListOfStringsEnv(envVars []corev1.EnvVar, name string, value []string
 	}
 
 	return envVars
+}
+
+// Merge maps, keys from m1 have priority over ones from m2.
+func mergeMaps[M ~map[K]V, K, V comparable](m1 M, m2 M) M {
+	if m2 == nil {
+		return m1
+	}
+
+	result := maps.Clone(m2)
+	maps.Copy(result, m1)
+	return result
+}
+
+func applyOverridesToContainers(overrides *metal3api.Overrides, containers []corev1.Container) []corev1.Container {
+	if overrides == nil || containers == nil {
+		return containers
+	}
+
+	result := make([]corev1.Container, 0, len(containers))
+	for _, cont := range containers {
+		// FIXME(dtantsur): handle duplicates?
+		cont.Env = append(cont.Env, overrides.Env...)
+		cont.EnvFrom = append(cont.EnvFrom, overrides.EnvFrom...)
+		result = append(result, cont)
+	}
+
+	return result
+}
+
+func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
+	if overrides == nil {
+		return podTemplate
+	}
+
+	// Always preserve built-in annotations and labels
+	podTemplate.Annotations = mergeMaps(podTemplate.Annotations, overrides.Annotations)
+	podTemplate.Labels = mergeMaps(podTemplate.Labels, overrides.Labels)
+
+	podTemplate.Spec.Containers = applyOverridesToContainers(overrides,
+		append(podTemplate.Spec.Containers, overrides.Containers...))
+	podTemplate.Spec.InitContainers = applyOverridesToContainers(overrides,
+		append(podTemplate.Spec.InitContainers, overrides.InitContainers...))
+
+	return podTemplate
 }

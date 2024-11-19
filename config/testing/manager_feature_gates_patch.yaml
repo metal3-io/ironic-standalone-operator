@@ -10,4 +10,4 @@ spec:
         - name: manager
           env:
             - name: FEATURE_GATES
-              value: HighAvailability=true
+              value: HighAvailability=true,Overrides=true

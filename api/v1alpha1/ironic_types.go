@@ -208,6 +208,11 @@ type IronicSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Overrides for the generated Deployment or Daemon Set.
+	// EXPERIMENTAL: requires feature gate Overrides.
+	// +optional
+	Overrides *Overrides `json:"overrides,omitempty"`
+
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`

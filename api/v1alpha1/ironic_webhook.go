@@ -218,5 +218,9 @@ func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
 
+	if ironic.Overrides != nil && !CurrentFeatureGate.Enabled(FeatureOverrides) {
+		return errors.New("overrides are disabled via feature gate")
+	}
+
 	return nil
 }
