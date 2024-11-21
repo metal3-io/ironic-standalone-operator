@@ -19,8 +19,10 @@ const (
 	imagesPortName    = "image-svc"
 	imagesTLSPortName = "image-svc-tls"
 
-	ironicUser  int64 = 997
-	ironicGroup int64 = 994
+	ironicUser      int64 = 997
+	ironicGroup     int64 = 994
+	keepalivedUser  int64 = 65532
+	keepalivedGroup int64 = 65532
 
 	authDir   = "/auth"
 	certsDir  = "/certs"
@@ -407,6 +409,35 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 	}
 }
 
+func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "PROVISIONING_IP",
+			Value: ironic.Spec.Networking.IPAddress,
+		},
+		{
+			Name:  "PROVISIONING_INTERFACE",
+			Value: ironic.Spec.Networking.Interface,
+		},
+	}
+
+	return corev1.Container{
+		Name:  "keepalived",
+		Image: versionInfo.KeepalivedImage,
+		Env:   envVars,
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:                ptr.To(keepalivedUser),
+			RunAsGroup:               ptr.To(keepalivedGroup),
+			Privileged:               ptr.To(false),
+			AllowPrivilegeEscalation: ptr.To(true),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+				Add:  []corev1.Capability{"NET_ADMIN", "NET_BROADCAST", "NET_RAW"},
+			},
+		},
+	}
+}
+
 func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
@@ -502,6 +533,10 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			return corev1.PodTemplateSpec{}, err
 		}
 		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, ironic))
+	}
+
+	if ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
+		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, ironic))
 	}
 
 	return corev1.PodTemplateSpec{

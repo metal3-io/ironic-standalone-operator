@@ -75,6 +75,13 @@ type DHCP struct {
 	ServeDNS bool `json:"serveDNS,omitempty"`
 }
 
+type IPAddressManager string
+
+const (
+	IPAddressManagerNone       IPAddressManager = ""
+	IPAddressManagerKeepalived IPAddressManager = "keepalived"
+)
+
 // Networking defines networking settings for Ironic
 type Networking struct {
 	// APIPort is the public port used for Ironic.
@@ -117,6 +124,14 @@ type Networking struct {
 	// Detected from Interface if missing. Cannot be provided for a highly available architecture.
 	// +optional
 	IPAddress string `json:"ipAddress,omitempty"`
+
+	// Configures the way the provided IP address will be managed on the provided interface.
+	// By default, the IP address is expected to be already present.
+	// Use "keepalived" to start a Keepalived container managing the IP address.
+	// Warning: keepalived is not compatible with the highly available architecture.
+	// +kubebuilder:validation:Enum="";keepalived
+	// +optional
+	IPAddressManager IPAddressManager `json:"ipAddressManager,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.

@@ -324,6 +324,39 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic)
 	})
 
+	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "172.22.0.1/24",
+					},
+					Interface:        "eth0",
+					IPAddress:        "172.22.0.2",
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+				},
+			},
+		}
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic)
+	})
+
 	It("creates highly available Ironic", Label("high-availability-no-provnet"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",

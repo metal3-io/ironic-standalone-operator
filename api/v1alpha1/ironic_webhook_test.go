@@ -127,6 +127,68 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "highly available architecture is disabled",
 		},
+		{
+			Scenario: "With Keepalived, no DHCP",
+			Ironic: IronicSpec{
+				Networking: Networking{
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: IPAddressManagerKeepalived,
+				},
+			},
+		},
+		{
+			Scenario: "With Keepalived and DHCP",
+			Ironic: IronicSpec{
+				Networking: Networking{
+					DHCP: &DHCP{
+						NetworkCIDR: "192.0.2.1/24",
+						RangeBegin:  "192.0.2.10",
+						RangeEnd:    "192.0.2.200",
+					},
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: IPAddressManagerKeepalived,
+				},
+			},
+		},
+		{
+			Scenario: "Keepalived requires Interface",
+			Ironic: IronicSpec{
+				Networking: Networking{
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: IPAddressManagerKeepalived,
+				},
+			},
+			ExpectedError: "keepalived requires specifying both ipAddress and interface",
+		},
+		{
+			Scenario: "Keepalived requires IPAddress",
+			Ironic: IronicSpec{
+				Networking: Networking{
+					Interface:        "eth0",
+					IPAddressManager: IPAddressManagerKeepalived,
+				},
+			},
+			ExpectedError: "keepalived requires specifying both ipAddress and interface",
+		},
+		{
+			Scenario: "Keepalived exclusive with HA",
+			Ironic: IronicSpec{
+				DatabaseRef: corev1.LocalObjectReference{
+					Name: "db",
+				},
+				HighAvailability: true,
+				Networking: Networking{
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: IPAddressManagerKeepalived,
+				},
+			},
+			// NOTE(dtantsur): the expected error here is shadowed by the prior validation.
+			// I'm keeping this test in place to ensure that *some* validation failure happens.
+			ExpectedError: "ipAddress makes no sense with highly available architecture",
+		},
 	}
 
 	for _, tc := range testCases {
