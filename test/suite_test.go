@@ -113,6 +113,8 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		err := k8sClient.Get(ctx, name, ironic)
 		Expect(err).NotTo(HaveOccurred())
 
+		writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+
 		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
 		if cond != nil && cond.Status == metav1.ConditionTrue {
 			Expect(ironic.Status.InstalledVersion).ToNot(BeNil())
@@ -125,6 +127,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 			deploy, err := clientset.AppsV1().DaemonSets(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
 			if err == nil {
 				GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
+				writeYAML(deploy, deploy.Namespace, deploy.Name, "daemonset")
 			} else if !k8serrors.IsNotFound(err) {
 				Expect(err).NotTo(HaveOccurred())
 			}
@@ -132,6 +135,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 			deploy, err := clientset.AppsV1().Deployments(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
 			if err == nil {
 				GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
+				writeYAML(deploy, deploy.Namespace, deploy.Name, "deployment")
 			} else if !k8serrors.IsNotFound(err) {
 				Expect(err).NotTo(HaveOccurred())
 			}
