@@ -71,7 +71,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironicdatabases
   verbs:
@@ -83,13 +83,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironicdatabases/finalizers
   verbs:
   - update
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironicdatabases/status
   verbs:
@@ -97,7 +97,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironics
   verbs:
@@ -109,13 +109,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironics/finalizers
   verbs:
   - update
 - apiGroups:
-  - metal3.io
+  - ironic.metal3.io
   resources:
   - ironics/status
   verbs:

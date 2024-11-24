@@ -1,5 +1,5 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- metal3.io_v1alpha1_ironic.yaml
-- metal3.io_v1alpha1_ironicdatabase.yaml
+- v1alpha1_ironic.yaml
+- v1alpha1_ironicdatabase.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
