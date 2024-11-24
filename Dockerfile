@@ -14,13 +14,13 @@ COPY go.sum go.sum
 RUN go mod download -x
 
 # Copy the go source
-COPY main.go main.go
+COPY cmd/main.go cmd/main.go
 COPY api/ api/
-COPY controllers/ controllers/
+COPY internal/controller/ internal/controller/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 go build -a -o manager main.go
+RUN CGO_ENABLED=0 go build -a -o manager cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
 FROM $BASE_IMAGE
