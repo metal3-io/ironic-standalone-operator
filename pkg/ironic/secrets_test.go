@@ -52,12 +52,32 @@ func TestIsValidUser(t *testing.T) {
 }
 
 func TestGenerateHtpasswd(t *testing.T) {
-	result, err := generateHtpasswd("admin", "pa$$w0rd")
-	assert.NoError(t, err)
-	user, password, ok := strings.Cut(result, ":")
-	assert.Truef(t, ok, "%s does not start with admin:", result)
-	assert.Equal(t, "admin", user)
-	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(password), []byte("pa$$w0rd")))
+	testCases := []struct {
+		Scenario string
+
+		User     string
+		Password string
+	}{
+		{
+			User:     "admin",
+			Password: "pa$$w0rd",
+		},
+		{
+			User:     "admin\n",
+			Password: "pa$$w0rd\n",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result, err := generateHtpasswd([]byte(tc.User), []byte(tc.Password))
+			assert.NoError(t, err)
+			user, password, ok := strings.Cut(result, ":")
+			assert.Truef(t, ok, "%s is not separated with a colon", result)
+			assert.Equal(t, strings.Trim(tc.User, "\n"), user)
+			assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(password), []byte(strings.Trim(tc.Password, "\n"))))
+		})
+	}
 }
 
 func TestSecretNeedsUpdating(t *testing.T) {
@@ -86,6 +106,14 @@ password = password
 
 			User:            "admin",
 			Password:        "password",
+			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
+			AuthConfig:      authConfig,
+		},
+		{
+			Scenario: "newlines",
+
+			User:            "admin\n",
+			Password:        "password\n",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 			AuthConfig:      authConfig,
 		},
