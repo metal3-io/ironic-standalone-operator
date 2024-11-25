@@ -205,6 +205,15 @@ func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		}
 	}
 
+	if ironic.Networking.IPAddressManager == IPAddressManagerKeepalived {
+		if ironic.HighAvailability {
+			return errors.New("networking: keepalived is not compatible with the highly available architecture")
+		}
+		if ironic.Networking.IPAddress == "" || ironic.Networking.Interface == "" {
+			return errors.New("networking: keepalived requires specifying both ipAddress and interface")
+		}
+	}
+
 	if ironic.HighAvailability && !CurrentFeatureGate.Enabled(FeatureHighAvailability) {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}

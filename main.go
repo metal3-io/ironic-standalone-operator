@@ -118,6 +118,8 @@ func main() {
 		"MariaDB image to install.")
 	flag.StringVar(&versionInfo.RamdiskDownloaderImage, "ramdisk-downloader-image", os.Getenv("RAMDISK_DOWNLOADER_IMAGE"),
 		"Ramdisk downloader image to install.")
+	flag.StringVar(&versionInfo.KeepalivedImage, "keepalived-image", os.Getenv("KEEPALIVED_IMAGE"),
+		"Keepalived image to install.")
 	flag.StringVar(&versionInfo.InstalledVersion, "ironic-version", os.Getenv("IRONIC_VERSION"),
 		"Branch of Ironic that the operator installs.")
 

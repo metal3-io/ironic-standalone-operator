@@ -9,6 +9,7 @@ var (
 	defaultIronicImage            = defaultRegistry + "ironic:" + installedVersion
 	defaultMariaDBImage           = defaultRegistry + "mariadb:latest"
 	defaultRamdiskDownloaderImage = defaultRegistry + "ironic-ipa-downloader:latest"
+	defaultKeepalivedImage        = defaultRegistry + "keepalived:latest"
 )
 
 type VersionInfo struct {
@@ -18,6 +19,7 @@ type VersionInfo struct {
 	RamdiskDownloaderImage string
 	AgentBranch            string
 	AgentDownloadURL       string
+	KeepalivedImage        string
 }
 
 func VersionInfoWithDefaults(versionInfo VersionInfo) VersionInfo {
@@ -32,6 +34,9 @@ func VersionInfoWithDefaults(versionInfo VersionInfo) VersionInfo {
 	}
 	if versionInfo.RamdiskDownloaderImage == "" {
 		versionInfo.RamdiskDownloaderImage = defaultRamdiskDownloaderImage
+	}
+	if versionInfo.KeepalivedImage == "" {
+		versionInfo.KeepalivedImage = defaultKeepalivedImage
 	}
 	return versionInfo
 }

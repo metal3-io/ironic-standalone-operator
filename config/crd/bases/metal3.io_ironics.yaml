@@ -202,6 +202,16 @@ spec:
                       IPAddress is the main IP address to listen on and use for communication.
                       Detected from Interface if missing. Cannot be provided for a highly available architecture.
                     type: string
+                  ipAddressManager:
+                    description: |-
+                      Configures the way the provided IP address will be managed on the provided interface.
+                      By default, the IP address is expected to be already present.
+                      Use "keepalived" to start a Keepalived container managing the IP address.
+                      Warning: keepalived is not compatible with the highly available architecture.
+                    enum:
+                    - ""
+                    - keepalived
+                    type: string
                   macAddresses:
                     description: |-
                       MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
