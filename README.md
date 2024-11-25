@@ -37,9 +37,10 @@ metadata:
   name: ironic
   namespace: test
 spec:
+  deployRamdisk:
+    sshKey: "<YOUR SSH PUBLIC KEY HERE>"
   tlsRef:
     name: ironic-tls
-  ramdiskSSHKey: "<YOUR SSH PUBLIC KEY HERE>"
 ```
 
 ```bash
@@ -139,7 +140,8 @@ spec:
       networkCIDR: 10.89.0.1/24
       rangeBegin: 10.89.0.10
       rangeEnd: 10.89.0.100
-  ramdiskSSHKey: "<YOUR SSH PUBLIC KEY HERE>"
+  deployRamdisk:
+    sshKey: "<YOUR SSH PUBLIC KEY HERE>"
 ```
 
 This example also shows configuring DHCP for network booting.
