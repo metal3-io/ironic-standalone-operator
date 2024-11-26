@@ -45,10 +45,14 @@ func generatePassword() ([]byte, error) {
 	return password, nil
 }
 
-func generateHtpasswd(user, password string) (string, error) {
+func normalizeSecretValue(value []byte) string {
+	return strings.Trim(string(value), " \n\r\t")
+}
+
+func generateHtpasswd(userBytes, passwordBytes []byte) (string, error) {
 	// A common source of errors: an accidental line break after a password
-	user = strings.Trim(user, " \n\r")
-	password = strings.Trim(password, " \n\r")
+	user := normalizeSecretValue(userBytes)
+	password := normalizeSecretValue(passwordBytes)
 	err := checkValidUser(user)
 	if err != nil {
 		return "", err
@@ -73,7 +77,7 @@ func htpasswdFromSecret(secret *corev1.Secret) (string, error) {
 		return "", fmt.Errorf("missing password in secret %s/%s", secret.Namespace, secret.Name)
 	}
 
-	return generateHtpasswd(string(user), string(password))
+	return generateHtpasswd(user, password)
 }
 
 const (
@@ -82,8 +86,8 @@ const (
 )
 
 func getAuthConfig(secret *corev1.Secret) string {
-	user := secret.Data["username"]
-	password := secret.Data["password"]
+	user := normalizeSecretValue(secret.Data["username"])
+	password := normalizeSecretValue(secret.Data["password"])
 	return fmt.Sprintf(`
 [DEFAULT]
 auth_strategy = http_basic
@@ -101,9 +105,11 @@ func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 	user, password, ok := strings.Cut(string(existing), ":")
 	if ok && user != "" && password != "" {
 		newUser, ok := secret.Data[corev1.BasicAuthUsernameKey]
-		if ok && string(newUser) == user {
+		newUserString := normalizeSecretValue(newUser)
+		if ok && newUserString == user {
 			newPassword, ok := secret.Data[corev1.BasicAuthPasswordKey]
-			if ok && bcrypt.CompareHashAndPassword([]byte(password), []byte(newPassword)) == nil {
+			newPasswordString := normalizeSecretValue(newPassword)
+			if ok && bcrypt.CompareHashAndPassword([]byte(password), []byte(newPasswordString)) == nil {
 				authConfig := secret.Data[authConfigKey]
 				if string(authConfig) == getAuthConfig(secret) {
 					// All good, keep the secret the way it is
@@ -115,7 +121,7 @@ func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 				logger.Info("API secret needs updating: passwords don't match")
 			}
 		} else {
-			logger.Info("API secret needs updating: users don't match")
+			logger.Info("API secret needs updating: users don't match", "HtpasswdUser", user, "CurrentUser", newUserString)
 		}
 	} else {
 		logger.Info("API secret needs updating: no or malformed htpasswd")
