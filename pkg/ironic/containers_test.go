@@ -16,12 +16,14 @@ func TestExpectedContainers(t *testing.T) {
 
 		Ironic metal3api.IronicSpec
 
-		ExpectedContainerNames []string
-		ExpectedError          string
+		ExpectedContainerNames     []string
+		ExpectedInitContainerNames []string
+		ExpectedError              string
 	}{
 		{
-			Scenario:               "empty",
-			ExpectedContainerNames: []string{"httpd", "ironic", "ramdisk-logs"},
+			Scenario:                   "empty",
+			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
 		},
 		{
 			Scenario: "Keepalived",
@@ -32,7 +34,8 @@ func TestExpectedContainers(t *testing.T) {
 					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
-			ExpectedContainerNames: []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
 		},
 		{
 			Scenario: "Keepalived and DHCP",
@@ -48,7 +51,18 @@ func TestExpectedContainers(t *testing.T) {
 					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
-			ExpectedContainerNames: []string{"dnsmasq", "httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedContainerNames:     []string{"dnsmasq", "httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
+		{
+			Scenario: "No ramdisk downloader",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{
+					DisableDownloader: true,
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{},
 		},
 	}
 

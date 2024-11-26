@@ -119,10 +119,10 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	}
 
 	result = appendStringEnv(result,
-		"IRONIC_KERNEL_PARAMS", strings.Trim(ironic.Spec.RamdiskExtraKernelParams, " \t\n\r"))
+		"IRONIC_KERNEL_PARAMS", strings.Trim(ironic.Spec.DeployRamdisk.ExtraKernelParams, " \t\n\r"))
 
 	result = appendStringEnv(result,
-		"IRONIC_RAMDISK_SSH_KEY", strings.Trim(ironic.Spec.RamdiskSSHKey, " \t\n\r"))
+		"IRONIC_RAMDISK_SSH_KEY", strings.Trim(ironic.Spec.DeployRamdisk.SSHKey, " \t\n\r"))
 
 	result = appendListOfStringsEnv(result,
 		"IRONIC_IPA_COLLECTORS", ironic.Spec.Inspection.Collectors, ",")
@@ -456,9 +456,11 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
-	initContainers := []corev1.Container{
-		{
-			Name:         "ipa-downloader",
+
+	var initContainers []corev1.Container
+	if !ironic.Spec.DeployRamdisk.DisableDownloader {
+		initContainers = append(initContainers, corev1.Container{
+			Name:         "ramdisk-downloader",
 			Image:        cctx.VersionInfo.RamdiskDownloaderImage,
 			Env:          ipaDownloaderVars,
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
@@ -469,7 +471,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 					Drop: []corev1.Capability{"ALL"},
 				},
 			},
-		},
+		})
 	}
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)

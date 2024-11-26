@@ -75,6 +75,25 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              deployRamdisk:
+                description: DeployRamdisk defines settings for the provisioning/inspection
+                  ramdisk based on Ironic Python Agent.
+                properties:
+                  disableDownloader:
+                    description: |-
+                      DisableDownloader tells the operator not to start the IPA downloader as the init container.
+                      The user will be responsible for providing the right image to BareMetal Operator.
+                    type: boolean
+                  extraKernelParams:
+                    description: |-
+                      ExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
+                      Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
+                    type: string
+                  sshKey:
+                    description: SSHKey is the contents of the public key to inject
+                      into the ramdisk for debugging purposes.
+                    type: string
+                type: object
               disableRPCHostValidation:
                 description: |-
                   DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
@@ -228,17 +247,8 @@ spec:
                   Selector which must match a node's labels for the vmi to be scheduled on that node.
                   More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
                 type: object
-              ramdiskExtraKernelParams:
-                description: |-
-                  RamdiskExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
-                  Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
-                type: string
-              ramdiskSSHKey:
-                description: RamdiskSSHKey is the contents of the public key to inject
-                  into the ramdisk for debugging purposes.
-                type: string
               tlsRef:
-                description: TLSSecretName is a reference to the secret with the database
+                description: TLSRef is a reference to the secret with the database
                   TLS certificate.
                 properties:
                   name:

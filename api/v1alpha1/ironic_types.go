@@ -139,6 +139,23 @@ type Networking struct {
 	MACAddresses []string `json:"macAddresses,omitempty"`
 }
 
+// DeployRamdisk defines IPA ramdisk settings
+type DeployRamdisk struct {
+	// DisableDownloader tells the operator not to start the IPA downloader as the init container.
+	// The user will be responsible for providing the right image to BareMetal Operator.
+	// +optional
+	DisableDownloader bool `json:"disableDownloader,omitempty"`
+
+	// ExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
+	// Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
+	// +optional
+	ExtraKernelParams string `json:"extraKernelParams,omitempty"`
+
+	// SSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
+	// +optional
+	SSHKey string `json:"sshKey,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// CredentialsRef is a reference to the secret with Ironic API credentials.
@@ -150,6 +167,10 @@ type IronicSpec struct {
 	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
 	// +optional
 	DatabaseRef corev1.LocalObjectReference `json:"databaseRef,omitempty"`
+
+	// DeployRamdisk defines settings for the provisioning/inspection ramdisk based on Ironic Python Agent.
+	// +optional
+	DeployRamdisk DeployRamdisk `json:"deployRamdisk,omitempty"`
 
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.
@@ -175,23 +196,15 @@ type IronicSpec struct {
 	// +optional
 	Networking Networking `json:"networking,omitempty"`
 
-	// TLSSecretName is a reference to the secret with the database TLS certificate.
-	// +optional
-	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
-
-	// RamdiskExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
-	// Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
-	// +optional
-	RamdiskExtraKernelParams string `json:"ramdiskExtraKernelParams,omitempty"`
-
-	// RamdiskSSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
-	// +optional
-	RamdiskSSHKey string `json:"ramdiskSSHKey,omitempty"`
 	// NodeSelector is a selector which must be true for the Ironic pod to fit on a node.
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// TLSRef is a reference to the secret with the database TLS certificate.
+	// +optional
+	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
 }
 
 // InstalledVersion identifies which version of Ironic was installed.
