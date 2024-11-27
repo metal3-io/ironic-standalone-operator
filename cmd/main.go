@@ -43,7 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	metal3iov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
-	"github.com/metal3-io/ironic-standalone-operator/controllers"
+	"github.com/metal3-io/ironic-standalone-operator/internal/controller"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 	//+kubebuilder:scaffold:imports
 )
@@ -186,7 +186,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.IronicReconciler{
+	if err = (&controller.IronicReconciler{
 		Client:      mgr.GetClient(),
 		KubeClient:  kubeClient,
 		Scheme:      mgr.GetScheme(),
@@ -203,7 +203,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err = (&controllers.IronicDatabaseReconciler{
+	if err = (&controller.IronicDatabaseReconciler{
 		Client:     mgr.GetClient(),
 		KubeClient: kubeClient,
 		Scheme:     mgr.GetScheme(),
