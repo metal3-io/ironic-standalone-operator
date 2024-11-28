@@ -179,11 +179,11 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 }
 
 func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
-	if ironic.HighAvailability && ironic.DatabaseRef.Name == "" {
+	if ironic.HighAvailability && ironic.DatabaseName == "" {
 		return errors.New("database is required for highly available architecture")
 	}
 
-	if old != nil && old.DatabaseRef.Name != "" && old.DatabaseRef.Name != ironic.DatabaseRef.Name {
+	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
 		return errors.New("cannot change to a new database or remove it")
 	}
 

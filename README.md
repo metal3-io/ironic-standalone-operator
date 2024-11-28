@@ -39,8 +39,8 @@ metadata:
 spec:
   deployRamdisk:
     sshKey: "<YOUR SSH PUBLIC KEY HERE>"
-  tlsRef:
-    name: ironic-tls
+  tls:
+    certificateName: ironic-tls
 ```
 
 ```bash
@@ -121,8 +121,7 @@ metadata:
   name: ironic
   namespace: test
 spec:
-  tlsRef:
-    name: ironic-tls
+  tlsCertificateName: ironic-tls
 ---
 apiVersion: metal3.io/v1alpha1
 kind: Ironic
@@ -130,10 +129,9 @@ metadata:
   name: ironic
   namespace: test
 spec:
-  databaseRef:
-    name: ironic
-  tlsRef:
-    name: ironic-tls
+  databaseName: ironic
+  tls:
+    certificateName: ironic-tls
   networking:
     ipAddress: 10.89.0.2
     dhcp:

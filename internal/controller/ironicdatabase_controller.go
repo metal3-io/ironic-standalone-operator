@@ -96,14 +96,14 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return r.cleanUp(cctx, db)
 	}
 
-	if db.Spec.CredentialsRef.Name == "" {
+	if db.Spec.CredentialsName == "" {
 		apiSecret, err := generateSecret(cctx, db, &db.ObjectMeta, "database", false)
 		if err != nil {
 			return true, err
 		}
 
 		cctx.Logger.Info("updating database to use the newly generated secret", "Secret", apiSecret.Name)
-		db.Spec.CredentialsRef.Name = apiSecret.Name
+		db.Spec.CredentialsName = apiSecret.Name
 		err = cctx.Client.Update(cctx.Context, db)
 		if err != nil {
 			return true, fmt.Errorf("cannot update the new API credentials secret: %w", err)

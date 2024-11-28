@@ -137,14 +137,14 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 }
 
 func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (apiSecret *corev1.Secret, requeue bool, err error) {
-	if ironicConf.Spec.CredentialsRef.Name == "" {
+	if ironicConf.Spec.APICredentialsName == "" {
 		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service", true)
 		if err != nil {
 			return nil, true, err
 		}
 
 		cctx.Logger.Info("updating Ironic to use the newly generated secret", "Secret", apiSecret.Name)
-		ironicConf.Spec.CredentialsRef.Name = apiSecret.Name
+		ironicConf.Spec.APICredentialsName = apiSecret.Name
 		err = cctx.Client.Update(cctx.Context, ironicConf)
 		if err != nil {
 			return nil, true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
@@ -156,12 +156,12 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 
 	secretName := types.NamespacedName{
 		Namespace: ironicConf.Namespace,
-		Name:      ironicConf.Spec.CredentialsRef.Name,
+		Name:      ironicConf.Spec.APICredentialsName,
 	}
 	apiSecret = &corev1.Secret{}
 	err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
 	if err != nil {
-		return nil, true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.CredentialsRef.Name, err)
+		return nil, true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.APICredentialsName, err)
 	}
 
 	oldReferences := apiSecret.GetOwnerReferences()
@@ -186,18 +186,18 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 }
 
 func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (db *metal3api.IronicDatabase, requeue bool, err error) {
-	if ironicConf.Spec.DatabaseRef.Name == "" {
+	if ironicConf.Spec.DatabaseName == "" {
 		return
 	}
 
 	dbName := types.NamespacedName{
 		Namespace: ironicConf.Namespace,
-		Name:      ironicConf.Spec.DatabaseRef.Name,
+		Name:      ironicConf.Spec.DatabaseName,
 	}
 	db = &metal3api.IronicDatabase{}
 	err = cctx.Client.Get(cctx.Context, dbName, db)
 	if err != nil {
-		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseRef.Name, err)
+		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
 	}
 
 	oldReferences := db.GetOwnerReferences()

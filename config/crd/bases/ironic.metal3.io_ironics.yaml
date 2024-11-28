@@ -39,42 +39,16 @@ spec:
           spec:
             description: IronicSpec defines the desired state of Ironic
             properties:
-              credentialsRef:
+              apiCredentialsName:
                 description: |-
-                  CredentialsRef is a reference to the secret with Ironic API credentials.
+                  APICredentialsName is a reference to the secret with Ironic API credentials.
                   A new secret will be created if this field is empty.
-                properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      TODO: Add other useful fields. apiVersion, kind, uid?
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
-              databaseRef:
+                type: string
+              databaseName:
                 description: |-
-                  DatabaseRef defines database settings for Ironic.
+                  DatabaseName is a reference to the IronicDatabase object.
                   If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
-                properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      TODO: Add other useful fields. apiVersion, kind, uid?
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
+                type: string
               deployRamdisk:
                 description: DeployRamdisk defines settings for the provisioning/inspection
                   ramdisk based on Ironic Python Agent.
@@ -94,21 +68,10 @@ spec:
                       into the ramdisk for debugging purposes.
                     type: string
                 type: object
-              disableRPCHostValidation:
-                description: |-
-                  DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
-                  This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
-                  Has no effect if HighAvailability is not set to true.
-                type: boolean
-              disableVirtualMediaTLS:
-                description: |-
-                  DisableVirtualMediaTLS turns off TLS on the virtual media server,
-                  which may be required for hardware that cannot accept HTTPS links.
-                type: boolean
               highAvailability:
                 description: |-
                   HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
-                  Requires database to be installed and linked to DatabaseRef.
+                  Requires database to be installed and linked to DatabaseName.
                   EXPERIMENTAL: do not use (validation will fail)!
                 type: boolean
               inspection:
@@ -247,23 +210,26 @@ spec:
                   Selector which must match a node's labels for the vmi to be scheduled on that node.
                   More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
                 type: object
-              tlsRef:
-                description: TLSRef is a reference to the secret with the database
-                  TLS certificate.
+              tls:
+                description: TLS defines TLS-related settings for various network
+                  interactions.
                 properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      TODO: Add other useful fields. apiVersion, kind, uid?
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                  certificateName:
+                    description: CertificateName is a reference to the secret with
+                      the TLS certificate.
                     type: string
+                  disableRPCHostValidation:
+                    description: |-
+                      DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
+                      This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
+                      Has no effect if HighAvailability is not set to true.
+                    type: boolean
+                  disableVirtualMediaTLS:
+                    description: |-
+                      DisableVirtualMediaTLS turns off TLS on the virtual media server,
+                      which may be required for hardware that cannot accept HTTPS links.
+                    type: boolean
                 type: object
-                x-kubernetes-map-type: atomic
             type: object
           status:
             description: IronicStatus defines the observed state of Ironic
