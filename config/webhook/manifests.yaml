@@ -10,12 +10,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-metal3-io-v1alpha1-ironic
+      path: /mutate-ironic-metal3-io-v1alpha1-ironic
   failurePolicy: Fail
-  name: mutate-ironic.metal3.io
+  name: mutate-ironic.ironic.metal3.io
   rules:
   - apiGroups:
-    - metal3.io
+    - ironic.metal3.io
     apiVersions:
     - v1alpha1
     operations:
@@ -30,12 +30,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-metal3-io-v1alpha1-ironicdatabase
+      path: /mutate-ironic-metal3-io-v1alpha1-ironicdatabase
   failurePolicy: Fail
-  name: mutate-ironicdatabase.metal3.io
+  name: mutate-ironicdatabase.ironic.metal3.io
   rules:
   - apiGroups:
-    - metal3.io
+    - ironic.metal3.io
     apiVersions:
     - v1alpha1
     operations:
@@ -56,12 +56,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-metal3-io-v1alpha1-ironic
+      path: /validate-ironic-metal3-io-v1alpha1-ironic
   failurePolicy: Fail
-  name: validate-ironic.metal3.io
+  name: validate-ironic.ironic.metal3.io
   rules:
   - apiGroups:
-    - metal3.io
+    - ironic.metal3.io
     apiVersions:
     - v1alpha1
     operations:
@@ -76,12 +76,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-metal3-io-v1alpha1-ironicdatabase
+      path: /validate-ironic-metal3-io-v1alpha1-ironicdatabase
   failurePolicy: Fail
-  name: validate-ironicdatabase.metal3.io
+  name: validate-ironicdatabase.ironic.metal3.io
   rules:
   - apiGroups:
-    - metal3.io
+    - ironic.metal3.io
     apiVersions:
     - v1alpha1
     operations:

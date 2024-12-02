@@ -46,9 +46,9 @@ type IronicDatabaseReconciler struct {
 	Log        logr.Logger
 }
 
-//+kubebuilder:rbac:groups=metal3.io,resources=ironicdatabases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=metal3.io,resources=ironicdatabases/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=metal3.io,resources=ironicdatabases/finalizers,verbs=update
+//+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironicdatabases,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironicdatabases/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironicdatabases/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete

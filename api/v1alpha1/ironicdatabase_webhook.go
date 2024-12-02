@@ -33,14 +33,14 @@ func (r *IronicDatabase) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-metal3-io-v1alpha1-ironicdatabase,mutating=true,failurePolicy=fail,sideEffects=None,groups=metal3.io,resources=ironicdatabases,verbs=create;update,versions=v1alpha1,name=mutate-ironicdatabase.metal3.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-ironic-metal3-io-v1alpha1-ironicdatabase,mutating=true,failurePolicy=fail,sideEffects=None,groups=ironic.metal3.io,resources=ironicdatabases,verbs=create;update,versions=v1alpha1,name=mutate-ironicdatabase.ironic.metal3.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &IronicDatabase{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *IronicDatabase) Default() {}
 
-//+kubebuilder:webhook:path=/validate-metal3-io-v1alpha1-ironicdatabase,mutating=false,failurePolicy=fail,sideEffects=None,groups=metal3.io,resources=ironicdatabases,verbs=create;update,versions=v1alpha1,name=validate-ironicdatabase.metal3.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-ironic-metal3-io-v1alpha1-ironicdatabase,mutating=false,failurePolicy=fail,sideEffects=None,groups=ironic.metal3.io,resources=ironicdatabases,verbs=create;update,versions=v1alpha1,name=validate-ironicdatabase.ironic.metal3.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &IronicDatabase{}
 
