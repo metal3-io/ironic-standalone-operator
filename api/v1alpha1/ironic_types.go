@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -156,21 +155,11 @@ type DeployRamdisk struct {
 	SSHKey string `json:"sshKey,omitempty"`
 }
 
-// IronicSpec defines the desired state of Ironic
-type IronicSpec struct {
-	// CredentialsRef is a reference to the secret with Ironic API credentials.
-	// A new secret will be created if this field is empty.
+// TLS defines the TLS settings.
+type TLS struct {
+	// CertificateName is a reference to the secret with the TLS certificate.
 	// +optional
-	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef,omitempty"`
-
-	// DatabaseRef defines database settings for Ironic.
-	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
-	// +optional
-	DatabaseRef corev1.LocalObjectReference `json:"databaseRef,omitempty"`
-
-	// DeployRamdisk defines settings for the provisioning/inspection ramdisk based on Ironic Python Agent.
-	// +optional
-	DeployRamdisk DeployRamdisk `json:"deployRamdisk,omitempty"`
+	CertificateName string `json:"certificateName,omitempty"`
 
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.
@@ -182,9 +171,26 @@ type IronicSpec struct {
 	// Has no effect if HighAvailability is not set to true.
 	// +optional
 	DisableRPCHostValidation bool `json:"disableRPCHostValidation,omitempty"`
+}
+
+// IronicSpec defines the desired state of Ironic
+type IronicSpec struct {
+	// APICredentialsName is a reference to the secret with Ironic API credentials.
+	// A new secret will be created if this field is empty.
+	// +optional
+	APICredentialsName string `json:"apiCredentialsName,omitempty"`
+
+	// DatabaseName is a reference to the IronicDatabase object.
+	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
+	// +optional
+	DatabaseName string `json:"databaseName,omitempty"`
+
+	// DeployRamdisk defines settings for the provisioning/inspection ramdisk based on Ironic Python Agent.
+	// +optional
+	DeployRamdisk DeployRamdisk `json:"deployRamdisk,omitempty"`
 
 	// HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
-	// Requires database to be installed and linked to DatabaseRef.
+	// Requires database to be installed and linked to DatabaseName.
 	// EXPERIMENTAL: do not use (validation will fail)!
 	// +optional
 	HighAvailability bool `json:"highAvailability,omitempty"`
@@ -202,9 +208,9 @@ type IronicSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
-	// TLSRef is a reference to the secret with the database TLS certificate.
+	// TLS defines TLS-related settings for various network interactions.
 	// +optional
-	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
+	TLS TLS `json:"tls,omitempty"`
 }
 
 // InstalledVersion identifies which version of Ironic was installed.

@@ -41,8 +41,10 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 			Name: "MARIADB_USER",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: db.Spec.CredentialsRef,
-					Key:                  "username",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: db.Spec.CredentialsName,
+					},
+					Key: "username",
 				},
 			},
 		},
@@ -50,8 +52,10 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 			Name: "MARIADB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: db.Spec.CredentialsRef,
-					Key:                  "password",
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: db.Spec.CredentialsName,
+					},
+					Key: "password",
 				},
 			},
 		},
@@ -63,12 +67,12 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 	volumes := []corev1.Volume{}
 	mounts := []corev1.VolumeMount{}
 
-	if db.Spec.TLSRef.Name != "" {
+	if db.Spec.TLSCertificateName != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  db.Spec.TLSRef.Name,
+					SecretName:  db.Spec.TLSCertificateName,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},

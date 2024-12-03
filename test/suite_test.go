@@ -181,7 +181,7 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 
 	By("fetching the authentication secret")
 
-	secret, err := clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.CredentialsRef.Name, metav1.GetOptions{})
+	secret, err := clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.APICredentialsName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("checking Ironic authentication")
@@ -379,9 +379,7 @@ var _ = Describe("Ironic object tests", func() {
 				Namespace: name.Namespace,
 			},
 			Spec: metal3api.IronicSpec{
-				DatabaseRef: corev1.LocalObjectReference{
-					Name: ironicDb.Name,
-				},
+				DatabaseName:     ironicDb.Name,
 				HighAvailability: true,
 			},
 		}

@@ -95,7 +95,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		)
 	}
 
-	if ironic.Spec.TLSRef.Name != "" {
+	if ironic.Spec.TLS.CertificateName != "" {
 		// Ironic will listen on a Unix socket, httpd will be responsible for serving HTTPS.
 		result = append(result, []corev1.EnvVar{
 			{
@@ -108,7 +108,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 			},
 		}...)
 
-		if !ironic.Spec.DisableVirtualMediaTLS {
+		if !ironic.Spec.TLS.DisableVirtualMediaTLS {
 			result = append(result,
 				corev1.EnvVar{
 					Name:  "VMEDIA_TLS_PORT",
@@ -165,14 +165,14 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 			},
 			{
 				Name:  "IRONIC_INSECURE",
-				Value: strconv.FormatBool(ironic.Spec.DisableRPCHostValidation),
+				Value: strconv.FormatBool(ironic.Spec.TLS.DisableRPCHostValidation),
 			},
 		}...)
 	}
 
 	// When TLS is used, httpd is responsible for authentication.
 	// When JSON RPC is enabled, the password is required for it as well.
-	if htpasswd != "" && (ironic.Spec.TLSRef.Name == "" || ironic.Spec.HighAvailability) {
+	if htpasswd != "" && (ironic.Spec.TLS.CertificateName == "" || ironic.Spec.HighAvailability) {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -197,7 +197,7 @@ func buildHttpdEnvVars(ironic *metal3api.Ironic, htpasswd string) []corev1.EnvVa
 	result := buildCommonEnvVars(ironic)
 
 	// When TLS is used, httpd is responsible for authentication
-	if htpasswd != "" && ironic.Spec.TLSRef.Name != "" {
+	if htpasswd != "" && ironic.Spec.TLS.CertificateName != "" {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
@@ -228,7 +228,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 			Name: "ironic-auth",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  ironic.Spec.CredentialsRef.Name,
+					SecretName:  ironic.Spec.APICredentialsName,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
@@ -247,13 +247,13 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		})
 	}
 
-	if ironic.Spec.TLSRef.Name != "" {
+	if ironic.Spec.TLS.CertificateName != "" {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: "cert-ironic",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  ironic.Spec.TLSRef.Name,
+						SecretName:  ironic.Spec.TLS.CertificateName,
 						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 					},
 				},
@@ -266,7 +266,7 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 				ReadOnly:  true,
 			},
 		)
-		if !ironic.Spec.DisableVirtualMediaTLS {
+		if !ironic.Spec.TLS.DisableVirtualMediaTLS {
 			mounts = append(mounts,
 				corev1.VolumeMount{
 					Name:      "cert-ironic",
@@ -277,12 +277,12 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		}
 	}
 
-	if db != nil && db.Spec.TLSRef.Name != "" {
+	if db != nil && db.Spec.TLSCertificateName != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  db.Spec.TLSRef.Name,
+					SecretName:  db.Spec.TLSCertificateName,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
@@ -313,11 +313,11 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 		HostPort:      ironic.Spec.Networking.APIPort,
 	}
 
-	if ironic.Spec.TLSRef.Name == "" {
+	if ironic.Spec.TLS.CertificateName == "" {
 		ironicPorts = append(ironicPorts, apiPort)
 	} else {
 		httpdPorts = append(httpdPorts, apiPort)
-		if !ironic.Spec.DisableVirtualMediaTLS {
+		if !ironic.Spec.TLS.DisableVirtualMediaTLS {
 			httpdPorts = append(httpdPorts, corev1.ContainerPort{
 				Name:          imagesTLSPortName,
 				Protocol:      corev1.ProtocolTCP,
@@ -476,7 +476,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
 
-	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLSRef.Name != "", int(ironic.Spec.Networking.APIPort), "/v1")
+	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLS.CertificateName != "", int(ironic.Spec.Networking.APIPort), "/v1")
 	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), "/images")
 
 	containers := []corev1.Container{

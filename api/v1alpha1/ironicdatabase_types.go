@@ -17,16 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // IronicDatabaseSpec defines the desired state of IronicDatabase
 type IronicDatabaseSpec struct {
-	// CredentialsSecretRef is a reference to the secret with database credentials.
+	// CredentialsName is a reference to the secret with database credentials.
 	// A new secret will be created if this field is empty.
 	// +optional
-	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef,omitempty"`
+	CredentialsName string `json:"credentialsName,omitempty"`
 
 	// Image is the MariaDB image.
 	// +kubebuilder:default=quay.io/metal3-io/mariadb
@@ -34,9 +33,9 @@ type IronicDatabaseSpec struct {
 	// +optional
 	Image string `json:"image,omitempty"`
 
-	// TLSSecretName is a reference to the secret with the database TLS certificate.
+	// TLSCertificateName is a reference to the secret with the database TLS certificate.
 	// +optional
-	TLSRef corev1.LocalObjectReference `json:"tlsRef,omitempty"`
+	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
 }
 
 // IronicDatabaseStatus defines the observed state of IronicDatabase

@@ -93,7 +93,7 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
 	}
 	exposedPort := 80
-	if ironic.Spec.TLSRef.Name != "" {
+	if ironic.Spec.TLS.CertificateName != "" {
 		exposedPort = 443
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {

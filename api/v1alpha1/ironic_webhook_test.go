@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func TestDHCPDefaults(t *testing.T) {
@@ -58,9 +57,7 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "with database",
 			Ironic: IronicSpec{
-				DatabaseRef: corev1.LocalObjectReference{
-					Name: "db",
-				},
+				DatabaseName: "db",
 			},
 		},
 		{
@@ -107,9 +104,7 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "no ipAddress with HA",
 			Ironic: IronicSpec{
-				DatabaseRef: corev1.LocalObjectReference{
-					Name: "db",
-				},
+				DatabaseName: "db",
 				Networking: Networking{
 					IPAddress: "192.168.0.1",
 				},
@@ -120,9 +115,7 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "HA disabled",
 			Ironic: IronicSpec{
-				DatabaseRef: corev1.LocalObjectReference{
-					Name: "db",
-				},
+				DatabaseName:     "db",
 				HighAvailability: true,
 			},
 			ExpectedError: "highly available architecture is disabled",
@@ -175,9 +168,7 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "Keepalived exclusive with HA",
 			Ironic: IronicSpec{
-				DatabaseRef: corev1.LocalObjectReference{
-					Name: "db",
-				},
+				DatabaseName:     "db",
 				HighAvailability: true,
 				Networking: Networking{
 					Interface:        "eth0",
