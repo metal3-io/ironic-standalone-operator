@@ -98,3 +98,58 @@ func TestExpectedContainers(t *testing.T) {
 		})
 	}
 }
+
+func TestImageOverrides(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{"htpasswd": []byte("abcd")},
+	}
+	expectedImages := map[string]string{
+		"httpd":              "myorg/myironic:test",
+		"ironic":             "myorg/myironic:test",
+		"keepalived":         "myorg/mykeepalived:test",
+		"ramdisk-downloader": "myorg/mydownloader:test",
+		"ramdisk-logs":       "myorg/myironic:test",
+	}
+	ironic := &metal3api.Ironic{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "test",
+		},
+		Spec: metal3api.IronicSpec{
+			Images: metal3api.Images{
+				DeployRamdiskBranch:     "stable/x.y",
+				DeployRamdiskDownloader: "myorg/mydownloader:test",
+				Ironic:                  "myorg/myironic:test",
+				Keepalived:              "myorg/mykeepalived:test",
+			},
+			Networking: metal3api.Networking{
+				Interface:        "eth0",
+				IPAddress:        "192.0.2.2",
+				IPAddressManager: metal3api.IPAddressManagerKeepalived,
+			},
+		},
+	}
+
+	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
+	assert.NoError(t, err)
+
+	images := make(map[string]string, len(expectedImages))
+	var actualBranch string
+	for _, cont := range podTemplate.Spec.InitContainers {
+		images[cont.Name] = cont.Image
+		if cont.Name == "ramdisk-downloader" {
+			for _, env := range cont.Env {
+				if env.Name == "IPA_BRANCH" {
+					actualBranch = env.Value
+				}
+			}
+		}
+	}
+	for _, cont := range podTemplate.Spec.Containers {
+		images[cont.Name] = cont.Image
+	}
+
+	assert.Equal(t, expectedImages, images)
+	assert.Equal(t, "stable/x.y", actualBranch)
+}

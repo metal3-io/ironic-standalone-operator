@@ -173,6 +173,27 @@ type TLS struct {
 	DisableRPCHostValidation bool `json:"disableRPCHostValidation,omitempty"`
 }
 
+type Images struct {
+	// DeployRamdiskBranch is the branch of IPA to download. The main branch is used by default.
+	// Not used if deployRamdisk.disableDownloader is true.
+	// +optional
+	DeployRamdiskBranch string `json:"deployRamdiskBranch,omitempty"`
+
+	// DeployRamdiskDownloader is the image to be used at pod initialization to download the IPA ramdisk.
+	// Not used if deployRamdisk.disableDownloader is true.
+	// +optional
+	DeployRamdiskDownloader string `json:"deployRamdiskDownloader,omitempty"`
+
+	// Ironic is the Ironic image (including httpd).
+	// +optional
+	Ironic string `json:"ironic,omitempty"`
+
+	// Keepalived is the Keepalived image.
+	// Not used if networking.ipAddressManager is not set to keepalived.
+	// +optional
+	Keepalived string `json:"keepalived,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
@@ -195,7 +216,12 @@ type IronicSpec struct {
 	// +optional
 	HighAvailability bool `json:"highAvailability,omitempty"`
 
+	// Images is a collection of container images to deploy from.
+	// +optional
+	Images Images `json:"images,omitempty"`
+
 	// Inspection defines inspection settings
+	// +optional
 	Inspection Inspection `json:"inspection,omitempty"`
 
 	// Networking defines networking settings for Ironic.

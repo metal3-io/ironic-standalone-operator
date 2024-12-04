@@ -45,9 +45,7 @@ spec:
                   A new secret will be created if this field is empty.
                 type: string
               image:
-                default: quay.io/metal3-io/mariadb
                 description: Image is the MariaDB image.
-                minLength: 1
                 type: string
               tlsCertificateName:
                 description: TLSCertificateName is a reference to the secret with
