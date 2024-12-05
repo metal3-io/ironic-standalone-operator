@@ -192,7 +192,7 @@ func main() {
 		Scheme:      mgr.GetScheme(),
 		Log:         ctrl.Log.WithName("controllers").WithName("Ironic"),
 		Domain:      clusterDomain,
-		VersionInfo: versionInfo.WithDefaults(),
+		VersionInfo: versionInfo,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)
@@ -208,7 +208,7 @@ func main() {
 		KubeClient:  kubeClient,
 		Scheme:      mgr.GetScheme(),
 		Log:         ctrl.Log.WithName("controllers").WithName("IronicDatabase"),
-		VersionInfo: versionInfo.WithDefaults(),
+		VersionInfo: versionInfo,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IronicDatabase")
 		os.Exit(1)
