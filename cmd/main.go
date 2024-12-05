@@ -21,8 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
-	"strconv"
 	"strings"
 
 	"k8s.io/client-go/kubernetes"
@@ -307,38 +305,4 @@ func GetTLSVersion(version string) (uint16, error) {
 		return 0, fmt.Errorf("unexpected TLS version %q (must be one of: %s)", version, strings.Join(tlsSupportedVersions, ", "))
 	}
 	return v, nil
-}
-
-func getMaxConcurrentReconciles(controllerConcurrency int) (int, error) {
-	if controllerConcurrency > 0 {
-		ctrl.Log.Info(fmt.Sprintf("controller concurrency will be set to %d according to command line flag", controllerConcurrency))
-		return controllerConcurrency, nil
-	} else if controllerConcurrency < 0 {
-		return 0, fmt.Errorf("controller concurrency value: %d is invalid", controllerConcurrency)
-	}
-
-	// controller-concurrency value is 0 i.e. no values passed via the flag
-	// maxConcurrentReconcile value would be set based on env var or number of CPUs.
-	maxConcurrentReconciles := runtime.NumCPU()
-	if maxConcurrentReconciles > 8 {
-		maxConcurrentReconciles = 8
-	}
-	if maxConcurrentReconciles < 2 {
-		maxConcurrentReconciles = 2
-	}
-	if mcrEnv, ok := os.LookupEnv("CONTROLLER_CONCURRENCY"); ok {
-		mcr, err := strconv.Atoi(mcrEnv)
-		if err != nil {
-			return 0, fmt.Errorf("CONTROLLER_CONCURRENCY value: %s is invalid: %w", mcrEnv, err)
-		}
-		if mcr > 0 {
-			ctrl.Log.Info(fmt.Sprintf("CONTROLLER_CONCURRENCY of %d is set via an environment variable", mcr))
-			maxConcurrentReconciles = mcr
-		} else {
-			ctrl.Log.Info(fmt.Sprintf("Invalid CONTROLLER_CONCURRENCY value. Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
-		}
-	} else {
-		ctrl.Log.Info(fmt.Sprintf("Operator Concurrency will be set to a default value of %d", maxConcurrentReconciles))
-	}
-	return maxConcurrentReconciles, nil
 }
