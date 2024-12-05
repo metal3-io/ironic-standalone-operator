@@ -28,8 +28,6 @@ type IronicDatabaseSpec struct {
 	CredentialsName string `json:"credentialsName,omitempty"`
 
 	// Image is the MariaDB image.
-	// +kubebuilder:default=quay.io/metal3-io/mariadb
-	// +kubebuilder:validation:MinLength=1
 	// +optional
 	Image string `json:"image,omitempty"`
 

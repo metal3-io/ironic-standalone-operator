@@ -41,9 +41,10 @@ const (
 // IronicDatabaseReconciler reconciles a IronicDatabase object
 type IronicDatabaseReconciler struct {
 	client.Client
-	KubeClient kubernetes.Interface
-	Scheme     *runtime.Scheme
-	Log        logr.Logger
+	KubeClient  kubernetes.Interface
+	Scheme      *runtime.Scheme
+	Log         logr.Logger
+	VersionInfo ironic.VersionInfo
 }
 
 //+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironicdatabases,verbs=get;list;watch;create;update;patch;delete
@@ -62,11 +63,12 @@ func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger.Info("starting reconcile")
 
 	cctx := ironic.ControllerContext{
-		Context:    ctx,
-		Client:     r.Client,
-		KubeClient: r.KubeClient,
-		Scheme:     r.Scheme,
-		Logger:     logger,
+		Context:     ctx,
+		Client:      r.Client,
+		KubeClient:  r.KubeClient,
+		Scheme:      r.Scheme,
+		Logger:      logger,
+		VersionInfo: r.VersionInfo,
 	}
 
 	db, err := getDatabase(cctx, req.NamespacedName)

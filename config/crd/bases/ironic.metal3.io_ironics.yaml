@@ -74,6 +74,29 @@ spec:
                   Requires database to be installed and linked to DatabaseName.
                   EXPERIMENTAL: do not use (validation will fail)!
                 type: boolean
+              images:
+                description: Images is a collection of container images to deploy
+                  from.
+                properties:
+                  deployRamdiskBranch:
+                    description: |-
+                      DeployRamdiskBranch is the branch of IPA to download. The main branch is used by default.
+                      Not used if deployRamdisk.disableDownloader is true.
+                    type: string
+                  deployRamdiskDownloader:
+                    description: |-
+                      DeployRamdiskDownloader is the image to be used at pod initialization to download the IPA ramdisk.
+                      Not used if deployRamdisk.disableDownloader is true.
+                    type: string
+                  ironic:
+                    description: Ironic is the Ironic image (including httpd).
+                    type: string
+                  keepalived:
+                    description: |-
+                      Keepalived is the Keepalived image.
+                      Not used if networking.ipAddressManager is not set to keepalived.
+                    type: string
+                type: object
               inspection:
                 description: Inspection defines inspection settings
                 properties:

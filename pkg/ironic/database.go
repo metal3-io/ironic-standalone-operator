@@ -63,7 +63,7 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 
 }
 
-func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec {
+func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInfo) corev1.PodTemplateSpec {
 	volumes := []corev1.Volume{}
 	mounts := []corev1.VolumeMount{}
 
@@ -101,10 +101,15 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase) corev1.PodTemplateSpec
 		},
 	})
 
+	image := db.Spec.Image
+	if image == "" {
+		image = versionInfo.MariaDBImage
+	}
+
 	containers := []corev1.Container{
 		{
 			Name:         "mariadb",
-			Image:        db.Spec.Image,
+			Image:        image,
 			Env:          envVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
@@ -145,7 +150,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 		matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		deploy.Spec.Replicas = ptr.To(int32(1))
-		mergePodTemplates(&deploy.Spec.Template, newDatabasePodTemplate(db))
+		mergePodTemplates(&deploy.Spec.Template, newDatabasePodTemplate(db, cctx.VersionInfo))
 		return controllerutil.SetControllerReference(db, deploy, cctx.Scheme)
 	})
 	if err != nil {
