@@ -128,7 +128,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInf
 		},
 	}
 
-	return corev1.PodTemplateSpec{
+	return applyOverridesToPod(db.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)},
 		},
@@ -136,7 +136,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInf
 			Containers: containers,
 			Volumes:    volumes,
 		},
-	}
+	})
 }
 
 func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDatabase) (Status, error) {
