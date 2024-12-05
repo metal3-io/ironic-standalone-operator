@@ -112,13 +112,26 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		Expect(err).NotTo(HaveOccurred())
 
 		writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
 
 		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
-		if cond != nil && cond.Status == metav1.ConditionTrue {
-			Expect(ironic.Status.InstalledVersion).ToNot(BeNil())
-			return true
+		if cond != nil {
+			expectedVersion := ironic.Spec.Version
+			if expectedVersion != "" {
+				Expect(ironic.Status.RequestedVersion).To(Equal(expectedVersion))
+			} else {
+				Expect(ironic.Status.RequestedVersion).ToNot(BeEmpty())
+			}
+
+			if cond.Status == metav1.ConditionTrue {
+				if expectedVersion != "" {
+					Expect(ironic.Status.InstalledVersion).To(Equal(expectedVersion))
+				} else {
+					Expect(ironic.Status.InstalledVersion).ToNot(BeEmpty())
+				}
+				return true
+			}
 		}
-		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
 
 		deployName := fmt.Sprintf("%s-service", name.Name)
 		if ironic.Spec.HighAvailability {
@@ -309,6 +322,32 @@ var _ = Describe("Ironic object tests", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.Name,
 				Namespace: name.Namespace,
+			},
+		}
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic)
+	})
+
+	It("creates Ironic of an older version", Label("older-version"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				Version: "27.0",
 			},
 		}
 		err := k8sClient.Create(ctx, ironic)

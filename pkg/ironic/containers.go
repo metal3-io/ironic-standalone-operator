@@ -477,13 +477,11 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		htpasswd = apiSecret.Name
 	}
 
-	versionInfo := cctx.VersionInfo.withIronicOverrides(&ironic.Spec.Images)
-
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BASEURI", versionInfo.AgentDownloadURL)
+		"IPA_BASEURI", cctx.VersionInfo.AgentDownloadURL)
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BRANCH", versionInfo.AgentBranch)
+		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
 	sharedVolumeMount := mounts[0]
@@ -492,7 +490,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 	if !ironic.Spec.DeployRamdisk.DisableDownloader {
 		initContainers = append(initContainers, corev1.Container{
 			Name:         "ramdisk-downloader",
-			Image:        versionInfo.RamdiskDownloaderImage,
+			Image:        cctx.VersionInfo.RamdiskDownloaderImage,
 			Env:          ipaDownloaderVars,
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
@@ -513,7 +511,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 	containers := []corev1.Container{
 		{
 			Name:         "ironic",
-			Image:        versionInfo.IronicImage,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
 			Env:          buildIronicEnvVars(ironic, db, htpasswd, domain),
 			VolumeMounts: mounts,
@@ -530,7 +528,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		},
 		{
 			Name:         "httpd",
-			Image:        versionInfo.IronicImage,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runhttpd"},
 			Env:          buildHttpdEnvVars(ironic, htpasswd),
 			VolumeMounts: mounts,
@@ -547,7 +545,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		},
 		{
 			Name:         "ramdisk-logs",
-			Image:        versionInfo.IronicImage,
+			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runlogwatch.sh"},
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
@@ -565,11 +563,11 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		containers = append(containers, newDnsmasqContainer(versionInfo, ironic))
+		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, ironic))
 	}
 
 	if ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
-		containers = append(containers, newKeepalivedContainer(versionInfo, ironic))
+		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, ironic))
 	}
 
 	return corev1.PodTemplateSpec{
