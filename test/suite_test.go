@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -52,7 +51,6 @@ import (
 )
 
 var ctx context.Context
-var cfg *rest.Config
 var k8sClient client.Client
 var clientset *kubernetes.Clientset
 
@@ -363,14 +361,14 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironicDb := &metal3api.IronicDatabase{
+		ironicDB := &metal3api.IronicDatabase{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("%s-db", name.Name),
 				Namespace: name.Namespace,
 			},
 		}
 
-		err := k8sClient.Create(ctx, ironicDb)
+		err := k8sClient.Create(ctx, ironicDB)
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic := &metal3api.Ironic{
@@ -379,7 +377,7 @@ var _ = Describe("Ironic object tests", func() {
 				Namespace: name.Namespace,
 			},
 			Spec: metal3api.IronicSpec{
-				DatabaseName:     ironicDb.Name,
+				DatabaseName:     ironicDB.Name,
 				HighAvailability: true,
 			},
 		}
