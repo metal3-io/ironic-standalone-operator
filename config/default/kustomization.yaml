@@ -12,10 +12,6 @@ resources:
 #- ../prometheus
 
 patches:
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-- path: manager_auth_proxy_patch.yaml
 - path: manager_webhook_patch.yaml
 # 'CERTMANAGER' needs to be enabled to use ca injection
 - path: webhookcainjection_patch.yaml
