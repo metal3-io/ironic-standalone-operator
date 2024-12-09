@@ -543,7 +543,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		containers = append(containers, newKeepalivedContainer(versionInfo, ironic))
 	}
 
-	return corev1.PodTemplateSpec{
+	return applyOverridesToPod(ironic.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)},
 		},
@@ -556,5 +556,5 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			DNSPolicy:    corev1.DNSClusterFirstWithHostNet,
 			NodeSelector: ironic.Spec.NodeSelector,
 		},
-	}, nil
+	}), nil
 }
