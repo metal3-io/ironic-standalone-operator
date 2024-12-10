@@ -20,6 +20,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	VersionLatest = "latest"
+	Version270    = "27.0"
+)
+
+// Mapping of supported versions to container image tags.
+var SupportedVersions = map[string]string{
+	VersionLatest: "latest",
+	Version270:    "release-27.0",
+}
+
 // Inspection defines inspection settings
 type Inspection struct {
 	// Collectors is a list of inspection collectors to enable.
@@ -237,12 +248,12 @@ type IronicSpec struct {
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`
-}
 
-// InstalledVersion identifies which version of Ironic was installed.
-type InstalledVersion struct {
-	// Branch of Ironic that was installed.
-	Branch string `json:"branch"`
+	// Version is the version of Ironic to be installed.
+	// Must be either "latest" or a MAJOR.MINOR pair, e.g. "27.0".
+	// The default version depends on the operator branch.
+	// +optional
+	Version string `json:"version,omitempty"`
 }
 
 // IronicStatus defines the observed state of Ironic
@@ -255,9 +266,12 @@ type IronicStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 
+	// RequestedVersion identifies which version of Ironic was last requested.
+	RequestedVersion string `json:"requestedVersion,omitempty"`
+
 	// InstalledVersion identifies which version of Ironic was installed.
 	// +optional
-	InstalledVersion *InstalledVersion `json:"installedVersion,omitempty"`
+	InstalledVersion string `json:"installedVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

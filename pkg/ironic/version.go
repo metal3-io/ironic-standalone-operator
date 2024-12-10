@@ -1,18 +1,20 @@
 package ironic
 
-import metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+import (
+	"fmt"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+)
 
 const (
-	installedVersion string = "latest"
-	defaultRegistry  string = "quay.io/metal3-io/"
+	versionLatest = "latest"
+	version270    = "27.0"
+	// NOTE(dtantsur): defaultVersion must be updated after branching
+	defaultVersion  = versionLatest
+	defaultRegistry = "quay.io/metal3-io"
 )
 
-var (
-	defaultIronicImage            = defaultRegistry + "ironic:" + installedVersion
-	defaultMariaDBImage           = defaultRegistry + "mariadb:latest"
-	defaultRamdiskDownloaderImage = defaultRegistry + "ironic-ipa-downloader:latest"
-	defaultKeepalivedImage        = defaultRegistry + "keepalived:latest"
-)
+var defaultMariaDBImage = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
 
 type VersionInfo struct {
 	InstalledVersion       string
@@ -24,37 +26,66 @@ type VersionInfo struct {
 	KeepalivedImage        string
 }
 
-func (versionInfo VersionInfo) withIronicOverrides(images *metal3api.Images) VersionInfo {
+// Helper to build a VersionInfo object for a given version and tag.
+func buildVersionInfo(version string) VersionInfo {
+	tag := metal3api.SupportedVersions[version]
+	// NOTE(dtantsur): we don't have explicit support for IPA branches other than master yet.
+	return VersionInfo{
+		InstalledVersion: version,
+		IronicImage:      fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag),
+		// MariaDBImage is not actually used here but is set for consistency.
+		MariaDBImage:           defaultMariaDBImage,
+		RamdiskDownloaderImage: fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry),
+		KeepalivedImage:        fmt.Sprintf("%s/keepalived:latest", defaultRegistry),
+	}
+}
+
+// Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
+// Explicit images from the Images object take priority. Otherwise, the defaults are taken from the hardcoded defaults for the given version.
+func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) VersionInfo {
+	if ironic.Spec.Version != "" {
+		versionInfo.InstalledVersion = ironic.Spec.Version
+	} else if versionInfo.InstalledVersion == "" {
+		versionInfo.InstalledVersion = defaultVersion
+	}
+
+	defaults := buildVersionInfo(versionInfo.InstalledVersion)
+	images := &ironic.Spec.Images
+
 	if images.DeployRamdiskBranch != "" {
 		versionInfo.AgentBranch = images.DeployRamdiskBranch
+	} else if versionInfo.AgentBranch == "" {
+		versionInfo.AgentBranch = defaults.AgentBranch
 	}
+
 	if images.DeployRamdiskDownloader != "" {
 		versionInfo.RamdiskDownloaderImage = images.DeployRamdiskDownloader
+	} else if versionInfo.RamdiskDownloaderImage == "" {
+		versionInfo.RamdiskDownloaderImage = defaults.RamdiskDownloaderImage
 	}
+
 	if images.Ironic != "" {
 		versionInfo.IronicImage = images.Ironic
+	} else if versionInfo.IronicImage == "" {
+		versionInfo.IronicImage = defaults.IronicImage
 	}
+
 	if images.Keepalived != "" {
 		versionInfo.KeepalivedImage = images.Keepalived
+	} else if versionInfo.KeepalivedImage == "" {
+		versionInfo.KeepalivedImage = defaults.KeepalivedImage
 	}
+
 	return versionInfo
 }
 
-func (versionInfo VersionInfo) WithDefaults() VersionInfo {
-	if versionInfo.InstalledVersion == "" {
-		versionInfo.InstalledVersion = installedVersion
-	}
-	if versionInfo.IronicImage == "" {
-		versionInfo.IronicImage = defaultIronicImage
-	}
-	if versionInfo.MariaDBImage == "" {
+// Takes VersionInfo with defaults from the configuration and applies any overrides from the IronicDatabase object.
+func (versionInfo VersionInfo) WithIronicDatabaseOverrides(db *metal3api.IronicDatabase) VersionInfo {
+	if db.Spec.Image != "" {
+		versionInfo.MariaDBImage = db.Spec.Image
+	} else if versionInfo.MariaDBImage == "" {
 		versionInfo.MariaDBImage = defaultMariaDBImage
 	}
-	if versionInfo.RamdiskDownloaderImage == "" {
-		versionInfo.RamdiskDownloaderImage = defaultRamdiskDownloaderImage
-	}
-	if versionInfo.KeepalivedImage == "" {
-		versionInfo.KeepalivedImage = defaultKeepalivedImage
-	}
+
 	return versionInfo
 }
