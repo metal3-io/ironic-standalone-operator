@@ -194,6 +194,15 @@ type Images struct {
 	Keepalived string `json:"keepalived,omitempty"`
 }
 
+type ExtraConfig struct {
+
+	Group string `json:"group,omitempty`
+
+	Name string `json:"name,omitempty`
+
+	Value string `json:"value,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
@@ -237,6 +246,10 @@ type IronicSpec struct {
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`
+
+	// ExtraConfig defines extra options for Ironic configuration.
+	// +optional
+	ExtraConfig []ExtraConfig `json:"extraConfig,omitempty"`
 }
 
 // InstalledVersion identifies which version of Ironic was installed.

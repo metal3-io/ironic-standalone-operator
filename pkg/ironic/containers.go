@@ -133,6 +133,31 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
+func buildExtraConfigVars(ironic *metal3api.Ironic) []corev1.EnvVar {
+	var result []corev1.EnvVar
+
+	for _, extraConfig := range ironic.Spec.ExtraConfig {
+		// Default group value
+		group := "DEFAULT"
+		if extraConfig.Group != "" {
+			group = extraConfig.Group
+		}
+
+		if extraConfig.Name != "" && extraConfig.Value != "" {
+			name := extraConfig.Name
+			value := extraConfig.Value
+
+			result = append(result, 
+				corev1.EnvVar{
+				Name: fmt.Sprintf("OS_%s__%s", strings.ToUpper(group), strings.ToUpper(name)),
+				Value: value,
+			})
+		}
+	}
+
+	return result
+}
+
 func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string, domain string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
 	result = append(result, []corev1.EnvVar{
@@ -186,6 +211,10 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 				},
 			},
 		)
+	}
+
+	if ironic.Spec.ExtraConfig != nil {
+		result = append(result, buildExtraConfigVars(ironic)...)
 	}
 
 	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", ironic.Spec.Networking.ExternalIP)
