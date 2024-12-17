@@ -147,11 +147,11 @@ func buildExtraConfigVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 			name := extraConfig.Name
 			value := extraConfig.Value
 
-			result = append(result, 
+			result = append(result,
 				corev1.EnvVar{
-				Name: fmt.Sprintf("OS_%s__%s", strings.ToUpper(group), strings.ToUpper(name)),
-				Value: value,
-			})
+					Name:  fmt.Sprintf("OS_%s__%s", strings.ToUpper(group), strings.ToUpper(name)),
+					Value: value,
+				})
 		}
 	}
 

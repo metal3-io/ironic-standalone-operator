@@ -195,19 +195,19 @@ type Images struct {
 }
 
 // ExtraConfig defines environment variables to override Ironic configuration
-// More info at the end of description section 
+// More info at the end of description section
 // https://github.com/metal3-io/ironic-image
 type ExtraConfig struct {
 
 	// The group that config belongs to.
 	// +optional
-	Group string `json:"group,omitempty`
+	Group string `json:"group,omitempty"`
 
-	// The name of the config
+	// The name of the config.
 	// +optional
-	Name string `json:"name,omitempty`
+	Name string `json:"name,omitempty"`
 
-	// The value of the config
+	// The value of the config.
 	// +optional
 	Value string `json:"value,omitempty"`
 }

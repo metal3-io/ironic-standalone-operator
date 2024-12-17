@@ -1,8 +1,8 @@
 package ironic
 
 import (
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -164,9 +164,9 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 	}
 
 	expectedExtraVars := map[string]string{
-		"OS_PXE__BOOT_RETRY_TIMEOUT": "1200",
+		"OS_PXE__BOOT_RETRY_TIMEOUT":            "1200",
 		"OS_CONDUCTOR__DEPLOY_CALLBACK_TIMEOUT": "4800",
-		"OS_CONDUCTOR__INSPECT_TIMEOUT": "1800",
+		"OS_CONDUCTOR__INSPECT_TIMEOUT":         "1800",
 	}
 
 	ironic := &metal3api.Ironic{
@@ -183,17 +183,17 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 			ExtraConfig: []metal3api.ExtraConfig{
 				{
 					Group: "pxe",
-					Name: "boot_retry_timeout",
+					Name:  "boot_retry_timeout",
 					Value: "1200",
-				},	
+				},
 				{
 					Group: "conductor",
-					Name: "deploy_callback_timeout",
+					Name:  "deploy_callback_timeout",
 					Value: "4800",
 				},
 				{
 					Group: "conductor",
-					Name: "inspect_timeout",
+					Name:  "inspect_timeout",
 					Value: "1800",
 				},
 			},
