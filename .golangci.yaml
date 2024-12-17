@@ -17,12 +17,12 @@ linters:
   #- gci
   - ginkgolinter
   - goconst
-  #- gocritic
+  - gocritic
   #- godot
   - gofmt
   - goimports
   - goprintffuncname
-  #- gosec
+  - gosec
   #- gosimple
   - govet
   #- importas
@@ -46,7 +46,7 @@ linters:
   #- unparam
   - unused
   - usestdlibvars
-  #- whitespace
+  - whitespace
   # Run with --fast=false for more extensive checks
   fast: true
 linters-settings:
@@ -55,6 +55,9 @@ linters-settings:
     severity: medium
     confidence: medium
     concurrency: 8
+    # (NOTE)elfosardo: we should try removing this exclude once we bump golangci-lint to 1.61
+    excludes:
+      - G115
   importas:
     no-unaliased: true
     alias:

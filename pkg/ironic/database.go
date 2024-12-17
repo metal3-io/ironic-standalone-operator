@@ -60,7 +60,6 @@ func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 			},
 		},
 	}
-
 }
 
 func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInfo) corev1.PodTemplateSpec {
