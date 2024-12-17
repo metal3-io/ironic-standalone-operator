@@ -68,6 +68,25 @@ spec:
                       into the ramdisk for debugging purposes.
                     type: string
                 type: object
+              extraConfig:
+                description: ExtraConfig defines extra options for Ironic configuration.
+                items:
+                  description: |-
+                    ExtraConfig defines environment variables to override Ironic configuration
+                    More info at the end of description section
+                    https://github.com/metal3-io/ironic-image
+                  properties:
+                    group:
+                      description: The group that config belongs to.
+                      type: string
+                    name:
+                      description: The name of the config.
+                      type: string
+                    value:
+                      description: The value of the config.
+                      type: string
+                  type: object
+                type: array
               highAvailability:
                 description: |-
                   HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
