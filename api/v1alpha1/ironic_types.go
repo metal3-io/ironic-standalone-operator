@@ -194,6 +194,24 @@ type Images struct {
 	Keepalived string `json:"keepalived,omitempty"`
 }
 
+// ExtraConfig defines environment variables to override Ironic configuration
+// More info at the end of description section
+// https://github.com/metal3-io/ironic-image
+type ExtraConfig struct {
+
+	// The group that config belongs to.
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// The name of the config.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// The value of the config.
+	// +optional
+	Value string `json:"value,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
@@ -237,6 +255,10 @@ type IronicSpec struct {
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional
 	TLS TLS `json:"tls,omitempty"`
+
+	// ExtraConfig defines extra options for Ironic configuration.
+	// +optional
+	ExtraConfig []ExtraConfig `json:"extraConfig,omitempty"`
 }
 
 // InstalledVersion identifies which version of Ironic was installed.

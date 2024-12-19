@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -152,4 +153,62 @@ func TestImageOverrides(t *testing.T) {
 
 	assert.Equal(t, expectedImages, images)
 	assert.Equal(t, "stable/x.y", actualBranch)
+}
+
+func TestExpectedExtraEnvVars(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			"htpasswd": []byte("abcd"),
+		},
+	}
+
+	expectedExtraVars := map[string]string{
+		"OS_PXE__BOOT_RETRY_TIMEOUT":            "1200",
+		"OS_CONDUCTOR__DEPLOY_CALLBACK_TIMEOUT": "4800",
+		"OS_CONDUCTOR__INSPECT_TIMEOUT":         "1800",
+	}
+
+	ironic := &metal3api.Ironic{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "test",
+		},
+		Spec: metal3api.IronicSpec{
+			Networking: metal3api.Networking{
+				Interface:        "eth0",
+				IPAddress:        "192.0.2.2",
+				IPAddressManager: metal3api.IPAddressManagerKeepalived,
+			},
+			ExtraConfig: []metal3api.ExtraConfig{
+				{
+					Group: "pxe",
+					Name:  "boot_retry_timeout",
+					Value: "1200",
+				},
+				{
+					Group: "conductor",
+					Name:  "deploy_callback_timeout",
+					Value: "4800",
+				},
+				{
+					Group: "conductor",
+					Name:  "inspect_timeout",
+					Value: "1800",
+				},
+			},
+		},
+	}
+
+	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
+	assert.NoError(t, err)
+
+	extraVars := make(map[string]string, len(expectedExtraVars))
+	for _, env := range podTemplate.Spec.Containers[0].Env {
+		if strings.Contains(env.Name, "OS_") {
+			extraVars[env.Name] = env.Value
+		}
+	}
+
+	assert.Equal(t, expectedExtraVars, extraVars)
 }
