@@ -80,6 +80,8 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	cctx.VersionInfo = cctx.VersionInfo.WithIronicOverrides(ironicConf)
+
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
 		cctx.Logger.Error(err, "reconcile failed")
@@ -103,6 +105,19 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return r.cleanUp(cctx, ironicConf)
 	}
 
+	actuallyRequestedVersion := cctx.VersionInfo.InstalledVersion
+	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
+		cctx.Logger.Info("new version requested", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
+		ironicConf.Status.RequestedVersion = actuallyRequestedVersion
+		setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation,
+			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "new version requested")
+		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
+		if err != nil {
+			cctx.Logger.Error(err, "potentially transient error, will retry")
+			return
+		}
+	}
+
 	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicConf)
 	if requeue || err != nil {
 		return
@@ -114,18 +129,16 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
-	newStatus := ironicConf.Status.DeepCopy()
-	newStatus.InstalledVersion = nil
 	if err != nil {
 		cctx.Logger.Error(err, "potentially transient error, will retry")
 		return
 	}
 
+	newStatus := ironicConf.Status.DeepCopy()
+	newStatus.InstalledVersion = ""
 	requeue = setConditionsFromStatus(cctx, status, &newStatus.Conditions, ironicConf.Generation, "ironic")
 	if !requeue {
-		newStatus.InstalledVersion = &metal3api.InstalledVersion{
-			Branch: cctx.VersionInfo.InstalledVersion,
-		}
+		newStatus.InstalledVersion = cctx.VersionInfo.InstalledVersion
 	}
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {

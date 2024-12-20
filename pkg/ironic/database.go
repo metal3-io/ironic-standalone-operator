@@ -101,15 +101,10 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInf
 		},
 	})
 
-	image := db.Spec.Image
-	if image == "" {
-		image = versionInfo.MariaDBImage
-	}
-
 	containers := []corev1.Container{
 		{
 			Name:         "mariadb",
-			Image:        image,
+			Image:        versionInfo.MariaDBImage,
 			Env:          envVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{

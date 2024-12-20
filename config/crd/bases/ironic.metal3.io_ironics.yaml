@@ -272,6 +272,12 @@ spec:
                       which may be required for hardware that cannot accept HTTPS links.
                     type: boolean
                 type: object
+              version:
+                description: |-
+                  Version is the version of Ironic to be installed.
+                  Must be either "latest" or a MAJOR.MINOR pair, e.g. "27.0".
+                  The default version depends on the operator branch.
+                type: string
             type: object
           status:
             description: IronicStatus defines the observed state of Ironic
@@ -352,13 +358,11 @@ spec:
               installedVersion:
                 description: InstalledVersion identifies which version of Ironic was
                   installed.
-                properties:
-                  branch:
-                    description: Branch of Ironic that was installed.
-                    type: string
-                required:
-                - branch
-                type: object
+                type: string
+              requestedVersion:
+                description: RequestedVersion identifies which version of Ironic was
+                  last requested.
+                type: string
             type: object
         type: object
     served: true

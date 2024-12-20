@@ -76,6 +76,8 @@ func (r *IronicDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	cctx.VersionInfo = cctx.VersionInfo.WithIronicDatabaseOverrides(db)
+
 	changed, err := r.handleDatabase(cctx, db)
 	if err != nil {
 		return ctrl.Result{}, err

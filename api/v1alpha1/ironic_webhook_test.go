@@ -180,6 +180,19 @@ func TestValidateIronic(t *testing.T) {
 			// I'm keeping this test in place to ensure that *some* validation failure happens.
 			ExpectedError: "ipAddress makes no sense with highly available architecture",
 		},
+		{
+			Scenario: "with version",
+			Ironic: IronicSpec{
+				Version: "27.0",
+			},
+		},
+		{
+			Scenario: "with invalid version",
+			Ironic: IronicSpec{
+				Version: "0.42",
+			},
+			ExpectedError: "version 0.42 is not supported, supported versions are 27.0, latest",
+		},
 	}
 
 	for _, tc := range testCases {
