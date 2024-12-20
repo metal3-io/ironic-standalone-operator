@@ -173,7 +173,7 @@ func writeYAML(obj interface{}, namespace, name, typ string) {
 	fileName := fmt.Sprintf("%s/%s_%s.yaml", fileDir, typ, name)
 	yamlData, err := yaml.Marshal(obj)
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(fileName, yamlData, 0644)
+	err = os.WriteFile(fileName, yamlData, 0600)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -227,7 +227,7 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 	var nodeUUIDs []string
 	for idx := 0; idx < 100; idx++ {
 		node, err := nodes.Create(withTimeout, cli, nodes.CreateOpts{
-			Driver: drivers[rand.Intn(len(drivers))],
+			Driver: drivers[rand.Intn(len(drivers))], //nolint:gosec // weak crypto is ok in tests
 			Name:   fmt.Sprintf("node-%d", idx),
 		}).Extract()
 		Expect(err).NotTo(HaveOccurred())
@@ -256,11 +256,11 @@ func CollectLogs(namespace string) {
 			req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 			podLogs, err := req.Stream(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			defer podLogs.Close()
+			defer podLogs.Close() //nolint:gocritic
 
 			logFile, err := os.Create(fmt.Sprintf("%s/%s.log", logDir, cont.Name))
 			Expect(err).NotTo(HaveOccurred())
-			defer logFile.Close()
+			defer logFile.Close() //nolint:gocritic
 
 			_, err = io.Copy(logFile, podLogs)
 			Expect(err).NotTo(HaveOccurred())
