@@ -240,6 +240,22 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 	}
 }
 
+func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
+	podLogOpts := corev1.PodLogOptions{Container: containerName}
+	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
+	podLogs, err := req.Stream(ctx)
+	Expect(err).NotTo(HaveOccurred())
+	defer podLogs.Close()
+
+	targetFileName := fmt.Sprintf("%s/%s.log", logDir, containerName)
+	logFile, err := os.Create(targetFileName)
+	Expect(err).NotTo(HaveOccurred())
+	defer logFile.Close()
+
+	_, err = io.Copy(logFile, podLogs)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func CollectLogs(namespace string) {
 	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
@@ -252,18 +268,7 @@ func CollectLogs(namespace string) {
 		writeYAML(&pod, namespace, pod.Name, "pod")
 
 		for _, cont := range pod.Spec.Containers {
-			podLogOpts := corev1.PodLogOptions{Container: cont.Name}
-			req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
-			podLogs, err := req.Stream(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			defer podLogs.Close() //nolint:gocritic
-
-			logFile, err := os.Create(fmt.Sprintf("%s/%s.log", logDir, cont.Name))
-			Expect(err).NotTo(HaveOccurred())
-			defer logFile.Close() //nolint:gocritic
-
-			_, err = io.Copy(logFile, podLogs)
-			Expect(err).NotTo(HaveOccurred())
+			writeContainerLogs(&pod, cont.Name, logDir)
 		}
 	}
 }
