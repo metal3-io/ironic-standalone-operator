@@ -298,6 +298,9 @@ type IronicStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Requested Version",type="string",JSONPath=".status.requestedVersion",description="Currently requested version",priority=1
+//+kubebuilder:printcolumn:name="Installed Version",type="string",JSONPath=".status.installedVersion",description="Currently installed version"
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,description="Is ready"
 
 // Ironic is the Schema for the ironics API
 type Ironic struct {
