@@ -14,7 +14,21 @@ spec:
     singular: ironic
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: Currently requested version
+      jsonPath: .status.requestedVersion
+      name: Requested Version
+      priority: 1
+      type: string
+    - description: Currently installed version
+      jsonPath: .status.installedVersion
+      name: Installed Version
+      type: string
+    - description: Is ready
+      jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Ironic is the Schema for the ironics API
