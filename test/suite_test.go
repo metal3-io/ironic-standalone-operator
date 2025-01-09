@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,6 +166,39 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 	return ironic
 }
 
+func WaitForIronicFailure(name types.NamespacedName, message string) *metal3api.Ironic {
+	ironic := &metal3api.Ironic{}
+
+	By("waiting for Ironic deployment to fail")
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+
+		writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
+
+		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
+		if cond == nil {
+			GinkgoWriter.Printf("No Ready condition yet\n")
+			return false
+		}
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse), "Unexpected Ready status")
+		if cond.Reason != metal3api.IronicReasonFailed {
+			return false
+		}
+
+		if !strings.Contains(cond.Message, message) {
+			GinkgoWriter.Printf("Different error for now: %s\n", cond.Message)
+			return false
+		}
+
+		return true
+	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+
+	return ironic
+}
+
 func writeYAML(obj interface{}, namespace, name, typ string) {
 	fileDir := fmt.Sprintf("%s/%s", os.Getenv("LOGDIR"), namespace)
 	err := os.MkdirAll(fileDir, 0755)
@@ -177,7 +211,7 @@ func writeYAML(obj interface{}, namespace, name, typ string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func VerifyIronic(ironic *metal3api.Ironic) {
+func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret) {
 	writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
 
 	By("checking the service")
@@ -192,8 +226,12 @@ func VerifyIronic(ironic *metal3api.Ironic) {
 
 	By("fetching the authentication secret")
 
-	secret, err := clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.APICredentialsName, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	if secret == nil {
+		secret, err = clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.APICredentialsName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	} else {
+		Expect(ironic.Spec.APICredentialsName).To(Equal(secret.Name))
+	}
 
 	By("checking Ironic authentication")
 
@@ -337,7 +375,58 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic)
+		VerifyIronic(ironic, nil)
+	})
+
+	It("creates Ironic with provided credentials", Label("api-secret"), func() {
+		By("creating a failing Ironic with non-existent credentials")
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				APICredentialsName: "banana",
+			},
+		}
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		_ = WaitForIronicFailure(name, fmt.Sprintf("API credentials secret %s/banana not found", namespace))
+
+		By("creating the secret and recovering the Ironic")
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-api", name.Name),
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.BasicAuthUsernameKey: []byte("admin"),
+				corev1.BasicAuthPasswordKey: []byte("test-password"),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		}
+		err = k8sClient.Create(ctx, secret)
+		Expect(err).NotTo(HaveOccurred())
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.APICredentialsName = secret.Name
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, secret)
 	})
 
 	It("creates Ironic of an older version", Label("older-version"), func() {
@@ -363,7 +452,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic)
+		VerifyIronic(ironic, nil)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
@@ -396,7 +485,32 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic)
+		VerifyIronic(ironic, nil)
+	})
+
+	It("creates Ironic with non-existent database", Label("non-existent-database"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				DatabaseName: "banana",
+			},
+		}
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		_ = WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace))
 	})
 
 	It("creates highly available Ironic", Label("high-availability-no-provnet"), func() {
@@ -433,7 +547,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic)
+		VerifyIronic(ironic, nil)
 	})
 })
 
