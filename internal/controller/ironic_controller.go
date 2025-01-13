@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -84,8 +84,8 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
-		cctx.Logger.Error(err, "reconcile failed")
-		return ctrl.Result{RequeueAfter: 15 * time.Second}, err
+		cctx.Logger.Error(err, "reconcile failed, will retry")
+		return ctrl.Result{}, err
 	}
 	if changed {
 		return ctrl.Result{Requeue: true}, nil
@@ -93,6 +93,17 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	logger.Info("object has been fully reconciled")
 	return ctrl.Result{}, nil
+}
+
+func (r *IronicReconciler) setCondition(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, value bool, reason, message string) error {
+	setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation,
+		metal3api.IronicStatusReady, value, reason, message)
+
+	err := cctx.Client.Status().Update(cctx.Context, ironicConf)
+	if err != nil {
+		cctx.Logger.Error(err, "potentially transient error when updating conditions")
+	}
+	return err
 }
 
 func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (requeue bool, err error) {
@@ -109,11 +120,8 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
 		cctx.Logger.Info("new version requested", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
 		ironicConf.Status.RequestedVersion = actuallyRequestedVersion
-		setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation,
-			metal3api.IronicStatusReady, false, metal3api.IronicReasonInProgress, "new version requested")
-		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
+		err = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonInProgress, "new version requested")
 		if err != nil {
-			cctx.Logger.Error(err, "potentially transient error, will retry")
 			return
 		}
 	}
@@ -153,6 +161,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 	if ironicConf.Spec.APICredentialsName == "" {
 		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service", true)
 		if err != nil {
+			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
 			return nil, true, err
 		}
 
@@ -160,6 +169,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 		ironicConf.Spec.APICredentialsName = apiSecret.Name
 		err = cctx.Client.Update(cctx.Context, ironicConf)
 		if err != nil {
+			// Considering this a transient error
 			return nil, true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
 		}
 
@@ -174,6 +184,12 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 	apiSecret = &corev1.Secret{}
 	err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
 	if err != nil {
+		// NotFound requires a user's intervention, so reporting it in the conditions.
+		// Everything else is reported up for a retry.
+		if k8serrors.IsNotFound(err) {
+			message := fmt.Sprintf("API credentials secret %s/%s not found", ironicConf.Namespace, ironicConf.Spec.APICredentialsName)
+			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
+		}
 		return nil, true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.APICredentialsName, err)
 	}
 
@@ -188,6 +204,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 
 	requeue, err = ironic.UpdateSecret(apiSecret, cctx.Logger)
 	if err != nil {
+		_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
 		return nil, true, err
 	}
 	if requeue {
@@ -210,6 +227,12 @@ func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicC
 	db = &metal3api.IronicDatabase{}
 	err = cctx.Client.Get(cctx.Context, dbName, db)
 	if err != nil {
+		// NotFound requires a user's intervention, so reporting it in the conditions.
+		// Everything else is reported up for a retry.
+		if k8serrors.IsNotFound(err) {
+			message := fmt.Sprintf("database %s/%s not found", ironicConf.Namespace, ironicConf.Spec.DatabaseName)
+			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
+		}
 		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
 	}
 
