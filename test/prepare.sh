@@ -7,6 +7,8 @@ LOGDIR="${LOGDIR:-/tmp/logs}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-}"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.16.1}"
 
+. "$(dirname $0)/testing.env"
+
 mkdir -p "${LOGDIR}"
 
 if [[ -z "${CONTAINER_RUNTIME}" ]]; then
@@ -52,3 +54,10 @@ make install deploy IMG="${IMG}" DEPLOY_TARGET=testing
 
 kubectl wait --for=condition=Available --timeout=60s \
     -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager
+
+# Preparing the TLS certificate
+
+openssl req -x509 -new -subj "/CN=ironic" \
+    -addext "subjectAltName = IP:${IRONIC_IP},IP:${PROVISIONING_IP}" \
+    -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+    -keyout "${IRONIC_KEY_FILE}" -out "${IRONIC_CERT_FILE}"

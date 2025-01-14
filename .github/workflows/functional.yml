@@ -27,6 +27,7 @@ jobs:
     - name: Run tests
       run: |
         cd test
+        . testing.env
         LOGDIR=/tmp/logs go test -timeout 60m
     - name: Collect logs
       run: LOGDIR=/tmp/logs ./test/collect-logs.sh

@@ -19,9 +19,12 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -55,6 +58,9 @@ var ctx context.Context
 var k8sClient client.Client
 var clientset *kubernetes.Clientset
 
+var ironicCertPEM []byte
+var ironicKeyPEM []byte
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -87,20 +93,46 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE"))
+	Expect(err).NotTo(HaveOccurred())
+	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
+	Expect(err).NotTo(HaveOccurred())
 })
 
+func addHTTPTransport(serviceClient *gophercloud.ServiceClient) *gophercloud.ServiceClient {
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(ironicCertPEM)
+
+	tlsConfig := &tls.Config{
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS13,
+	}
+	serviceClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	return serviceClient
+}
+
 func NewNoAuthClient(endpoint string) (*gophercloud.ServiceClient, error) {
-	return noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
+	serviceClient, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
 		IronicEndpoint: endpoint,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
+	}
+
+	return addHTTPTransport(serviceClient), nil
 }
 
 func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.ServiceClient, error) {
-	return httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
+	serviceClient, err := httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
 		IronicEndpoint:     endpoint,
 		IronicUser:         string(secret.Data[corev1.BasicAuthUsernameKey]),
 		IronicUserPassword: string(secret.Data[corev1.BasicAuthPasswordKey]),
 	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
+	}
+
+	return addHTTPTransport(serviceClient), nil
 }
 
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
@@ -211,8 +243,14 @@ func writeYAML(obj interface{}, namespace, name, typ string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret) {
+func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret, withTLS bool) {
 	writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+
+	proto := "http"
+	if withTLS {
+		proto = "https"
+	}
+	ironicURL := fmt.Sprintf("%s://%s:6385", proto, os.Getenv("IRONIC_IP"))
 
 	By("checking the service")
 
@@ -239,14 +277,14 @@ func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret) {
 	withTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
-	cli, err := NewNoAuthClient("http://127.0.0.1:6385")
+	cli, err := NewNoAuthClient(ironicURL)
 	Expect(err).NotTo(HaveOccurred())
 	_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(withTimeout)
 	Expect(err).To(HaveOccurred())
 
 	By("checking Ironic conductor list")
 
-	cli, err = NewHTTPBasicClient("http://127.0.0.1:6385", secret)
+	cli, err = NewHTTPBasicClient(ironicURL, secret)
 	Expect(err).NotTo(HaveOccurred())
 	cli.Microversion = "1.81" // minimum version supported by BMO
 
@@ -375,7 +413,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil)
+		VerifyIronic(ironic, nil, false)
 	})
 
 	It("creates Ironic with provided credentials", Label("api-secret"), func() {
@@ -426,7 +464,49 @@ var _ = Describe("Ironic object tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, secret)
+		VerifyIronic(ironic, secret, false)
+	})
+
+	It("creates Ironic with TLS", Label("tls"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-api", name.Name),
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.TLSCertKey:       ironicCertPEM,
+				corev1.TLSPrivateKeyKey: ironicKeyPEM,
+			},
+			Type: corev1.SecretTypeTLS,
+		}
+		err := k8sClient.Create(ctx, secret)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := &metal3api.Ironic{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: metal3api.IronicSpec{
+				TLS: metal3api.TLS{
+					CertificateName: secret.Name,
+				},
+			},
+		}
+		err = k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, nil, true)
 	})
 
 	It("creates Ironic of an older version", Label("older-version"), func() {
@@ -452,7 +532,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil)
+		VerifyIronic(ironic, nil, false)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
@@ -469,10 +549,10 @@ var _ = Describe("Ironic object tests", func() {
 			Spec: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
 					DHCP: &metal3api.DHCP{
-						NetworkCIDR: "172.22.0.1/24",
+						NetworkCIDR: os.Getenv("PROVISIONING_CIDR"),
 					},
-					Interface:        "eth0",
-					IPAddress:        "172.22.0.2",
+					Interface:        os.Getenv("PROVISIONING_INTERFACE"),
+					IPAddress:        os.Getenv("PROVISIONING_IP"),
 					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
@@ -485,7 +565,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil)
+		VerifyIronic(ironic, nil, false)
 	})
 
 	It("creates Ironic with non-existent database", Label("non-existent-database"), func() {
@@ -547,7 +627,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil)
+		VerifyIronic(ironic, nil, false)
 	})
 })
 
