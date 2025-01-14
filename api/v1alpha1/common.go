@@ -10,5 +10,11 @@ const (
 	IronicReasonInProgress = "DeploymentInProgress"
 	IronicReasonAvailable  = "DeploymentAvailable"
 
-	IronicOperatorLabel = "metal3.io/ironic-standalone-operator"
+	IronicLabelPrefix = "ironic.metal3.io"
+)
+
+var (
+	IronicAppLabel      = IronicLabelPrefix + "/app"
+	IronicDatabaseLabel = IronicLabelPrefix + "/db"
+	IronicVersionLabel  = IronicLabelPrefix + "/version"
 )

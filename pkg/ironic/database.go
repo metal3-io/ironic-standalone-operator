@@ -124,7 +124,7 @@ func newDatabasePodTemplate(db *metal3api.IronicDatabase, versionInfo VersionInf
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)},
+			Labels: map[string]string{metal3api.IronicDatabaseLabel: databaseDeploymentName(db)},
 		},
 		Spec: corev1.PodSpec{
 			Containers: containers,
@@ -141,7 +141,7 @@ func ensureDatabaseDeployment(cctx ControllerContext, db *metal3api.IronicDataba
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new deployment")
 		}
-		matchLabels := map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
+		matchLabels := map[string]string{metal3api.IronicDatabaseLabel: databaseDeploymentName(db)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		deploy.Spec.Replicas = ptr.To(int32(1))
 		mergePodTemplates(&deploy.Spec.Template, newDatabasePodTemplate(db, cctx.VersionInfo))
@@ -166,9 +166,9 @@ func ensureDatabaseService(cctx ControllerContext, db *metal3api.IronicDatabase)
 			cctx.Logger.Info("creating a new service")
 			service.ObjectMeta.Labels = make(map[string]string)
 		}
-		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = databaseDeploymentName(db)
+		service.ObjectMeta.Labels[metal3api.IronicDatabaseLabel] = databaseDeploymentName(db)
 
-		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: databaseDeploymentName(db)}
+		service.Spec.Selector = map[string]string{metal3api.IronicDatabaseLabel: databaseDeploymentName(db)}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
 				Protocol:   corev1.ProtocolTCP,

@@ -572,7 +572,10 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)},
+			Labels: map[string]string{
+				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
+				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers:     containers,

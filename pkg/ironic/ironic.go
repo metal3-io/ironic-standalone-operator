@@ -35,7 +35,13 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic daemon set")
 		}
-		matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
+		if deploy.Labels == nil {
+			deploy.Labels = make(map[string]string, 2)
+		}
+		deploy.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion
+
+		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		mergePodTemplates(&deploy.Spec.Template, template)
 		return controllerutil.SetControllerReference(ironic, deploy, cctx.Scheme)
@@ -67,7 +73,13 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
 		}
-		matchLabels := map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
+		if deploy.Labels == nil {
+			deploy.Labels = make(map[string]string, 2)
+		}
+		deploy.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion
+
+		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		deploy.Spec.Replicas = ptr.To(int32(1))
 		mergePodTemplates(&deploy.Spec.Template, template)
@@ -101,9 +113,9 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 			cctx.Logger.Info("creating a new ironic service")
 			service.ObjectMeta.Labels = make(map[string]string)
 		}
-		service.ObjectMeta.Labels[metal3api.IronicOperatorLabel] = ironicDeploymentName(ironic)
+		service.ObjectMeta.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
 
-		service.Spec.Selector = map[string]string{metal3api.IronicOperatorLabel: ironicDeploymentName(ironic)}
+		service.Spec.Selector = map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
 				Protocol:   corev1.ProtocolTCP,
