@@ -5,4 +5,4 @@ approvers:
 
 reviewers:
 - ironic-standalone-operator-maintainers
-- ironic-standalone-operator-reviewers
+#- ironic-standalone-operator-reviewers
