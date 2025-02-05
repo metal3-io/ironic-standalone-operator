@@ -61,6 +61,10 @@ var clientset *kubernetes.Clientset
 var ironicCertPEM []byte
 var ironicKeyPEM []byte
 
+var customImage string
+var customImageVersion string
+var customDatabaseImage string
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -97,6 +101,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
 	Expect(err).NotTo(HaveOccurred())
+
+	customImage = os.Getenv("IRONIC_CUSTOM_IMAGE")
+	customImageVersion = os.Getenv("IRONIC_CUSTOM_VERSION")
+	customDatabaseImage = os.Getenv("MARIADB_CUSTOM_IMAGE")
 })
 
 func addHTTPTransport(serviceClient *gophercloud.ServiceClient) *gophercloud.ServiceClient {
@@ -370,6 +378,40 @@ func DeleteAndWait(ironic *metal3api.Ironic) {
 	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 }
 
+func buildIronic(name types.NamespacedName, spec metal3api.IronicSpec) *metal3api.Ironic {
+	result := &metal3api.Ironic{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+		},
+		Spec: spec,
+	}
+
+	if customImage != "" {
+		result.Spec.Images.Ironic = customImage
+	}
+	if customImageVersion != "" {
+		result.Spec.Version = customImageVersion
+	}
+
+	return result
+}
+
+func buildDatabase(name types.NamespacedName) *metal3api.IronicDatabase {
+	result := &metal3api.IronicDatabase{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-db", name.Name),
+			Namespace: name.Namespace,
+		},
+	}
+
+	if customDatabaseImage != "" {
+		result.Spec.Image = customDatabaseImage
+	}
+
+	return result
+}
+
 var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
@@ -399,12 +441,7 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-		}
+		ironic := buildIronic(name, metal3api.IronicSpec{})
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -424,15 +461,9 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: metal3api.IronicSpec{
-				APICredentialsName: "banana",
-			},
-		}
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			APICredentialsName: "banana",
+		})
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -487,17 +518,11 @@ var _ = Describe("Ironic object tests", func() {
 		err := k8sClient.Create(ctx, secret)
 		Expect(err).NotTo(HaveOccurred())
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			TLS: metal3api.TLS{
+				CertificateName: secret.Name,
 			},
-			Spec: metal3api.IronicSpec{
-				TLS: metal3api.TLS{
-					CertificateName: secret.Name,
-				},
-			},
-		}
+		})
 		err = k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -510,20 +535,18 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("creates Ironic of an older version", Label("older-version"), func() {
+		if customImage != "" || customImageVersion != "" {
+			Skip("skipping because a custom image is provided")
+		}
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
 		}
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: metal3api.IronicSpec{
-				Version: "27.0",
-			},
-		}
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Version: "27.0",
+		})
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -541,22 +564,16 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: metal3api.IronicSpec{
-				Networking: metal3api.Networking{
-					DHCP: &metal3api.DHCP{
-						NetworkCIDR: os.Getenv("PROVISIONING_CIDR"),
-					},
-					Interface:        os.Getenv("PROVISIONING_INTERFACE"),
-					IPAddress:        os.Getenv("PROVISIONING_IP"),
-					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Networking: metal3api.Networking{
+				DHCP: &metal3api.DHCP{
+					NetworkCIDR: os.Getenv("PROVISIONING_CIDR"),
 				},
+				Interface:        os.Getenv("PROVISIONING_INTERFACE"),
+				IPAddress:        os.Getenv("PROVISIONING_IP"),
+				IPAddressManager: metal3api.IPAddressManagerKeepalived,
 			},
-		}
+		})
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -574,15 +591,9 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: metal3api.IronicSpec{
-				DatabaseName: "banana",
-			},
-		}
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			DatabaseName: "banana",
+		})
 		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
@@ -599,26 +610,15 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironicDB := &metal3api.IronicDatabase{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-db", name.Name),
-				Namespace: name.Namespace,
-			},
-		}
+		ironicDB := buildDatabase(name)
 
 		err := k8sClient.Create(ctx, ironicDB)
 		Expect(err).NotTo(HaveOccurred())
 
-		ironic := &metal3api.Ironic{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: metal3api.IronicSpec{
-				DatabaseName:     ironicDB.Name,
-				HighAvailability: true,
-			},
-		}
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			DatabaseName:     ironicDB.Name,
+			HighAvailability: true,
+		})
 		err = k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
