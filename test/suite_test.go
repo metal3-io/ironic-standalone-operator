@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/apiversions"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/conductors"
@@ -53,6 +54,12 @@ import (
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
+
+// NOTE(dtantsur): latest is now at least 1.95
+const apiVersionIn270 = "1.94"
+
+// Update this periodically to make sure we're installing the latest version
+const knownAPIMinorVersion = 95
 
 var ctx context.Context
 var k8sClient client.Client
@@ -260,6 +267,26 @@ type TestAssumptions struct {
 
 	// Verify that an active conductor with this name exists
 	activeConductor string
+
+	// Verify that the maximum available version equals this one
+	maxAPIVersion string
+}
+
+func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
+	By("checking Ironic API versions")
+
+	version, err := apiversions.Get(ctx, cli, "v1").Extract()
+	Expect(err).NotTo(HaveOccurred())
+	if assumptions.maxAPIVersion != "" {
+		Expect(version.Version).To(Equal(assumptions.maxAPIVersion))
+	} else if customImage == "" && customImageVersion == "" {
+		// NOTE(dtantsur): we cannot make any assumptions about the provided image and version,
+		// so this check only runs when they are not set.
+		var minorVersion int
+		_, err = fmt.Sscanf(version.Version, "1.%d", &minorVersion)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(minorVersion).To(BeNumerically(">=", knownAPIMinorVersion))
+	}
 }
 
 func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
@@ -302,11 +329,13 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(withTimeout)
 	Expect(err).To(HaveOccurred())
 
-	By("checking Ironic conductor list")
-
 	cli, err = NewHTTPBasicClient(ironicURL, secret)
 	Expect(err).NotTo(HaveOccurred())
 	cli.Microversion = "1.81" // minimum version supported by BMO
+
+	verifyAPIVersion(withTimeout, cli, assumptions)
+
+	By("checking Ironic conductor list")
 
 	conductorPager, err := conductors.List(cli, conductors.ListOpts{}).AllPages(withTimeout)
 	Expect(err).NotTo(HaveOccurred())
@@ -578,7 +607,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{})
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {

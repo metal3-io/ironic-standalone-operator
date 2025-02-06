@@ -7,10 +7,8 @@ import (
 )
 
 const (
-	versionLatest = "latest"
-	version270    = "27.0"
 	// NOTE(dtantsur): defaultVersion must be updated after branching
-	defaultVersion  = versionLatest
+	defaultVersion  = metal3api.VersionLatest
 	defaultRegistry = "quay.io/metal3-io"
 )
 
