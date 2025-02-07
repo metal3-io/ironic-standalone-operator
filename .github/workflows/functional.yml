@@ -1,39 +1,35 @@
-name: Functional
+name: Functional Tests
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
 
 jobs:
-  functional:
+  test:
     runs-on: ubuntu-latest
+    env:
+      LOGDIR: /tmp/logs
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - name: Calculate go version
       id: vars
       run: echo "go_version=$(make go-version)" >> $GITHUB_OUTPUT
     - name: Set up Go
-      uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
-    - uses: helm/kind-action@v1
+    - uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
       with:
         cluster_name: kind
         config: ./test/kind.yaml
     - name: Prepare tests
-      run: LOGDIR=/tmp/logs ./test/prepare.sh
+      run: ./test/prepare.sh
     - name: Run tests
-      run: |
-        cd test
-        . testing.env
-        LOGDIR=/tmp/logs go test -timeout 60m
+      run: ./test/run.sh
     - name: Collect logs
-      run: LOGDIR=/tmp/logs ./test/collect-logs.sh
+      run: ./test/collect-logs.sh
       if: always()
     - name: Upload logs artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
       with:
         name: functional
         path: /tmp/logs/*

@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+# NOTE(dtantsur): do not use -e, commands can fail if the test breaks early
 set -ux
 
 LOGDIR="${LOGDIR:-/tmp/logs}"

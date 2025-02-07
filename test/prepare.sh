@@ -1,13 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux -o pipefail
+
+REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
+cd "${REPO_ROOT}"
 
 IMG="${IMG:-localhost/controller:test}"
 LOGDIR="${LOGDIR:-/tmp/logs}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-}"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.16.1}"
 
-. "$(dirname "$0")/testing.env"
+. test/testing.env
 
 mkdir -p "${LOGDIR}"
 
