@@ -1,4 +1,4 @@
-# Ironic Standalone Operator
+# Ironic Standalone Operator - test only
 
 Operator to maintain an [Ironic][ironic] deployment for Metal3. See the user
 guide for more details:
