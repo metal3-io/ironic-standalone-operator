@@ -150,6 +150,34 @@ func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.Se
 	return addHTTPTransport(serviceClient), nil
 }
 
+func logResources(ironic *metal3api.Ironic, suffix string) {
+	deployName := fmt.Sprintf("%s-service", ironic.Name)
+	if ironic.Spec.HighAvailability {
+		deploy, err := clientset.AppsV1().DaemonSets(ironic.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+		if err == nil {
+			GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
+			writeYAML(deploy, deploy.Namespace, deploy.Name, "daemonset"+suffix)
+		} else if !k8serrors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	} else {
+		deploy, err := clientset.AppsV1().Deployments(ironic.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+		if err == nil {
+			GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
+			writeYAML(deploy, deploy.Namespace, deploy.Name, "deployment"+suffix)
+		} else if !k8serrors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	pods, err := clientset.CoreV1().Pods(ironic.Namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, pod := range pods.Items {
+		GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+	}
+}
+
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{}
 
@@ -181,32 +209,45 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 			}
 		}
 
-		deployName := fmt.Sprintf("%s-service", name.Name)
-		if ironic.Spec.HighAvailability {
-			deploy, err := clientset.AppsV1().DaemonSets(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
-			if err == nil {
-				GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
-				writeYAML(deploy, deploy.Namespace, deploy.Name, "daemonset")
-			} else if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		} else {
-			deploy, err := clientset.AppsV1().Deployments(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
-			if err == nil {
-				GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
-				writeYAML(deploy, deploy.Namespace, deploy.Name, "deployment")
-			} else if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		}
+		logResources(ironic, "")
+		return false
+	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
-		pods, err := clientset.CoreV1().Pods(name.Namespace).List(ctx, metav1.ListOptions{})
+	return ironic
+}
+
+func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *metal3api.Ironic {
+	ironic := &metal3api.Ironic{}
+	suffix := "-upgraded-" + toVersion
+
+	By("waiting for Ironic deployment")
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, name, ironic)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, pod := range pods.Items {
-			GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+		writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
+
+		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
+		Expect(cond).ToNot(BeNil(), "on upgrade, the Ready condition must always be present")
+
+		Expect(ironic.Spec.Version).To(Equal(toVersion), "unexpected Version in the Spec")
+		upgradeAcknowledged := ironic.Status.RequestedVersion == toVersion
+		upgraded := ironic.Status.InstalledVersion == toVersion
+		if upgraded {
+			Expect(upgradeAcknowledged).To(BeTrue(), "InstalledVersion set before RequestedVersion")
 		}
 
+		if upgradeAcknowledged && cond.Status == metav1.ConditionTrue {
+			Expect(upgraded).To(BeTrue(), "the Ready condition set before InstalledVersion")
+			logResources(ironic, suffix)
+			return true
+		} else {
+			Expect(upgraded).To(BeFalse(), "InstalledVersion set before the Ready condition")
+		}
+
+		logResources(ironic, suffix)
 		return false
 	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
@@ -586,7 +627,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
-	It("creates Ironic of an older version", Label("older-version"), func() {
+	It("creates Ironic 27.0 and upgrades to latest", Label("v270-to-latest"), func() {
 		if customImage != "" || customImageVersion != "" {
 			Skip("skipping because a custom image is provided")
 		}
@@ -608,6 +649,16 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
+
+		By("upgrading to Ironic latest")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "latest"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "27.0", "latest")
+		VerifyIronic(ironic, TestAssumptions{})
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
