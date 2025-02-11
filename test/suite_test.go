@@ -251,11 +251,22 @@ func writeYAML(obj interface{}, namespace, name, typ string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret, withTLS bool) {
+type TestAssumptions struct {
+	// Assume that TLS is used
+	withTLS bool
+
+	// Assume that this secret is used for accessing the API
+	apiSecret *corev1.Secret
+
+	// Verify that an active conductor with this name exists
+	activeConductor string
+}
+
+func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
 
 	proto := "http"
-	if withTLS {
+	if assumptions.withTLS {
 		proto = "https"
 	}
 	ironicURL := fmt.Sprintf("%s://%s:6385", proto, os.Getenv("IRONIC_IP"))
@@ -272,6 +283,7 @@ func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret, withTLS bool)
 
 	By("fetching the authentication secret")
 
+	secret := assumptions.apiSecret
 	if secret == nil {
 		secret, err = clientset.CoreV1().Secrets(ironic.Namespace).Get(ctx, ironic.Spec.APICredentialsName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -300,7 +312,18 @@ func VerifyIronic(ironic *metal3api.Ironic, secret *corev1.Secret, withTLS bool)
 	Expect(err).NotTo(HaveOccurred())
 	conductors, err := conductors.ExtractConductors(conductorPager)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(conductors).NotTo(BeEmpty())
+
+	var aliveConductors []string
+	for _, cond := range conductors {
+		if cond.Alive {
+			aliveConductors = append(aliveConductors, cond.Hostname)
+		}
+	}
+	if assumptions.activeConductor != "" {
+		Expect(aliveConductors).To(ContainElement(assumptions.activeConductor))
+	} else {
+		Expect(aliveConductors).NotTo(BeEmpty())
+	}
 
 	By("creating and deleting a lot of Nodes")
 
@@ -450,7 +473,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil, false)
+		VerifyIronic(ironic, TestAssumptions{})
 	})
 
 	It("creates Ironic with provided credentials", Label("api-secret"), func() {
@@ -495,7 +518,7 @@ var _ = Describe("Ironic object tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, secret, false)
+		VerifyIronic(ironic, TestAssumptions{apiSecret: secret})
 	})
 
 	It("creates Ironic with TLS", Label("tls"), func() {
@@ -531,7 +554,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil, true)
+		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
 	It("creates Ironic of an older version", Label("older-version"), func() {
@@ -555,7 +578,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil, false)
+		VerifyIronic(ironic, TestAssumptions{})
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
@@ -582,7 +605,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil, false)
+		VerifyIronic(ironic, TestAssumptions{})
 	})
 
 	It("creates Ironic with non-existent database", Label("non-existent-database"), func() {
@@ -627,7 +650,34 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, nil, false)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
+
+	It("creates Ironic with extraConfig", Label("extra-config"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		conductorName := "test-conductor"
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			ExtraConfig: []metal3api.ExtraConfig{
+				{
+					Name:  "host",
+					Value: conductorName,
+				},
+			},
+		})
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{activeConductor: conductorName})
 	})
 })
 
