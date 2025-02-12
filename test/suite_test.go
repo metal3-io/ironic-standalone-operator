@@ -55,11 +55,17 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-// NOTE(dtantsur): latest is now at least 1.95
-const apiVersionIn270 = "1.94"
-
-// Update this periodically to make sure we're installing the latest version
-const knownAPIMinorVersion = 95
+// NOTE(dtantsur): these two constants refer to the Ironic API version (which
+// is different from the version of Ironic itself). Versions are incremented
+// every time the API is changed. The listing of all versions is here:
+// https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
+const (
+	// NOTE(dtantsur): latest is now at least 1.95, so we can rely on this
+	// value to check that specifying Version: 27.0 actually installs 27.0
+	apiVersionIn270 = "1.94"
+	// Update this periodically to make sure we're installing the latest version by default
+	knownAPIMinorVersion = 95
+)
 
 var ctx context.Context
 var k8sClient client.Client
