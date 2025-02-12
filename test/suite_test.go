@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/gophercloud/gophercloud/v2"
+	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/apiversions"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/conductors"
@@ -52,6 +53,18 @@ import (
 	yaml "sigs.k8s.io/yaml"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+)
+
+// NOTE(dtantsur): these two constants refer to the Ironic API version (which
+// is different from the version of Ironic itself). Versions are incremented
+// every time the API is changed. The listing of all versions is here:
+// https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
+const (
+	// NOTE(dtantsur): latest is now at least 1.95, so we can rely on this
+	// value to check that specifying Version: 27.0 actually installs 27.0
+	apiVersionIn270 = "1.94"
+	// Update this periodically to make sure we're installing the latest version by default
+	knownAPIMinorVersion = 95
 )
 
 var ctx context.Context
@@ -143,6 +156,34 @@ func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.Se
 	return addHTTPTransport(serviceClient), nil
 }
 
+func logResources(ironic *metal3api.Ironic, suffix string) {
+	deployName := fmt.Sprintf("%s-service", ironic.Name)
+	if ironic.Spec.HighAvailability {
+		deploy, err := clientset.AppsV1().DaemonSets(ironic.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+		if err == nil {
+			GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
+			writeYAML(deploy, deploy.Namespace, deploy.Name, "daemonset"+suffix)
+		} else if !k8serrors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	} else {
+		deploy, err := clientset.AppsV1().Deployments(ironic.Namespace).Get(ctx, deployName, metav1.GetOptions{})
+		if err == nil {
+			GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
+			writeYAML(deploy, deploy.Namespace, deploy.Name, "deployment"+suffix)
+		} else if !k8serrors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	pods, err := clientset.CoreV1().Pods(ironic.Namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, pod := range pods.Items {
+		GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+	}
+}
+
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{}
 
@@ -174,32 +215,45 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 			}
 		}
 
-		deployName := fmt.Sprintf("%s-service", name.Name)
-		if ironic.Spec.HighAvailability {
-			deploy, err := clientset.AppsV1().DaemonSets(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
-			if err == nil {
-				GinkgoWriter.Printf(".. status of daemon set: %+v\n", deploy.Status)
-				writeYAML(deploy, deploy.Namespace, deploy.Name, "daemonset")
-			} else if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		} else {
-			deploy, err := clientset.AppsV1().Deployments(name.Namespace).Get(ctx, deployName, metav1.GetOptions{})
-			if err == nil {
-				GinkgoWriter.Printf(".. status of deployment: %+v\n", deploy.Status)
-				writeYAML(deploy, deploy.Namespace, deploy.Name, "deployment")
-			} else if !k8serrors.IsNotFound(err) {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		}
+		logResources(ironic, "")
+		return false
+	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
-		pods, err := clientset.CoreV1().Pods(name.Namespace).List(ctx, metav1.ListOptions{})
+	return ironic
+}
+
+func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *metal3api.Ironic {
+	ironic := &metal3api.Ironic{}
+	suffix := "-upgraded-" + toVersion
+
+	By("waiting for Ironic deployment")
+
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, name, ironic)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, pod := range pods.Items {
-			GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+		writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
+		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
+
+		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
+		Expect(cond).ToNot(BeNil(), "on upgrade, the Ready condition must always be present")
+
+		Expect(ironic.Spec.Version).To(Equal(toVersion), "unexpected Version in the Spec")
+		upgradeAcknowledged := ironic.Status.RequestedVersion == toVersion
+		upgraded := ironic.Status.InstalledVersion == toVersion
+		if upgraded {
+			Expect(upgradeAcknowledged).To(BeTrue(), "InstalledVersion set before RequestedVersion")
 		}
 
+		if upgradeAcknowledged && cond.Status == metav1.ConditionTrue {
+			Expect(upgraded).To(BeTrue(), "the Ready condition set before InstalledVersion")
+			logResources(ironic, suffix)
+			return true
+		} else {
+			Expect(upgraded).To(BeFalse(), "InstalledVersion set before the Ready condition")
+		}
+
+		logResources(ironic, suffix)
 		return false
 	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
@@ -260,6 +314,26 @@ type TestAssumptions struct {
 
 	// Verify that an active conductor with this name exists
 	activeConductor string
+
+	// Verify that the maximum available version equals this one
+	maxAPIVersion string
+}
+
+func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
+	By("checking Ironic API versions")
+
+	version, err := apiversions.Get(ctx, cli, "v1").Extract()
+	Expect(err).NotTo(HaveOccurred())
+	if assumptions.maxAPIVersion != "" {
+		Expect(version.Version).To(Equal(assumptions.maxAPIVersion))
+	} else if customImage == "" && customImageVersion == "" {
+		// NOTE(dtantsur): we cannot make any assumptions about the provided image and version,
+		// so this check only runs when they are not set.
+		var minorVersion int
+		_, err = fmt.Sscanf(version.Version, "1.%d", &minorVersion)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(minorVersion).To(BeNumerically(">=", knownAPIMinorVersion))
+	}
 }
 
 func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
@@ -302,11 +376,13 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(withTimeout)
 	Expect(err).To(HaveOccurred())
 
-	By("checking Ironic conductor list")
-
 	cli, err = NewHTTPBasicClient(ironicURL, secret)
 	Expect(err).NotTo(HaveOccurred())
 	cli.Microversion = "1.81" // minimum version supported by BMO
+
+	verifyAPIVersion(withTimeout, cli, assumptions)
+
+	By("checking Ironic conductor list")
 
 	conductorPager, err := conductors.List(cli, conductors.ListOpts{}).AllPages(withTimeout)
 	Expect(err).NotTo(HaveOccurred())
@@ -557,7 +633,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
-	It("creates Ironic of an older version", Label("older-version"), func() {
+	It("creates Ironic 27.0 and upgrades to latest", Label("v270-to-latest"), func() {
 		if customImage != "" || customImageVersion != "" {
 			Skip("skipping because a custom image is provided")
 		}
@@ -578,6 +654,16 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
+
+		By("upgrading to Ironic latest")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "latest"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "27.0", "latest")
 		VerifyIronic(ironic, TestAssumptions{})
 	})
 
