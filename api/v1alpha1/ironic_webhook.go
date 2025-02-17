@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"slices"
-	"strings"
 
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -220,14 +218,10 @@ func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
 
-	if ironic.Version != "" && SupportedVersions[ironic.Version] == "" {
-		var versions []string
-		for ver := range SupportedVersions {
-			versions = append(versions, ver)
+	if ironic.Version != "" {
+		if err := ValidateVersion(ironic.Version); err != nil {
+			return err
 		}
-		slices.Sort(versions)
-		return fmt.Errorf("version %s is not supported, supported versions are %s",
-			ironic.Version, strings.Join(versions, ", "))
 	}
 
 	return nil

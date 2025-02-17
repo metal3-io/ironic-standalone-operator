@@ -40,8 +40,11 @@ func buildVersionInfo(version string) VersionInfo {
 
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
 // Explicit images from the Images object take priority. Otherwise, the defaults are taken from the hardcoded defaults for the given version.
-func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) VersionInfo {
+func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (VersionInfo, error) {
 	if ironic.Spec.Version != "" {
+		if _, err := metal3api.ParseVersion(ironic.Spec.Version); err != nil {
+			return VersionInfo{}, err
+		}
 		versionInfo.InstalledVersion = ironic.Spec.Version
 	} else if versionInfo.InstalledVersion == "" {
 		versionInfo.InstalledVersion = defaultVersion
@@ -74,7 +77,7 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) Ver
 		versionInfo.KeepalivedImage = defaults.KeepalivedImage
 	}
 
-	return versionInfo
+	return versionInfo, nil
 }
 
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the IronicDatabase object.

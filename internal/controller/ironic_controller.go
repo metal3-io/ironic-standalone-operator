@@ -80,8 +80,6 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	cctx.VersionInfo = cctx.VersionInfo.WithIronicOverrides(ironicConf)
-
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
 		cctx.Logger.Error(err, "reconcile failed, will retry")
@@ -115,6 +113,14 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	} else {
 		return r.cleanUp(cctx, ironicConf)
 	}
+
+	versionInfo, err := cctx.VersionInfo.WithIronicOverrides(ironicConf)
+	if err != nil {
+		// This condition requires a user's intervention
+		_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
+		return true, err
+	}
+	cctx.VersionInfo = versionInfo
 
 	actuallyRequestedVersion := cctx.VersionInfo.InstalledVersion
 	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
