@@ -153,8 +153,7 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
 func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status Status, err error) {
 	if db != nil && !isReady(db.Status.Conditions) {
-		cctx.Logger.Info("database is not ready yet")
-		return
+		return inProgress("database is not ready yet")
 	}
 
 	if validationErr := metal3api.ValidateIronic(&ironic.Spec, nil); validationErr != nil {

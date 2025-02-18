@@ -1,12 +1,12 @@
 package ironic
 
 type Status struct {
-	// Object is reconciled but some resources may be in progress.
-	Reconciled bool
 	// Object is reconciled and all resources are ready.
 	Ready bool
 	// Fatal error, further reconciliation is not possible.
 	Fatal error
+	// Message explaining what is not ready.
+	Message string
 }
 
 func (status Status) IsError() bool {
@@ -22,11 +22,10 @@ func (status Status) String() string {
 		return status.Fatal.Error()
 	}
 
-	if !status.Reconciled {
-		return "resources are being updated"
-	}
-
 	if !status.Ready {
+		if status.Message != "" {
+			return status.Message
+		}
 		return "resources are not ready yet"
 	}
 
@@ -35,17 +34,17 @@ func (status Status) String() string {
 
 // Everything is done, no more reconciliation required.
 func ready() (Status, error) {
-	return Status{Reconciled: true, Ready: true}, nil
+	return Status{Ready: true}, nil
 }
 
 // We have updated dependent resources.
 func updated() (Status, error) {
-	return Status{}, nil
+	return Status{Message: "dependent resources are being updated"}, nil
 }
 
 // We are passively waiting for something external to happen.
-func inProgress() (Status, error) {
-	return Status{Reconciled: true}, nil
+func inProgress(message string) (Status, error) {
+	return Status{Message: message}, nil
 }
 
 // Checking or updating status failed, we hope it's going to resolve itself

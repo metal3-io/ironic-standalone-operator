@@ -98,7 +98,7 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Sta
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return inProgress()
+		return inProgress("deployment not ready yet")
 	}
 
 	var available bool
@@ -117,9 +117,9 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Sta
 	if available {
 		return ready()
 	} else {
-		cctx.Logger.Info("deployment not ready yet", "Deployment", deploy.Name,
+		cctx.Logger.Info("deployment not available yet", "Deployment", deploy.Name,
 			"Conditions", deploy.Status.Conditions)
-		return inProgress()
+		return inProgress("deployment not available yet")
 	}
 }
 
@@ -127,7 +127,7 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Statu
 	if deploy.Status.ObservedGeneration != deploy.Generation {
 		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
 			"Generation", deploy.Generation, "ObservedGeneration", deploy.Status.ObservedGeneration)
-		return inProgress()
+		return inProgress("daemon set not ready yet")
 	}
 
 	var available bool
@@ -149,16 +149,16 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Statu
 	if available {
 		return ready()
 	} else {
-		cctx.Logger.Info("daemon set not ready yet", "DaemonSet", deploy.Name,
+		cctx.Logger.Info("daemon set not available yet", "DaemonSet", deploy.Name,
 			"NumberUnavailable", deploy.Status.NumberUnavailable)
-		return inProgress()
+		return inProgress(fmt.Sprintf("daemon set not available yet: %d replicas unavailable", deploy.Status.NumberUnavailable))
 	}
 }
 
 func getServiceStatus(service *corev1.Service) (Status, error) {
 	// TODO(dtantsur): can we check anything else?
 	if len(service.Spec.ClusterIPs) == 0 {
-		return inProgress()
+		return inProgress("service has no cluster IPs")
 	}
 
 	return ready()
