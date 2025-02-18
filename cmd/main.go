@@ -147,6 +147,13 @@ func main() {
 
 	setupLog.Info("enabling features", "FeatureGate", metal3iov1alpha1.CurrentFeatureGate.String())
 
+	if versionInfo.InstalledVersion != "" {
+		if err := metal3iov1alpha1.ValidateVersion(versionInfo.InstalledVersion); err != nil {
+			setupLog.Error(err, "invalid ironic-version")
+			os.Exit(1)
+		}
+	}
+
 	config := ctrl.GetConfigOrDie()
 	kubeClient := kubernetes.NewForConfigOrDie(rest.AddUserAgent(config, "ironic-standalone-operator"))
 

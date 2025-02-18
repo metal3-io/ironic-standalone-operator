@@ -15,7 +15,8 @@ func TestWithIronicOverrides(t *testing.T) {
 		Configured VersionInfo
 		Ironic     metal3api.Ironic
 
-		Expected VersionInfo
+		Expected    VersionInfo
+		ExpectError string
 	}{
 		{
 			Scenario: "only defaults",
@@ -67,12 +68,28 @@ func TestWithIronicOverrides(t *testing.T) {
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 			},
 		},
+		{
+			Scenario: "invalid version",
+
+			Ironic: metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					Version: "42",
+				},
+			},
+
+			ExpectError: "invalid version 42",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			result := tc.Configured.WithIronicOverrides(&tc.Ironic)
-			assert.Equal(t, tc.Expected, result)
+			result, err := tc.Configured.WithIronicOverrides(&tc.Ironic)
+			if tc.ExpectError != "" {
+				assert.ErrorContains(t, err, tc.ExpectError)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.Expected, result)
+			}
 		})
 	}
 }

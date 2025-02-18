@@ -132,7 +132,9 @@ func TestImageOverrides(t *testing.T) {
 		},
 	}
 
-	cctx.VersionInfo = cctx.VersionInfo.WithIronicOverrides(ironic)
+	version, err := cctx.VersionInfo.WithIronicOverrides(ironic)
+	assert.NoError(t, err)
+	cctx.VersionInfo = version
 	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
 	assert.NoError(t, err)
 
