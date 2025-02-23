@@ -19,7 +19,7 @@ var (
 )
 
 type VersionInfo struct {
-	InstalledVersion       string
+	InstalledVersion       metal3api.Version
 	IronicImage            string
 	MariaDBImage           string
 	RamdiskDownloaderImage string
@@ -29,16 +29,16 @@ type VersionInfo struct {
 
 // Creates a version info from images and version.
 func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databaseImage string) (result VersionInfo, err error) {
-	parsedVersion := defaultVersion
 	if ironicVersion != "" {
-		parsedVersion, err = metal3api.ParseVersion(ironicVersion)
+		parsedVersion, err := metal3api.ParseVersion(ironicVersion)
 		if err != nil {
-			return
+			return VersionInfo{}, err
 		}
+		result.InstalledVersion = parsedVersion
+	} else {
+		result.InstalledVersion = defaultVersion
 	}
-	tag := metal3api.SupportedVersions[parsedVersion]
-
-	result.InstalledVersion = parsedVersion.String()
+	tag := metal3api.SupportedVersions[result.InstalledVersion]
 
 	if ironicImages.Ironic != "" {
 		result.IronicImage = ironicImages.Ironic
@@ -81,7 +81,7 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 		if err != nil {
 			return VersionInfo{}, err
 		}
-		versionInfo.InstalledVersion = ironic.Spec.Version
+		versionInfo.InstalledVersion = parsedVersion
 
 		// NOTE(dtantsur): a non-default version requires a different default image
 		if images.Ironic == "" {
