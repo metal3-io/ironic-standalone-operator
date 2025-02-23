@@ -7,12 +7,16 @@ import (
 )
 
 const (
-	// NOTE(dtantsur): defaultVersion must be updated after branching
-	defaultVersion  = metal3api.VersionLatest
 	defaultRegistry = "quay.io/metal3-io"
 )
 
-var defaultMariaDBImage = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
+var (
+	// NOTE(dtantsur): defaultVersion must be updated after branching
+	defaultVersion                = metal3api.VersionLatest
+	defaultMariaDBImage           = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
+	defaultRamdiskDownloaderImage = fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry)
+	defaultKeepalivedImage        = fmt.Sprintf("%s/keepalived:latest", defaultRegistry)
+)
 
 type VersionInfo struct {
 	InstalledVersion       string
@@ -24,33 +28,30 @@ type VersionInfo struct {
 	KeepalivedImage        string
 }
 
-// Helper to build a VersionInfo object for a given version and tag.
-func buildVersionInfo(version string) VersionInfo {
-	tag := metal3api.SupportedVersions[version]
-	// NOTE(dtantsur): we don't have explicit support for IPA branches other than master yet.
-	return VersionInfo{
-		InstalledVersion: version,
-		IronicImage:      fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag),
-		// MariaDBImage is not actually used here but is set for consistency.
-		MariaDBImage:           defaultMariaDBImage,
-		RamdiskDownloaderImage: fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry),
-		KeepalivedImage:        fmt.Sprintf("%s/keepalived:latest", defaultRegistry),
-	}
-}
-
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
 // Explicit images from the Images object take priority. Otherwise, the defaults are taken from the hardcoded defaults for the given version.
 func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (VersionInfo, error) {
 	if ironic.Spec.Version != "" {
-		if _, err := metal3api.ParseVersion(ironic.Spec.Version); err != nil {
-			return VersionInfo{}, err
-		}
 		versionInfo.InstalledVersion = ironic.Spec.Version
 	} else if versionInfo.InstalledVersion == "" {
-		versionInfo.InstalledVersion = defaultVersion
+		versionInfo.InstalledVersion = defaultVersion.String()
 	}
 
-	defaults := buildVersionInfo(versionInfo.InstalledVersion)
+	parsedVersion, err := metal3api.ParseVersion(versionInfo.InstalledVersion)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+	tag := metal3api.SupportedVersions[parsedVersion]
+
+	defaults := VersionInfo{
+		InstalledVersion: versionInfo.InstalledVersion,
+		IronicImage:      fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag),
+		// MariaDBImage is not actually used here but is set for consistency.
+		MariaDBImage:           defaultMariaDBImage,
+		RamdiskDownloaderImage: defaultRamdiskDownloaderImage,
+		KeepalivedImage:        defaultKeepalivedImage,
+	}
+
 	images := &ironic.Spec.Images
 
 	if images.DeployRamdiskBranch != "" {
