@@ -81,7 +81,9 @@ func main() {
 	var tlsOptions TLSOptions
 	var controllerConcurrency int
 	var clusterDomain string
-	var versionInfo ironic.VersionInfo
+	var ironicImages metal3iov1alpha1.Images
+	var ironicVersion string
+	var databaseImage string
 	var featureGates map[string]bool
 
 	tlsCipherPreferredValues := cliflag.PreferredTLSCipherNames()
@@ -111,15 +113,15 @@ func main() {
 	flag.StringVar(&clusterDomain, "cluster-domain", os.Getenv("CLUSTER_DOMAIN"),
 		"Domain name of the current cluster, e.g. cluster.local.")
 
-	flag.StringVar(&versionInfo.IronicImage, "ironic-image", os.Getenv("IRONIC_IMAGE"),
+	flag.StringVar(&ironicImages.Ironic, "ironic-image", os.Getenv("IRONIC_IMAGE"),
 		"Ironic image to install.")
-	flag.StringVar(&versionInfo.MariaDBImage, "mariadb-image", os.Getenv("MARIADB_IMAGE"),
+	flag.StringVar(&databaseImage, "mariadb-image", os.Getenv("MARIADB_IMAGE"),
 		"MariaDB image to install.")
-	flag.StringVar(&versionInfo.RamdiskDownloaderImage, "ramdisk-downloader-image", os.Getenv("RAMDISK_DOWNLOADER_IMAGE"),
+	flag.StringVar(&ironicImages.DeployRamdiskDownloader, "ramdisk-downloader-image", os.Getenv("RAMDISK_DOWNLOADER_IMAGE"),
 		"Ramdisk downloader image to install.")
-	flag.StringVar(&versionInfo.KeepalivedImage, "keepalived-image", os.Getenv("KEEPALIVED_IMAGE"),
+	flag.StringVar(&ironicImages.Keepalived, "keepalived-image", os.Getenv("KEEPALIVED_IMAGE"),
 		"Keepalived image to install.")
-	flag.StringVar(&versionInfo.InstalledVersion, "ironic-version", os.Getenv("IRONIC_VERSION"),
+	flag.StringVar(&ironicVersion, "ironic-version", os.Getenv("IRONIC_VERSION"),
 		"Branch of Ironic that the operator installs.")
 
 	featureGatesFlag := cliflag.NewMapStringBool(&featureGates)
@@ -147,11 +149,10 @@ func main() {
 
 	setupLog.Info("enabling features", "FeatureGate", metal3iov1alpha1.CurrentFeatureGate.String())
 
-	if versionInfo.InstalledVersion != "" {
-		if err := metal3iov1alpha1.ValidateVersion(versionInfo.InstalledVersion); err != nil {
-			setupLog.Error(err, "invalid ironic-version")
-			os.Exit(1)
-		}
+	versionInfo, err := ironic.NewVersionInfo(ironicImages, ironicVersion, databaseImage)
+	if err != nil {
+		setupLog.Error(err, "invalid ironic-version")
+		os.Exit(1)
 	}
 
 	config := ctrl.GetConfigOrDie()

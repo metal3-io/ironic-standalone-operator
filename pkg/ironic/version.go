@@ -24,58 +24,86 @@ type VersionInfo struct {
 	MariaDBImage           string
 	RamdiskDownloaderImage string
 	AgentBranch            string
-	AgentDownloadURL       string
 	KeepalivedImage        string
+}
+
+// Creates a version info from images and version.
+func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databaseImage string) (result VersionInfo, err error) {
+	parsedVersion := defaultVersion
+	if ironicVersion != "" {
+		parsedVersion, err = metal3api.ParseVersion(ironicVersion)
+		if err != nil {
+			return
+		}
+	}
+	tag := metal3api.SupportedVersions[parsedVersion]
+
+	result.InstalledVersion = parsedVersion.String()
+
+	if ironicImages.Ironic != "" {
+		result.IronicImage = ironicImages.Ironic
+	} else {
+		result.IronicImage = fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag)
+	}
+
+	if ironicImages.DeployRamdiskDownloader != "" {
+		result.RamdiskDownloaderImage = ironicImages.DeployRamdiskDownloader
+	} else {
+		result.RamdiskDownloaderImage = defaultRamdiskDownloaderImage
+	}
+
+	if ironicImages.Keepalived != "" {
+		result.KeepalivedImage = ironicImages.Keepalived
+	} else {
+		result.KeepalivedImage = defaultKeepalivedImage
+	}
+
+	if ironicImages.DeployRamdiskBranch != "" {
+		result.AgentBranch = ironicImages.DeployRamdiskBranch
+	}
+
+	if databaseImage != "" {
+		result.MariaDBImage = databaseImage
+	} else {
+		result.MariaDBImage = defaultMariaDBImage
+	}
+
+	return
 }
 
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
 // Explicit images from the Images object take priority. Otherwise, the defaults are taken from the hardcoded defaults for the given version.
 func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (VersionInfo, error) {
-	if ironic.Spec.Version != "" {
-		versionInfo.InstalledVersion = ironic.Spec.Version
-	} else if versionInfo.InstalledVersion == "" {
-		versionInfo.InstalledVersion = defaultVersion.String()
-	}
-
-	parsedVersion, err := metal3api.ParseVersion(versionInfo.InstalledVersion)
-	if err != nil {
-		return VersionInfo{}, err
-	}
-	tag := metal3api.SupportedVersions[parsedVersion]
-
-	defaults := VersionInfo{
-		InstalledVersion: versionInfo.InstalledVersion,
-		IronicImage:      fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag),
-		// MariaDBImage is not actually used here but is set for consistency.
-		MariaDBImage:           defaultMariaDBImage,
-		RamdiskDownloaderImage: defaultRamdiskDownloaderImage,
-		KeepalivedImage:        defaultKeepalivedImage,
-	}
-
 	images := &ironic.Spec.Images
+
+	if ironic.Spec.Version != "" {
+		parsedVersion, err := metal3api.ParseVersion(ironic.Spec.Version)
+		if err != nil {
+			return VersionInfo{}, err
+		}
+		versionInfo.InstalledVersion = ironic.Spec.Version
+
+		// NOTE(dtantsur): a non-default version requires a different default image
+		if images.Ironic == "" {
+			tag := metal3api.SupportedVersions[parsedVersion]
+			versionInfo.IronicImage = fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag)
+		}
+	}
 
 	if images.DeployRamdiskBranch != "" {
 		versionInfo.AgentBranch = images.DeployRamdiskBranch
-	} else if versionInfo.AgentBranch == "" {
-		versionInfo.AgentBranch = defaults.AgentBranch
 	}
 
 	if images.DeployRamdiskDownloader != "" {
 		versionInfo.RamdiskDownloaderImage = images.DeployRamdiskDownloader
-	} else if versionInfo.RamdiskDownloaderImage == "" {
-		versionInfo.RamdiskDownloaderImage = defaults.RamdiskDownloaderImage
 	}
 
 	if images.Ironic != "" {
 		versionInfo.IronicImage = images.Ironic
-	} else if versionInfo.IronicImage == "" {
-		versionInfo.IronicImage = defaults.IronicImage
 	}
 
 	if images.Keepalived != "" {
 		versionInfo.KeepalivedImage = images.Keepalived
-	} else if versionInfo.KeepalivedImage == "" {
-		versionInfo.KeepalivedImage = defaults.KeepalivedImage
 	}
 
 	return versionInfo, nil
@@ -85,8 +113,6 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 func (versionInfo VersionInfo) WithIronicDatabaseOverrides(db *metal3api.IronicDatabase) VersionInfo {
 	if db.Spec.Image != "" {
 		versionInfo.MariaDBImage = db.Spec.Image
-	} else if versionInfo.MariaDBImage == "" {
-		versionInfo.MariaDBImage = defaultMariaDBImage
 	}
 
 	return versionInfo
