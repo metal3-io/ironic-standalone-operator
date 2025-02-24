@@ -22,6 +22,7 @@ import (
 
 const (
 	VersionLatest = "latest"
+	Version280    = "28.0"
 	Version270    = "27.0"
 )
 
@@ -32,6 +33,7 @@ const (
 // expectations.
 var SupportedVersions = map[string]string{
 	VersionLatest: "latest",
+	Version280:    "release-28.0",
 	Version270:    "release-27.0",
 }
 

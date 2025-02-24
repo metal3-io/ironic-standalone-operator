@@ -63,6 +63,7 @@ const (
 	// NOTE(dtantsur): latest is now at least 1.95, so we can rely on this
 	// value to check that specifying Version: 27.0 actually installs 27.0
 	apiVersionIn270 = "1.94"
+	apiVersionIn280 = "1.95"
 	// Update this periodically to make sure we're installing the latest version by default
 	knownAPIMinorVersion = 95
 )
@@ -633,7 +634,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
-	It("creates Ironic 27.0 and upgrades to latest", Label("v270-to-latest"), func() {
+	It("creates Ironic 27.0 and upgrades to 28.0", Label("v270-to-280"), func() {
 		if customImage != "" || customImageVersion != "" {
 			Skip("skipping because a custom image is provided")
 		}
@@ -656,6 +657,40 @@ var _ = Describe("Ironic object tests", func() {
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
 
+		By("upgrading to Ironic 28.0")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "28.0"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "27.0", "28.0")
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+	})
+
+	It("creates Ironic 28.0 and upgrades to latest", Label("v280-to-latest"), func() {
+		if customImage != "" || customImageVersion != "" {
+			Skip("skipping because a custom image is provided")
+		}
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Version: "28.0",
+		})
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+
 		By("upgrading to Ironic latest")
 
 		patch := client.MergeFrom(ironic.DeepCopy())
@@ -663,7 +698,7 @@ var _ = Describe("Ironic object tests", func() {
 		err = k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
-		ironic = WaitForUpgrade(name, "27.0", "latest")
+		ironic = WaitForUpgrade(name, "28.0", "latest")
 		VerifyIronic(ironic, TestAssumptions{})
 	})
 

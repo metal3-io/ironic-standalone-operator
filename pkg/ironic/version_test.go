@@ -53,6 +53,22 @@ func TestWithIronicOverrides(t *testing.T) {
 			},
 		},
 		{
+			Scenario: "latest version",
+
+			Ironic: metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					Version: "28.0",
+				},
+			},
+
+			Expected: VersionInfo{
+				InstalledVersion:       "28.0",
+				IronicImage:            "quay.io/metal3-io/ironic:release-28.0",
+				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
+				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
+			},
+		},
+		{
 			Scenario: "older version",
 
 			Ironic: metal3api.Ironic{
