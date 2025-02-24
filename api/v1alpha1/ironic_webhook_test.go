@@ -191,7 +191,7 @@ func TestValidateIronic(t *testing.T) {
 			Ironic: IronicSpec{
 				Version: "0.42",
 			},
-			ExpectedError: "version 0.42 is not supported, supported versions are 27.0, latest",
+			ExpectedError: "version 0.42 is not supported, supported versions are 27.0, 28.0, latest",
 		},
 	}
 
