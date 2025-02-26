@@ -67,6 +67,7 @@ func mergeContainers(target, source []corev1.Container) []corev1.Container {
 		} else {
 			dest.ReadinessProbe = nil
 		}
+		dest.Lifecycle = src.Lifecycle
 	}
 
 	return target
