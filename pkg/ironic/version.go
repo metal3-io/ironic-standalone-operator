@@ -7,74 +7,103 @@ import (
 )
 
 const (
-	// NOTE(dtantsur): defaultVersion must be updated after branching
-	defaultVersion  = metal3api.VersionLatest
 	defaultRegistry = "quay.io/metal3-io"
 )
 
-var defaultMariaDBImage = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
+var (
+	// NOTE(dtantsur): defaultVersion must be updated after branching
+	defaultVersion                = metal3api.VersionLatest
+	defaultMariaDBImage           = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
+	defaultRamdiskDownloaderImage = fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry)
+	defaultKeepalivedImage        = fmt.Sprintf("%s/keepalived:latest", defaultRegistry)
+)
 
 type VersionInfo struct {
-	InstalledVersion       string
+	InstalledVersion       metal3api.Version
 	IronicImage            string
 	MariaDBImage           string
 	RamdiskDownloaderImage string
 	AgentBranch            string
-	AgentDownloadURL       string
 	KeepalivedImage        string
 }
 
-// Helper to build a VersionInfo object for a given version and tag.
-func buildVersionInfo(version string) VersionInfo {
-	tag := metal3api.SupportedVersions[version]
-	// NOTE(dtantsur): we don't have explicit support for IPA branches other than master yet.
-	return VersionInfo{
-		InstalledVersion: version,
-		IronicImage:      fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag),
-		// MariaDBImage is not actually used here but is set for consistency.
-		MariaDBImage:           defaultMariaDBImage,
-		RamdiskDownloaderImage: fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry),
-		KeepalivedImage:        fmt.Sprintf("%s/keepalived:latest", defaultRegistry),
+// Creates a version info from images and version.
+func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databaseImage string) (result VersionInfo, err error) {
+	if ironicVersion != "" {
+		parsedVersion, err := metal3api.ParseVersion(ironicVersion)
+		if err != nil {
+			return VersionInfo{}, err
+		}
+		result.InstalledVersion = parsedVersion
+	} else {
+		result.InstalledVersion = defaultVersion
 	}
+	tag := metal3api.SupportedVersions[result.InstalledVersion]
+
+	if ironicImages.Ironic != "" {
+		result.IronicImage = ironicImages.Ironic
+	} else {
+		result.IronicImage = fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag)
+	}
+
+	if ironicImages.DeployRamdiskDownloader != "" {
+		result.RamdiskDownloaderImage = ironicImages.DeployRamdiskDownloader
+	} else {
+		result.RamdiskDownloaderImage = defaultRamdiskDownloaderImage
+	}
+
+	if ironicImages.Keepalived != "" {
+		result.KeepalivedImage = ironicImages.Keepalived
+	} else {
+		result.KeepalivedImage = defaultKeepalivedImage
+	}
+
+	if ironicImages.DeployRamdiskBranch != "" {
+		result.AgentBranch = ironicImages.DeployRamdiskBranch
+	}
+
+	if databaseImage != "" {
+		result.MariaDBImage = databaseImage
+	} else {
+		result.MariaDBImage = defaultMariaDBImage
+	}
+
+	return
 }
 
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
 // Explicit images from the Images object take priority. Otherwise, the defaults are taken from the hardcoded defaults for the given version.
 func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (VersionInfo, error) {
+	images := &ironic.Spec.Images
+
 	if ironic.Spec.Version != "" {
-		if _, err := metal3api.ParseVersion(ironic.Spec.Version); err != nil {
+		parsedVersion, err := metal3api.ParseVersion(ironic.Spec.Version)
+		if err != nil {
 			return VersionInfo{}, err
 		}
-		versionInfo.InstalledVersion = ironic.Spec.Version
-	} else if versionInfo.InstalledVersion == "" {
-		versionInfo.InstalledVersion = defaultVersion
-	}
+		versionInfo.InstalledVersion = parsedVersion
 
-	defaults := buildVersionInfo(versionInfo.InstalledVersion)
-	images := &ironic.Spec.Images
+		// NOTE(dtantsur): a non-default version requires a different default image
+		if images.Ironic == "" {
+			tag := metal3api.SupportedVersions[parsedVersion]
+			versionInfo.IronicImage = fmt.Sprintf("%s/ironic:%s", defaultRegistry, tag)
+		}
+	}
 
 	if images.DeployRamdiskBranch != "" {
 		versionInfo.AgentBranch = images.DeployRamdiskBranch
-	} else if versionInfo.AgentBranch == "" {
-		versionInfo.AgentBranch = defaults.AgentBranch
 	}
 
 	if images.DeployRamdiskDownloader != "" {
 		versionInfo.RamdiskDownloaderImage = images.DeployRamdiskDownloader
-	} else if versionInfo.RamdiskDownloaderImage == "" {
-		versionInfo.RamdiskDownloaderImage = defaults.RamdiskDownloaderImage
 	}
 
 	if images.Ironic != "" {
 		versionInfo.IronicImage = images.Ironic
-	} else if versionInfo.IronicImage == "" {
-		versionInfo.IronicImage = defaults.IronicImage
 	}
 
 	if images.Keepalived != "" {
 		versionInfo.KeepalivedImage = images.Keepalived
-	} else if versionInfo.KeepalivedImage == "" {
-		versionInfo.KeepalivedImage = defaults.KeepalivedImage
 	}
 
 	return versionInfo, nil
@@ -84,8 +113,6 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 func (versionInfo VersionInfo) WithIronicDatabaseOverrides(db *metal3api.IronicDatabase) VersionInfo {
 	if db.Spec.Image != "" {
 		versionInfo.MariaDBImage = db.Spec.Image
-	} else if versionInfo.MariaDBImage == "" {
-		versionInfo.MariaDBImage = defaultMariaDBImage
 	}
 
 	return versionInfo

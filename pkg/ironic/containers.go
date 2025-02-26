@@ -479,8 +479,6 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
-		"IPA_BASEURI", cctx.VersionInfo.AgentDownloadURL)
-	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
 
 	volumes, mounts := buildIronicVolumesAndMounts(ironic, db)
@@ -574,7 +572,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
-				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion,
+				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion.String(),
 			},
 		},
 		Spec: corev1.PodSpec{

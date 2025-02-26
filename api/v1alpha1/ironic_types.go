@@ -20,10 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	VersionLatest = "latest"
-	Version280    = "28.0"
-	Version270    = "27.0"
+var (
+	VersionLatest = Version{}
+	Version280    = Version{Major: 28, Minor: 0}
+	Version270    = Version{Major: 27, Minor: 0}
 )
 
 // Mapping of supported versions to container image tags.
@@ -31,7 +31,7 @@ const (
 // Also consider updating the version test(s) in test/suite_test.go to verify
 // that the new version is installable and its API version matches
 // expectations.
-var SupportedVersions = map[string]string{
+var SupportedVersions = map[Version]string{
 	VersionLatest: "latest",
 	Version280:    "release-28.0",
 	Version270:    "release-27.0",
