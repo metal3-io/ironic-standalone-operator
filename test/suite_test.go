@@ -512,6 +512,26 @@ func buildDatabase(name types.NamespacedName) *metal3api.IronicDatabase {
 	return result
 }
 
+func saveEvents(namespace string) {
+	events, err := clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	targetFileName := fmt.Sprintf("%s/%s/events.yaml", os.Getenv("LOGDIR"), namespace)
+	logFile, err := os.Create(targetFileName)
+	Expect(err).NotTo(HaveOccurred())
+	defer logFile.Close()
+
+	for _, event := range events.Items {
+		yamlData, err := yaml.Marshal(event)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = logFile.WriteString("---\n")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = logFile.Write(yamlData)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
@@ -522,6 +542,7 @@ var _ = Describe("Ironic object tests", func() {
 		_, err := clientset.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
+			saveEvents(namespace)
 			_ = clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
 			Eventually(func() bool {
 				_, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
