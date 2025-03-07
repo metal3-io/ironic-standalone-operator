@@ -531,6 +531,13 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			Ports:          ironicPorts,
 			LivenessProbe:  newProbe(ironicHandler),
 			ReadinessProbe: newProbe(ironicHandler),
+			Lifecycle: &corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"ironic-dbsync", "--config-file", "/etc/ironic/ironic.conf", "online_data_migrations"},
+					},
+				},
+			},
 		},
 		{
 			Name:         "httpd",
