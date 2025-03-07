@@ -388,16 +388,26 @@ func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path str
 		proto = "https"
 	}
 
-	curlArgs := "-sSkL"
+	curlCmd := []string{
+		"curl",
+		"--head",
+		"--insecure",
+		// NOTE(dtantsur): prevent redirects from being treated as success
+		"--location",
+		"--silent",
+		"--show-error",
+		// NOTE(dtantsur): --head outputs headers even with --silent
+		"--output", "/dev/null",
+	}
 	if requiresOk {
-		curlArgs += "f"
+		curlCmd = append(curlCmd, "--fail")
 	}
 
 	// NOTE(dtantsur): we could use HTTP GET probe but we cannot pass the certificate there.
 	url := fmt.Sprintf("%s://127.0.0.1:%d%s", proto, port, path)
 	return corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
-			Command: []string{"curl", curlArgs, url},
+			Command: append(curlCmd, url),
 		},
 	}
 }
