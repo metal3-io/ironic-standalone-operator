@@ -800,6 +800,28 @@ var _ = Describe("Ironic object tests", func() {
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{activeConductor: conductorName})
 	})
+
+	It("creates Ironic with disabled downloader", Label("disabled-downloader"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			DeployRamdisk: metal3api.DeployRamdisk{
+				DisableDownloader: true,
+			},
+		})
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
 })
 
 var _ = AfterSuite(func() {

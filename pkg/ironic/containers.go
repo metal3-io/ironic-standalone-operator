@@ -27,6 +27,8 @@ const (
 	authDir   = "/auth"
 	certsDir  = "/certs"
 	sharedDir = "/shared"
+
+	knownExistingPath = "/images/ironic-python-agent.kernel"
 )
 
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
@@ -380,17 +382,22 @@ func buildDNSIP(dhcp *metal3api.DHCP) string {
 	return ""
 }
 
-func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path string) corev1.ProbeHandler {
+func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path string, requiresOk bool) corev1.ProbeHandler {
 	proto := "http"
 	if https {
 		proto = "https"
+	}
+
+	curlArgs := "-sSkL"
+	if requiresOk {
+		curlArgs += "f"
 	}
 
 	// NOTE(dtantsur): we could use HTTP GET probe but we cannot pass the certificate there.
 	url := fmt.Sprintf("%s://127.0.0.1:%d%s", proto, port, path)
 	return corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
-			Command: []string{"curl", "-sSfk", url},
+			Command: []string{"curl", curlArgs, url},
 		},
 	}
 }
@@ -503,8 +510,9 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
 
-	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLS.CertificateName != "", int(ironic.Spec.Networking.APIPort), "/v1")
-	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), "/images")
+	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLS.CertificateName != "", int(ironic.Spec.Networking.APIPort), "/v1", true)
+	httpPathExpected := !ironic.Spec.DeployRamdisk.DisableDownloader
+	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
 
 	containers := []corev1.Container{
 		{
