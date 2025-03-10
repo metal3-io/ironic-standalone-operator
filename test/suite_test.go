@@ -351,31 +351,30 @@ func verifyHTTPD(ctx context.Context, assumptions TestAssumptions) {
 	httpClient := http.Client{}
 	addHTTPTransport(&httpClient)
 
+	getStatusCode := func(url string) int {
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
+		Expect(err).NotTo(HaveOccurred())
+
+		resp, err := httpClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+
+		return resp.StatusCode
+	}
+
 	expectedCode := 200
 	if assumptions.disableDownloader {
 		expectedCode = 404
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead,
-		fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180")), http.NoBody)
-	Expect(err).NotTo(HaveOccurred())
-
-	resp, err := httpClient.Do(req)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-	Expect(resp.StatusCode).To(Equal(expectedCode))
+	statusCode := getStatusCode(fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180")))
+	Expect(statusCode).To(Equal(expectedCode))
 
 	if assumptions.withTLS {
-		req, err := http.NewRequestWithContext(ctx, http.MethodHead,
-			fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183")), http.NoBody)
-		Expect(err).NotTo(HaveOccurred())
-
-		resp, err = httpClient.Do(req)
-		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		statusCode = getStatusCode(fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183")))
 		// NOTE(dtantsur): without any valid virtual media images nothing will return a success code (not even /redfish/).
 		// We get 200, 403 or 404 depending on a few factors. Check at least that we don't have 5xx.
-		Expect(resp.StatusCode).To(BeNumerically("<", 500))
+		Expect(statusCode).To(BeNumerically("<", 500))
 	}
 }
 
