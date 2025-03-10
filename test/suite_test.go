@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -72,6 +73,7 @@ var ctx context.Context
 var k8sClient client.Client
 var clientset *kubernetes.Clientset
 
+var ironicIP string
 var ironicCertPEM []byte
 var ironicKeyPEM []byte
 
@@ -111,6 +113,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	ironicIP = os.Getenv("IRONIC_IP")
+	Expect(ironicIP).NotTo(BeEmpty())
 	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE"))
 	Expect(err).NotTo(HaveOccurred())
 	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
@@ -121,7 +125,7 @@ var _ = BeforeSuite(func() {
 	customDatabaseImage = os.Getenv("MARIADB_CUSTOM_IMAGE")
 })
 
-func addHTTPTransport(serviceClient *gophercloud.ServiceClient) *gophercloud.ServiceClient {
+func addHTTPTransport(httpClient *http.Client) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(ironicCertPEM)
 
@@ -129,8 +133,7 @@ func addHTTPTransport(serviceClient *gophercloud.ServiceClient) *gophercloud.Ser
 		RootCAs:    certPool,
 		MinVersion: tls.VersionTLS13,
 	}
-	serviceClient.HTTPClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-	return serviceClient
+	httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
 }
 
 func NewNoAuthClient(endpoint string) (*gophercloud.ServiceClient, error) {
@@ -141,7 +144,8 @@ func NewNoAuthClient(endpoint string) (*gophercloud.ServiceClient, error) {
 		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
 	}
 
-	return addHTTPTransport(serviceClient), nil
+	addHTTPTransport(&serviceClient.HTTPClient)
+	return serviceClient, nil
 }
 
 func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.ServiceClient, error) {
@@ -154,7 +158,8 @@ func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.Se
 		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
 	}
 
-	return addHTTPTransport(serviceClient), nil
+	addHTTPTransport(&serviceClient.HTTPClient)
+	return serviceClient, nil
 }
 
 func logResources(ironic *metal3api.Ironic, suffix string) {
@@ -318,6 +323,9 @@ type TestAssumptions struct {
 
 	// Verify that the maximum available version equals this one
 	maxAPIVersion string
+
+	// Verify that the downloader is disabled
+	disableDownloader bool
 }
 
 func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
@@ -337,6 +345,39 @@ func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assum
 	}
 }
 
+func verifyHTTPD(ctx context.Context, assumptions TestAssumptions) {
+	By("checking the httpd server existence and the ramdisk downloader")
+
+	httpClient := http.Client{}
+	addHTTPTransport(&httpClient)
+
+	getStatusCode := func(url string) int {
+		req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
+		Expect(err).NotTo(HaveOccurred())
+
+		resp, err := httpClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+
+		return resp.StatusCode
+	}
+
+	expectedCode := 200
+	if assumptions.disableDownloader {
+		expectedCode = 404
+	}
+
+	statusCode := getStatusCode(fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180")))
+	Expect(statusCode).To(Equal(expectedCode))
+
+	if assumptions.withTLS {
+		statusCode = getStatusCode(fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183")))
+		// NOTE(dtantsur): without any valid virtual media images nothing will return a success code (not even /redfish/).
+		// We get 200, 403 or 404 depending on a few factors. Check at least that we don't have 5xx.
+		Expect(statusCode).To(BeNumerically("<", 500))
+	}
+}
+
 func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	writeYAML(ironic, ironic.Namespace, ironic.Name, "ironic")
 
@@ -344,7 +385,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	if assumptions.withTLS {
 		proto = "https"
 	}
-	ironicURL := fmt.Sprintf("%s://%s:6385", proto, os.Getenv("IRONIC_IP"))
+	ironicURL := fmt.Sprintf("%s://%s:6385", proto, ironicIP)
 
 	By("checking the service")
 
@@ -366,11 +407,13 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 		Expect(ironic.Spec.APICredentialsName).To(Equal(secret.Name))
 	}
 
-	By("checking Ironic authentication")
-
 	// Do not let the test get stuck here in case of connection issues
 	withTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
+
+	verifyHTTPD(withTimeout, assumptions)
+
+	By("checking Ironic authentication")
 
 	cli, err := NewNoAuthClient(ironicURL)
 	Expect(err).NotTo(HaveOccurred())
@@ -841,7 +884,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{})
+		VerifyIronic(ironic, TestAssumptions{disableDownloader: true})
 	})
 })
 
