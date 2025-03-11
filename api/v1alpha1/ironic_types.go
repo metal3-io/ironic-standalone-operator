@@ -230,12 +230,36 @@ type ExtraConfig struct {
 	Value string `json:"value,omitempty"`
 }
 
+// Database is a reference to a MariaDB database to use.
+type Database struct {
+	// Name of a secret with database credentials.
+	CredentialsName string `json:"credentialsName"`
+
+	// IP address or host name of the database instance.
+	Host string `json:"host"`
+
+	// Database name.
+	Name string `json:"name"`
+
+	// Name of a secret with the a TLS certificate or a CA for verifying the database host.
+	// If unset, Ironic will request an unencrypted connections, which is insecure,
+	// and the server configuration may forbid it.
+	// +optional
+	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
 	// A new secret will be created if this field is empty.
 	// +optional
 	APICredentialsName string `json:"apiCredentialsName,omitempty"`
+
+	// Database is a reference to a MariaDB database to use for persisting Ironic data.
+	// Must be provided for a highly available architecture, optional otherwise.
+	// If missing, a local SQLite database will be used, and the Ironic state will be reset on each pod restart.
+	// +optional
+	Database *Database `json:"database,omitempty"`
 
 	// DatabaseName is a reference to the IronicDatabase object.
 	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.

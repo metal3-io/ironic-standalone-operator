@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -142,7 +143,24 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return
 	}
 
-	status, err := ironic.EnsureIronic(cctx, ironicConf, db, apiSecret)
+	// Compatibility logic, remove when IronicDatabase is removed
+	dbConf := ironicConf.Spec.Database
+	if db != nil {
+		if !meta.IsStatusConditionTrue(db.Status.Conditions, string(metal3api.IronicStatusReady)) {
+			setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation, metal3api.IronicStatusReady,
+				false, metal3api.IronicReasonInProgress, "database is not ready yet")
+			err = cctx.Client.Status().Update(cctx.Context, ironicConf)
+			return
+		}
+		dbConf = &metal3api.Database{
+			CredentialsName:    db.Spec.CredentialsName,
+			Host:               ironic.DatabaseDNSName(db, cctx.Domain),
+			Name:               ironic.DatabaseName,
+			TLSCertificateName: db.Spec.TLSCertificateName,
+		}
+	}
+
+	status, err := ironic.EnsureIronic(cctx, ironicConf, dbConf, apiSecret)
 	if err != nil {
 		cctx.Logger.Error(err, "potentially transient error, will retry")
 		return

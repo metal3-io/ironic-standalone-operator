@@ -17,6 +17,8 @@ const (
 	databasePortName       = "mariadb"
 	databasePort           = 3306
 	databaseUser     int64 = 27
+	// NOTE(dtantsur): MariaDB does not support all symbols possible in a valid name.
+	DatabaseName = "ironic"
 )
 
 func databaseDeploymentName(db *metal3api.IronicDatabase) string {
@@ -33,9 +35,8 @@ func DatabaseDNSName(db *metal3api.IronicDatabase, domain string) string {
 func commonDatabaseVars(db *metal3api.IronicDatabase) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name: "MARIADB_DATABASE",
-			// NOTE(dtantsur): MariaDB does not support all symbols possible in a valid name.
-			Value: "ironic",
+			Name:  "MARIADB_DATABASE",
+			Value: DatabaseName,
 		},
 		{
 			Name: "MARIADB_USER",

@@ -55,9 +55,41 @@ func TestValidateIronic(t *testing.T) {
 			Scenario: "empty",
 		},
 		{
-			Scenario: "with database",
+			Scenario: "with old database",
 			Ironic: IronicSpec{
 				DatabaseName: "db",
+			},
+		},
+		{
+			Scenario: "with database",
+			Ironic: IronicSpec{
+				Database: &Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "adding database",
+			Ironic: IronicSpec{
+				Database: &Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
+			},
+			OldIronic: &IronicSpec{},
+		},
+		{
+			Scenario: "removing database",
+			Ironic:   IronicSpec{},
+			OldIronic: &IronicSpec{
+				Database: &Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
 			},
 		},
 		{
@@ -104,7 +136,11 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "no ipAddress with HA",
 			Ironic: IronicSpec{
-				DatabaseName: "db",
+				Database: &Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
 				Networking: Networking{
 					IPAddress: "192.168.0.1",
 				},
@@ -115,7 +151,11 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "HA disabled",
 			Ironic: IronicSpec{
-				DatabaseName:     "db",
+				Database: &Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
 				HighAvailability: true,
 			},
 			ExpectedError: "highly available architecture is disabled",
