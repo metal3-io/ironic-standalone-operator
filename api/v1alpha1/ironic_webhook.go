@@ -200,6 +200,10 @@ func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 	}
 
 	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+		if ironic.HighAvailability {
+			return errors.New("DHCP support is not implemented in the highly available architecture")
+		}
+
 		if err := ValidateDHCP(ironic, dhcp); err != nil {
 			return err
 		}
