@@ -19,7 +19,7 @@ func ironicDeploymentName(ironic *metal3api.Ironic) string {
 	return fmt.Sprintf("%s-service", ironic.Name)
 }
 
-func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (Status, error) {
+func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (Status, error) {
 	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
 	if err != nil {
 		return transientError(err)
@@ -57,7 +57,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	return getDaemonSetStatus(cctx, deploy)
 }
 
-func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (Status, error) {
+func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (Status, error) {
 	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
 	if err != nil {
 		return transientError(err)
@@ -151,11 +151,7 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 }
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
-func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret) (status Status, err error) {
-	if db != nil && !isReady(db.Status.Conditions) {
-		return inProgress("database is not ready yet")
-	}
-
+func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (status Status, err error) {
 	if validationErr := metal3api.ValidateIronic(&ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
 		return

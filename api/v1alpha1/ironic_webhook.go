@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"reflect"
 
 	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -179,12 +180,20 @@ func ValidateDHCP(ironic *IronicSpec, dhcp *DHCP) error {
 }
 
 func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
-	if ironic.HighAvailability && ironic.DatabaseName == "" {
+	if ironic.HighAvailability && ironic.Database == nil && ironic.DatabaseName == "" {
 		return errors.New("database is required for highly available architecture")
 	}
 
-	if old != nil && old.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
-		return errors.New("cannot change to a new database or remove it")
+	if old != nil && old.Database != nil && ironic.Database != nil && !reflect.DeepEqual(old.Database, ironic.Database) {
+		return errors.New("cannot change to a new database")
+	}
+
+	if old != nil && old.DatabaseName != "" && ironic.DatabaseName != "" && old.DatabaseName != ironic.DatabaseName {
+		return errors.New("cannot change to a new database")
+	}
+
+	if ironic.Database != nil && ironic.DatabaseName != "" {
+		return errors.New("databaseName and database cannot be used together")
 	}
 
 	if err := validateIP(ironic.Networking.IPAddress); err != nil {

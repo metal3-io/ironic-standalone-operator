@@ -160,7 +160,7 @@ func buildExtraConfigVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
-func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, htpasswd string, domain string) []corev1.EnvVar {
+func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.Database, htpasswd string) []corev1.EnvVar {
 	result := buildCommonEnvVars(ironic)
 	result = append(result, []corev1.EnvVar{
 		{
@@ -174,13 +174,40 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.IronicDatabase, 
 	}...)
 
 	if db != nil {
-		result = append(result, commonDatabaseVars(db)...)
-		result = append(result,
-			corev1.EnvVar{
+		result = append(result, []corev1.EnvVar{
+			{
 				Name:  "MARIADB_HOST",
-				Value: DatabaseDNSName(db, domain),
+				Value: db.Host,
 			},
-		)
+			{
+				Name:  "MARIADB_DATABASE",
+				Value: db.Name,
+			},
+			{
+				Name: "MARIADB_USER",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: db.CredentialsName,
+						},
+						Key: "username",
+					},
+				},
+			},
+			// FIXME(dtantsur): mount the entire secret instead once ironic-image supports it
+			// (will need a version-dependent logic)
+			{
+				Name: "MARIADB_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: db.CredentialsName,
+						},
+						Key: "password",
+					},
+				},
+			},
+		}...)
 	}
 
 	if ironic.Spec.HighAvailability {
@@ -247,7 +274,7 @@ func buildHttpdEnvVars(ironic *metal3api.Ironic, htpasswd string) []corev1.EnvVa
 	return result
 }
 
-func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicDatabase) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
+func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.Database) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
 	volumes = []corev1.Volume{
 		{
 			Name: "ironic-shared",
@@ -308,12 +335,12 @@ func buildIronicVolumesAndMounts(ironic *metal3api.Ironic, db *metal3api.IronicD
 		}
 	}
 
-	if db != nil && db.Spec.TLSCertificateName != "" {
+	if db != nil && db.TLSCertificateName != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: "cert-mariadb",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  db.Spec.TLSCertificateName,
+					SecretName:  db.TLSCertificateName,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
@@ -484,7 +511,7 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 	}
 }
 
-func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.IronicDatabase, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
+func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
 	var htpasswd string
 	if apiSecret != nil {
 		if len(apiSecret.Data[htpasswdKey]) == 0 {
@@ -529,7 +556,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			Name:         "ironic",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
-			Env:          buildIronicEnvVars(ironic, db, htpasswd, domain),
+			Env:          buildIronicEnvVars(ironic, db, htpasswd),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
