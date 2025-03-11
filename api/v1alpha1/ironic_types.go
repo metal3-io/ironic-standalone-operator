@@ -238,6 +238,8 @@ type IronicSpec struct {
 
 	// DatabaseName is a reference to the IronicDatabase object.
 	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
+	//
+	// Deprecated: the IronicDatabase API is deprecated and will be removed soon in favour of explicit connection parameters.
 	// +optional
 	DatabaseName string `json:"databaseName,omitempty"`
 
