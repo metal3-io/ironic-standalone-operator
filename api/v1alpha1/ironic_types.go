@@ -112,6 +112,7 @@ type Networking struct {
 
 	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 	// The service is only deployed when this is set.
+	// This setting is currently incompatible with the highly available architecture.
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
@@ -251,7 +252,8 @@ type IronicSpec struct {
 
 	// HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
 	// Requires database to be installed and linked to DatabaseName.
-	// EXPERIMENTAL: do not use (validation will fail)!
+	// DHCP support is not yet implemented in the highly available architecture.
+	// EXPERIMENTAL: do not use, the implementation is incomplete.
 	// +optional
 	HighAvailability bool `json:"highAvailability,omitempty"`
 

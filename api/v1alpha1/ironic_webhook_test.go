@@ -121,6 +121,17 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "highly available architecture is disabled",
 		},
 		{
+			Scenario: "no DHCP with HA",
+			Ironic: IronicSpec{
+				DatabaseName:     "db",
+				HighAvailability: true,
+				Networking: Networking{
+					DHCP: &DHCP{},
+				},
+			},
+			ExpectedError: "DHCP support is not implemented",
+		},
+		{
 			Scenario: "With Keepalived, no DHCP",
 			Ironic: IronicSpec{
 				Networking: Networking{
