@@ -212,6 +212,11 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.Database, htpass
 
 	if db != nil {
 		result = append(result, databaseClientEnvVars(db)...)
+		// NOTE(dtantsur): upgrades are handled by a separate job
+		result = append(result, corev1.EnvVar{
+			Name:  "IRONIC_SKIP_DBSYNC",
+			Value: "true",
+		})
 	}
 
 	if ironic.Spec.HighAvailability {

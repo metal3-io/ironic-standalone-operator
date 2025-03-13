@@ -157,6 +157,13 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 		return
 	}
 
+	if db != nil {
+		jobStatus, err := ensureIronicUpgradeJob(cctx, ironic, db, preUpgrade)
+		if err != nil || !jobStatus.IsReady() {
+			return jobStatus, err
+		}
+	}
+
 	if ironic.Spec.HighAvailability {
 		err = removeIronicDeployment(cctx, ironic)
 		if err != nil {
@@ -180,6 +187,13 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 	serviceStatus, err := ensureIronicService(cctx, ironic)
 	if err != nil || !serviceStatus.IsReady() {
 		return serviceStatus, err
+	}
+
+	if db != nil {
+		jobStatus, err := ensureIronicUpgradeJob(cctx, ironic, db, postUpgrade)
+		if err != nil || !jobStatus.IsReady() {
+			return jobStatus, err
+		}
 	}
 
 	return
