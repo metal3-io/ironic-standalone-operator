@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -138,6 +139,66 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	return getServiceStatus(service)
 }
 
+func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, phase string) (Status, error) {
+	if ironic.Status.InstalledVersion == "" {
+		// Nothing to upgrade: no current version
+		return ready()
+	}
+
+	currentVersion, err := metal3api.ParseVersion(ironic.Status.InstalledVersion)
+	if err != nil {
+		return Status{Fatal: fmt.Errorf("malformed InstalledVersion in Ironic: %s", err)}, nil
+	}
+
+	if !currentVersion.IsLatest() && cctx.VersionInfo.InstalledVersion.Compare(currentVersion) <= 0 {
+		// Upgrade impossible: requested version is not newer, and the current version is not "latest"
+		return ready()
+	}
+
+	if !cctx.VersionInfo.InstalledVersion.HasUpgradeScripts() {
+		cctx.Logger.Info("Not running upgrade scripts: the new version does not support them", "From", ironic.Status.InstalledVersion, "To", cctx.VersionInfo.InstalledVersion.String())
+		return ready()
+	}
+
+	var template corev1.PodTemplateSpec
+	if phase == "pre" {
+		template, err = newPreUpgradePodTemplate(cctx, ironic)
+	} else {
+		template, err = newPostUpgradePodTemplate(cctx, ironic)
+	}
+	if err != nil {
+		return transientError(err)
+	}
+
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-%s-to-%s", ironic.Name, phase, ironic.Status.InstalledVersion, cctx.VersionInfo.InstalledVersion),
+			Namespace: ironic.Namespace,
+		},
+	}
+
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
+		if job.ObjectMeta.Labels == nil {
+			cctx.Logger.Info(fmt.Sprintf("creating a new %s-upgrade job", phase), "From", ironic.Status.InstalledVersion, "To", cctx.VersionInfo.InstalledVersion.String())
+			job.ObjectMeta.Labels = make(map[string]string)
+		}
+		job.ObjectMeta.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+
+		mergePodTemplates(&job.Spec.Template, template)
+
+		return controllerutil.SetControllerReference(ironic, job, cctx.Scheme)
+	})
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("ironic upgrade job", "Service", job.Name, "Status", result)
+		return updated()
+	}
+	if err != nil {
+		return transientError(err)
+	}
+
+	return getJobStatus(cctx, job, fmt.Sprintf("%s-upgrade", phase))
+}
+
 func removeIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic) error {
 	err := cctx.KubeClient.AppsV1().DaemonSets(ironic.Namespace).
 		Delete(context.Background(), ironicDeploymentName(ironic), metav1.DeleteOptions{})
@@ -159,6 +220,11 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 	if validationErr := metal3api.ValidateIronic(&ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
 		return
+	}
+
+	jobStatus, err := ensureIronicUpgradeJob(cctx, ironic, "pre")
+	if err != nil || !jobStatus.IsReady() {
+		return jobStatus, err
 	}
 
 	if ironic.Spec.HighAvailability {
@@ -184,6 +250,11 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 	serviceStatus, err := ensureIronicService(cctx, ironic)
 	if err != nil || !serviceStatus.IsReady() {
 		return serviceStatus, err
+	}
+
+	jobStatus, err = ensureIronicUpgradeJob(cctx, ironic, "post")
+	if err != nil || !jobStatus.IsReady() {
+		return jobStatus, err
 	}
 
 	return
