@@ -192,8 +192,13 @@ func ValidateIronic(ironic *IronicSpec, old *IronicSpec) error {
 		return errors.New("cannot change to a new database")
 	}
 
-	if ironic.Database != nil && ironic.DatabaseName != "" {
-		return errors.New("databaseName and database cannot be used together")
+	if ironic.Database != nil {
+		if ironic.DatabaseName != "" {
+			return errors.New("databaseName and database cannot be used together")
+		}
+		if ironic.Database.CredentialsName == "" || ironic.Database.Host == "" || ironic.Database.Name == "" {
+			return errors.New("credentialsName, host and name are required on database")
+		}
 	}
 
 	if err := validateIP(ironic.Networking.IPAddress); err != nil {
