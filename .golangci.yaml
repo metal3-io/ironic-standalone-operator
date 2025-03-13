@@ -123,3 +123,9 @@ issues:
   - EXC0002 # include "missing comments" issues from golangci-lint
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+  # NOTE(dtantsur): IronicDatabase is deprecated but our own code still supports it.
+  # Remove this exclusion when it's entirely deleted.
+  - linters:
+      - staticcheck
+    text: "SA1019: (metal3api.IronicDatabase|metal3iov1alpha1.IronicDatabase|ironicConf.Spec.DatabaseName) is deprecated"

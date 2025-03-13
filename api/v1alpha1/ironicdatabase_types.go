@@ -50,7 +50,9 @@ type IronicDatabaseStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// IronicDatabase is the Schema for the ironicdatabases API
+// IronicDatabase is the Schema for the ironic database API.
+//
+// Deprecated: the IronicDatabase API is deprecated and will be removed soon in favour of 3rd party database operators.
 type IronicDatabase struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
