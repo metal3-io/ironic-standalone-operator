@@ -12,4 +12,4 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-60m}"
 
 mkdir -p "${LOGDIR}"
 
-exec go test -timeout "${TEST_TIMEOUT}"
+exec go test --ginkgo.vv -timeout "${TEST_TIMEOUT}"
