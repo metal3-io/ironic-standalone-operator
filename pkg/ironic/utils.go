@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -88,6 +89,9 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	if source.Spec.NodeSelector != nil {
 		target.Spec.NodeSelector = source.Spec.NodeSelector
 	}
+	if source.Spec.RestartPolicy != "" {
+		target.Spec.RestartPolicy = source.Spec.RestartPolicy
+	}
 }
 
 func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Status, error) {
@@ -153,6 +157,23 @@ func getServiceStatus(service *corev1.Service) (Status, error) {
 	}
 
 	return ready()
+}
+
+func getJobStatus(cctx ControllerContext, job *batchv1.Job, jobType string) (Status, error) {
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
+			return ready()
+		}
+		if cond.Type == batchv1.JobFailed && cond.Status == corev1.ConditionTrue {
+			cctx.Logger.Info(cond.Message, "Job", job.Name)
+			err := fmt.Errorf("%s job failed: %s", jobType, cond.Message)
+			return Status{Fatal: err}, nil
+		}
+	}
+
+	messageWithType := fmt.Sprintf("%s job not complete yet", jobType)
+	cctx.Logger.Info(messageWithType, "Job", job.Name, "Conditions", job.Status.Conditions)
+	return inProgress(messageWithType)
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {
