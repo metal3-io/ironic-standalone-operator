@@ -540,11 +540,14 @@ func buildIronic(name types.NamespacedName, spec metal3api.IronicSpec) *metal3ap
 	return result
 }
 
-func buildDatabase(name types.NamespacedName) *metal3api.IronicDatabase {
+func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api.IronicDatabase {
 	result := &metal3api.IronicDatabase{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-db", name.Name),
 			Namespace: name.Namespace,
+		},
+		Spec: metal3api.IronicDatabaseSpec{
+			CredentialsName: credentialsName,
 		},
 	}
 
@@ -812,19 +815,62 @@ var _ = Describe("Ironic object tests", func() {
 		_ = WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace))
 	})
 
+	It("creates Ironic with IronicDatabase", Label("ironicdatabase"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironicDB := buildDatabase(name, "")
+
+		err := k8sClient.Create(ctx, ironicDB)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			DatabaseName: ironicDB.Name,
+		})
+		err = k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
+
 	It("creates highly available Ironic", Label("high-availability-no-provnet"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
 		}
 
-		ironicDB := buildDatabase(name)
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-api", name.Name),
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.BasicAuthUsernameKey: []byte("admin"),
+				corev1.BasicAuthPasswordKey: []byte("test-password"),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		}
+		err := k8sClient.Create(ctx, secret)
+		Expect(err).NotTo(HaveOccurred())
 
-		err := k8sClient.Create(ctx, ironicDB)
+		// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
+		ironicDB := buildDatabase(name, secret.Name)
+		err = k8sClient.Create(ctx, ironicDB)
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic := buildIronic(name, metal3api.IronicSpec{
-			DatabaseName:     ironicDB.Name,
+			Database: &metal3api.Database{
+				CredentialsName: secret.Name,
+				Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
+				Name:            "ironic",
+			},
 			HighAvailability: true,
 		})
 		err = k8sClient.Create(ctx, ironic)

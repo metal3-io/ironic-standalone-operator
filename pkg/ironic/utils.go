@@ -10,13 +10,9 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 const (
@@ -202,10 +198,6 @@ func updateProbe(current *corev1.Probe, handler corev1.ProbeHandler) *corev1.Pro
 
 func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 	return updateProbe(nil, handler) // TODO: remove
-}
-
-func isReady(conditions []metav1.Condition) bool {
-	return meta.IsStatusConditionTrue(conditions, string(metal3api.IronicStatusReady))
 }
 
 func appendStringEnv(envVars []corev1.EnvVar, name string, value string) []corev1.EnvVar {
