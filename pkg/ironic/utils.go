@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -162,6 +163,29 @@ func getServiceStatus(service *corev1.Service) (Status, error) {
 	}
 
 	return ready()
+}
+
+func getJobStatus(cctx ControllerContext, job *batchv1.Job, jobType string) (Status, error) {
+	var available bool
+	var err error
+	for _, cond := range job.Status.Conditions {
+		if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
+			available = true
+		}
+		if cond.Type == batchv1.JobFailed && cond.Status == corev1.ConditionTrue {
+			err = fmt.Errorf("%s job failed: %s", jobType, cond.Message)
+			// TODO(dtantsur): can we determine if it's fatal or not?
+			return transientError(err)
+		}
+	}
+
+	if available {
+		return ready()
+	} else {
+		cctx.Logger.Info(fmt.Sprintf("%s job not complete yet", jobType), "Job", job.Name,
+			"Conditions", job.Status.Conditions)
+		return inProgress(fmt.Sprintf("%s job not available yet", jobType))
+	}
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {

@@ -604,3 +604,13 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		},
 	}, nil
 }
+
+func newPreUpgradePodTemplate(cctx ControllerContext, ironic *metal3api.Ironic) (corev1.PodTemplateSpec, error) {
+	// TODO
+	return corev1.PodTemplateSpec{}, nil
+}
+
+func newPostUpgradePodTemplate(cctx ControllerContext, ironic *metal3api.Ironic) (corev1.PodTemplateSpec, error) {
+	// TODO
+	return corev1.PodTemplateSpec{}, nil
+}
