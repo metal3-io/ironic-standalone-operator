@@ -58,6 +58,32 @@ spec:
                   APICredentialsName is a reference to the secret with Ironic API credentials.
                   A new secret will be created if this field is empty.
                 type: string
+              database:
+                description: |-
+                  Database is a reference to a MariaDB database to use for persisting Ironic data.
+                  Must be provided for a highly available architecture, optional otherwise.
+                  If missing, a local SQLite database will be used, and the Ironic state will be reset on each pod restart.
+                properties:
+                  credentialsName:
+                    description: Name of a secret with database credentials.
+                    type: string
+                  host:
+                    description: IP address or host name of the database instance.
+                    type: string
+                  name:
+                    description: Database name.
+                    type: string
+                  tlsCertificateName:
+                    description: |-
+                      Name of a secret with the a TLS certificate or a CA for verifying the database host.
+                      If unset, Ironic will request an unencrypted connections, which is insecure,
+                      and the server configuration may forbid it.
+                    type: string
+                required:
+                - credentialsName
+                - host
+                - name
+                type: object
               databaseName:
                 description: |-
                   DatabaseName is a reference to the IronicDatabase object.
