@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/gophercloud/gophercloud/v2 v2.6.0
 	github.com/metal3-io/ironic-standalone-operator v0.0.0
-	github.com/onsi/ginkgo/v2 v2.23.0
+	github.com/onsi/ginkgo/v2 v2.23.2
 	github.com/onsi/gomega v1.36.2
 	k8s.io/api v0.31.7
 	k8s.io/apimachinery v0.31.7
