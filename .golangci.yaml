@@ -100,8 +100,6 @@ linters-settings:
     - whyNoLint
     - wrapperFunc
 issues:
-  exclude-dirs:
-  - mock*
   exclude-files:
   - "zz_generated.*\\.go$"
   - ".*conversion.*\\.go$"
@@ -110,16 +108,10 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude-rules:
-  - linters:
-    - staticcheck
-    text: "SA1019:"
   # Dot imports for gomega or ginkgo are allowed
   # within test files.
   - path: test/.*.go
     text: should not use dot imports
-  - linters:
-    - revive
-    text: "exported: exported method .*\\.(Reconcile|SetupWithManager|SetupWebhookWithManager) should have comment or be unexported"
   # NOTE(dtantsur): IronicDatabase is deprecated but our own code still supports it.
   # Remove this exclusion when it's entirely deleted.
   - linters:
