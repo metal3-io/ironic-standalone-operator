@@ -24,26 +24,6 @@ webhooks:
     resources:
     - ironics
   sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-ironic-metal3-io-v1alpha1-ironicdatabase
-  failurePolicy: Fail
-  name: mutate-ironicdatabase.ironic.metal3.io
-  rules:
-  - apiGroups:
-    - ironic.metal3.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - ironicdatabases
-  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -69,24 +49,4 @@ webhooks:
     - UPDATE
     resources:
     - ironics
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-ironic-metal3-io-v1alpha1-ironicdatabase
-  failurePolicy: Fail
-  name: validate-ironicdatabase.ironic.metal3.io
-  rules:
-  - apiGroups:
-    - ironic.metal3.io
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - ironicdatabases
   sideEffects: None

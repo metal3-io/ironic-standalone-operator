@@ -128,4 +128,4 @@ issues:
   # Remove this exclusion when it's entirely deleted.
   - linters:
       - staticcheck
-    text: "SA1019: (metal3api.IronicDatabase|metal3iov1alpha1.IronicDatabase|ironicConf.Spec.DatabaseName) is deprecated"
+    text: "SA1019: (metal3api.IronicDatabase|metal3iov1alpha1.IronicDatabase|ironicConf.Spec.DatabaseName|ironic.DatabaseName|old.DatabaseName) is deprecated"

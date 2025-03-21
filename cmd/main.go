@@ -43,6 +43,7 @@ import (
 
 	metal3iov1alpha1 "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/internal/controller"
+	webhookv1alpha1 "github.com/metal3-io/ironic-standalone-operator/internal/webhook/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 	//+kubebuilder:scaffold:imports
 )
@@ -208,7 +209,7 @@ func main() {
 		os.Exit(1)
 	}
 	if webhookPort != 0 {
-		if err = (&metal3iov1alpha1.Ironic{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = webhookv1alpha1.SetupIronicWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Ironic")
 			os.Exit(1)
 		}
@@ -222,12 +223,6 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IronicDatabase")
 		os.Exit(1)
-	}
-	if webhookPort != 0 {
-		if err = (&metal3iov1alpha1.IronicDatabase{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "IronicDatabase")
-			os.Exit(1)
-		}
 	}
 	//+kubebuilder:scaffold:builder
 

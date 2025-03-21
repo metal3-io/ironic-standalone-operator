@@ -1,9 +1,11 @@
-package v1alpha1
+package ironic
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 func TestDHCPDefaults(t *testing.T) {
@@ -34,7 +36,7 @@ func TestDHCPDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			dhcp := &DHCP{NetworkCIDR: tc.Prefix}
+			dhcp := &metal3api.DHCP{NetworkCIDR: tc.Prefix}
 
 			SetDHCPDefaults(dhcp)
 			assert.Equal(t, tc.ExpectedFirst, dhcp.RangeBegin)
@@ -47,8 +49,8 @@ func TestValidateIronic(t *testing.T) {
 	testCases := []struct {
 		Scenario string
 
-		Ironic        IronicSpec
-		OldIronic     *IronicSpec
+		Ironic        metal3api.IronicSpec
+		OldIronic     *metal3api.IronicSpec
 		ExpectedError string
 	}{
 		{
@@ -56,14 +58,14 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "with old database",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				DatabaseName: "db",
 			},
 		},
 		{
 			Scenario: "with database",
-			Ironic: IronicSpec{
-				Database: &Database{
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
 					CredentialsName: "test",
 					Host:            "example.com",
 					Name:            "ironic",
@@ -72,20 +74,20 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "adding database",
-			Ironic: IronicSpec{
-				Database: &Database{
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
 					CredentialsName: "test",
 					Host:            "example.com",
 					Name:            "ironic",
 				},
 			},
-			OldIronic: &IronicSpec{},
+			OldIronic: &metal3api.IronicSpec{},
 		},
 		{
 			Scenario: "removing database",
-			Ironic:   IronicSpec{},
-			OldIronic: &IronicSpec{
-				Database: &Database{
+			Ironic:   metal3api.IronicSpec{},
+			OldIronic: &metal3api.IronicSpec{
+				Database: &metal3api.Database{
 					CredentialsName: "test",
 					Host:            "example.com",
 					Name:            "ironic",
@@ -94,24 +96,24 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "with ipAddress",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					IPAddress: "192.168.0.2",
 				},
 			},
 		},
 		{
 			Scenario: "with ipAddress-v6",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					IPAddress: "2001:db8::2",
 				},
 			},
 		},
 		{
 			Scenario: "bad ipAddress",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					IPAddress: "banana",
 				},
 			},
@@ -119,8 +121,8 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "bad externalIP",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					ExternalIP: "banana",
 				},
 			},
@@ -128,20 +130,20 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "HA needs database",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				HighAvailability: true,
 			},
 			ExpectedError: "database is required",
 		},
 		{
 			Scenario: "no ipAddress with HA",
-			Ironic: IronicSpec{
-				Database: &Database{
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
 					CredentialsName: "test",
 					Host:            "example.com",
 					Name:            "ironic",
 				},
-				Networking: Networking{
+				Networking: metal3api.Networking{
 					IPAddress: "192.168.0.1",
 				},
 				HighAvailability: true,
@@ -150,8 +152,8 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "HA disabled",
-			Ironic: IronicSpec{
-				Database: &Database{
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
 					CredentialsName: "test",
 					Host:            "example.com",
 					Name:            "ironic",
@@ -162,69 +164,69 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "no DHCP with HA",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				DatabaseName:     "db",
 				HighAvailability: true,
-				Networking: Networking{
-					DHCP: &DHCP{},
+				Networking: metal3api.Networking{
+					DHCP: &metal3api.DHCP{},
 				},
 			},
 			ExpectedError: "DHCP support is not implemented",
 		},
 		{
 			Scenario: "With Keepalived, no DHCP",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					Interface:        "eth0",
 					IPAddress:        "192.0.2.2",
-					IPAddressManager: IPAddressManagerKeepalived,
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
 		},
 		{
 			Scenario: "With Keepalived and DHCP",
-			Ironic: IronicSpec{
-				Networking: Networking{
-					DHCP: &DHCP{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DHCP: &metal3api.DHCP{
 						NetworkCIDR: "192.0.2.1/24",
 						RangeBegin:  "192.0.2.10",
 						RangeEnd:    "192.0.2.200",
 					},
 					Interface:        "eth0",
 					IPAddress:        "192.0.2.2",
-					IPAddressManager: IPAddressManagerKeepalived,
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
 		},
 		{
 			Scenario: "Keepalived requires Interface",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					IPAddress:        "192.0.2.2",
-					IPAddressManager: IPAddressManagerKeepalived,
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
 			ExpectedError: "keepalived requires specifying both ipAddress and interface",
 		},
 		{
 			Scenario: "Keepalived requires IPAddress",
-			Ironic: IronicSpec{
-				Networking: Networking{
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
 					Interface:        "eth0",
-					IPAddressManager: IPAddressManagerKeepalived,
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
 			ExpectedError: "keepalived requires specifying both ipAddress and interface",
 		},
 		{
 			Scenario: "Keepalived exclusive with HA",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				DatabaseName:     "db",
 				HighAvailability: true,
-				Networking: Networking{
+				Networking: metal3api.Networking{
 					Interface:        "eth0",
 					IPAddress:        "192.0.2.2",
-					IPAddressManager: IPAddressManagerKeepalived,
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
 				},
 			},
 			// NOTE(dtantsur): the expected error here is shadowed by the prior validation.
@@ -233,20 +235,20 @@ func TestValidateIronic(t *testing.T) {
 		},
 		{
 			Scenario: "with version",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				Version: "27.0",
 			},
 		},
 		{
 			Scenario: "with invalid version",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				Version: "banana",
 			},
 			ExpectedError: "invalid version banana, expected MAJOR.MINOR",
 		},
 		{
 			Scenario: "with unsupported version",
-			Ironic: IronicSpec{
+			Ironic: metal3api.IronicSpec{
 				Version: "42.42",
 			},
 			ExpectedError: "version 42.42 is not supported, supported versions are 27.0, 28.0, latest",
