@@ -7,6 +7,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -24,44 +32,14 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
   - apps
   resources:
   - daemonsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
   - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
   verbs:
   - create
   - delete
@@ -74,31 +52,6 @@ rules:
   - ironic.metal3.io
   resources:
   - ironicdatabases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ironic.metal3.io
-  resources:
-  - ironicdatabases/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ironic.metal3.io
-  resources:
-  - ironicdatabases/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ironic.metal3.io
-  resources:
   - ironics
   verbs:
   - create
@@ -111,12 +64,14 @@ rules:
 - apiGroups:
   - ironic.metal3.io
   resources:
+  - ironicdatabases/finalizers
   - ironics/finalizers
   verbs:
   - update
 - apiGroups:
   - ironic.metal3.io
   resources:
+  - ironicdatabases/status
   - ironics/status
   verbs:
   - get
