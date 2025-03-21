@@ -152,7 +152,7 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
 func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (status Status, err error) {
-	if validationErr := metal3api.ValidateIronic(&ironic.Spec, nil); validationErr != nil {
+	if validationErr := ValidateIronic(&ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
 		return
 	}
