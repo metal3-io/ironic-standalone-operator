@@ -127,14 +127,17 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
+	cd api && go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet against code.
 	go vet ./...
+	cd api && go vet ./...
 
 .PHONY: test
 test: manifests generate fmt vet ## Run tests.
 	go test ./... -coverprofile cover.out
+	cd api && go test ./... -coverprofile cover.out
 
 ##@ Build
 
