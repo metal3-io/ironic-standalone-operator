@@ -23,6 +23,7 @@ import (
 	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,6 +56,7 @@ type IronicReconciler struct {
 //+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironics/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
@@ -123,8 +125,25 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 	cctx.VersionInfo = versionInfo
 
+	dbConf := ironicConf.Spec.Database
+
 	actuallyRequestedVersion := cctx.VersionInfo.InstalledVersion.String()
 	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
+		// Ironic does not support downgrades when a real external database is used.
+		if ironicConf.Status.InstalledVersion != "" && dbConf != nil {
+			parsedVersion, err := metal3api.ParseVersion(ironicConf.Status.InstalledVersion)
+			if err != nil {
+				return false, err
+			}
+
+			// NOTE(dtantsur): allow upgrades from latest to a numeric version.
+			// This requires a user to ensure that the new version is actually newer, but it's a valid scenario.
+			if !parsedVersion.IsLatest() && cctx.VersionInfo.InstalledVersion.Compare(parsedVersion) < 0 {
+				cctx.Logger.Info("refusing to downgrade Ironic", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
+				_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, "Ironic does not support downgrades with an external database")
+				return false, nil
+			}
+		}
 		cctx.Logger.Info("new version requested", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
 		ironicConf.Status.RequestedVersion = actuallyRequestedVersion
 		err = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonInProgress, "new version requested")
@@ -144,7 +163,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	// Compatibility logic, remove when IronicDatabase is removed
-	dbConf := ironicConf.Spec.Database
 	if db != nil {
 		if !meta.IsStatusConditionTrue(db.Status.Conditions, string(metal3api.IronicStatusReady)) {
 			setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation, metal3api.IronicStatusReady,
@@ -293,6 +311,7 @@ func (r *IronicReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&batchv1.Job{}).
 		Owns(&metal3api.IronicDatabase{}).
 		Complete(r)
 }

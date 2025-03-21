@@ -41,6 +41,10 @@ func (v Version) String() string {
 	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
 }
 
+func (v Version) HasUpgradeScripts() bool {
+	return v.Compare(Version280) > 0
+}
+
 func ParseVersion(version string) (Version, error) {
 	if version == versionLatestString {
 		return Version{}, nil

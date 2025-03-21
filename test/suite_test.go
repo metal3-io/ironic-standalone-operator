@@ -266,7 +266,7 @@ func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *m
 	return ironic
 }
 
-func WaitForIronicFailure(name types.NamespacedName, message string) *metal3api.Ironic {
+func WaitForIronicFailure(name types.NamespacedName, message string, tolerateReady bool) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{}
 
 	By("waiting for Ironic deployment to fail")
@@ -283,7 +283,9 @@ func WaitForIronicFailure(name types.NamespacedName, message string) *metal3api.
 			GinkgoWriter.Printf("No Ready condition yet\n")
 			return false
 		}
-		Expect(cond.Status).To(Equal(metav1.ConditionFalse), "Unexpected Ready status")
+		if !tolerateReady {
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse), "Unexpected Ready status")
+		}
 		if cond.Reason != metal3api.IronicReasonFailed {
 			return false
 		}
@@ -483,20 +485,35 @@ func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func collectPod(pod *corev1.Pod, namespace, logDir string) {
+	err := os.MkdirAll(logDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	writeYAML(&pod, namespace, pod.Name, "pod")
+
+	for _, cont := range pod.Spec.Containers {
+		writeContainerLogs(pod, cont.Name, logDir)
+	}
+}
+
 func CollectLogs(namespace string) {
 	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, pod := range pods.Items {
 		logDir := fmt.Sprintf("%s/%s/pod_%s", os.Getenv("LOGDIR"), namespace, pod.Name)
+		collectPod(&pod, namespace, logDir)
+	}
+
+	jobs, err := clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, job := range jobs.Items {
+		logDir := fmt.Sprintf("%s/%s/job_%s", os.Getenv("LOGDIR"), namespace, job.Name)
 		err = os.MkdirAll(logDir, 0755)
 		Expect(err).NotTo(HaveOccurred())
 
-		writeYAML(&pod, namespace, pod.Name, "pod")
-
-		for _, cont := range pod.Spec.Containers {
-			writeContainerLogs(&pod, cont.Name, logDir)
-		}
+		writeYAML(&job, namespace, job.Name, "job")
 	}
 }
 
@@ -556,6 +573,33 @@ func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api
 	}
 
 	return result
+}
+
+func getDatabaseConnection(name types.NamespacedName) *metal3api.Database {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-api", name.Name),
+			Namespace: name.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.BasicAuthUsernameKey: []byte("admin"),
+			corev1.BasicAuthPasswordKey: []byte("test-password"),
+		},
+		Type: corev1.SecretTypeBasicAuth,
+	}
+	err := k8sClient.Create(ctx, secret)
+	Expect(err).NotTo(HaveOccurred())
+
+	// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
+	ironicDB := buildDatabase(name, secret.Name)
+	err = k8sClient.Create(ctx, ironicDB)
+	Expect(err).NotTo(HaveOccurred())
+
+	return &metal3api.Database{
+		CredentialsName: secret.Name,
+		Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, name.Namespace),
+		Name:            "ironic",
+	}
 }
 
 func saveEvents(namespace string) {
@@ -638,7 +682,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("API credentials secret %s/banana not found", namespace))
+		_ = WaitForIronicFailure(name, fmt.Sprintf("API credentials secret %s/banana not found", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
@@ -733,6 +777,16 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic = WaitForUpgrade(name, "27.0", "28.0")
 		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+
+		By("downgrading to Ironic 27.0 (without a database)")
+
+		patch = client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "27.0"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "28.0", "27.0")
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
 	})
 
 	It("creates Ironic 28.0 and upgrades to latest", Label("v280-to-latest"), func() {
@@ -749,6 +803,109 @@ var _ = Describe("Ironic object tests", func() {
 			Version: "28.0",
 		})
 		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+
+		By("upgrading to Ironic latest")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "latest"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "28.0", "latest")
+		VerifyIronic(ironic, TestAssumptions{})
+
+		By("downgrading to Ironic 28.0 (without a database)")
+
+		patch = client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "28.0"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "latest", "28.0")
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+	})
+
+	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade"), func() {
+		if customImage != "" || customImageVersion != "" {
+			Skip("skipping because a custom image is provided")
+		}
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Database: getDatabaseConnection(name),
+			Version:  "28.0",
+		})
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+
+		By("downgrading to Ironic 27.0")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "27.0"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		_ = WaitForIronicFailure(name, "Ironic does not support downgrades", true)
+	})
+
+	It("creates Ironic 28.0 with HA and upgrades to latest", Label("ha-v280-to-latest"), func() {
+		if customImage != "" || customImageVersion != "" {
+			Skip("skipping because a custom image is provided")
+		}
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-api", name.Name),
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.BasicAuthUsernameKey: []byte("admin"),
+				corev1.BasicAuthPasswordKey: []byte("test-password"),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		}
+		err := k8sClient.Create(ctx, secret)
+		Expect(err).NotTo(HaveOccurred())
+
+		// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
+		ironicDB := buildDatabase(name, secret.Name)
+		err = k8sClient.Create(ctx, ironicDB)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Database: &metal3api.Database{
+				CredentialsName: secret.Name,
+				Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
+				Name:            "ironic",
+			},
+			HighAvailability: true,
+			Version:          "28.0",
+		})
+		err = k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
@@ -812,7 +969,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace))
+		_ = WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace), false)
 	})
 
 	It("creates Ironic with IronicDatabase", Label("ironicdatabase"), func() {
@@ -846,34 +1003,11 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-api", name.Name),
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.BasicAuthUsernameKey: []byte("admin"),
-				corev1.BasicAuthPasswordKey: []byte("test-password"),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		}
-		err := k8sClient.Create(ctx, secret)
-		Expect(err).NotTo(HaveOccurred())
-
-		// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
-		ironicDB := buildDatabase(name, secret.Name)
-		err = k8sClient.Create(ctx, ironicDB)
-		Expect(err).NotTo(HaveOccurred())
-
 		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database: &metal3api.Database{
-				CredentialsName: secret.Name,
-				Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
-				Name:            "ironic",
-			},
+			Database:         getDatabaseConnection(name),
 			HighAvailability: true,
 		})
-		err = k8sClient.Create(ctx, ironic)
+		err := k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
