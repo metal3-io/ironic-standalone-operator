@@ -355,5 +355,5 @@ type IronicList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Ironic{}, &IronicList{})
+	objectTypes = append(objectTypes, &Ironic{}, &IronicList{})
 }
