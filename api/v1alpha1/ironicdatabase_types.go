@@ -71,5 +71,5 @@ type IronicDatabaseList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&IronicDatabase{}, &IronicDatabaseList{})
+	objectTypes = append(objectTypes, &IronicDatabase{}, &IronicDatabaseList{})
 }
