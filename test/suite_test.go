@@ -779,6 +779,8 @@ var _ = Describe("Ironic object tests", func() {
 			Networking: metal3api.Networking{
 				DHCP: &metal3api.DHCP{
 					NetworkCIDR: os.Getenv("PROVISIONING_CIDR"),
+					RangeBegin:  os.Getenv("PROVISIONING_RANGE_BEGIN"),
+					RangeEnd:    os.Getenv("PROVISIONING_RANGE_END"),
 				},
 				Interface:        os.Getenv("PROVISIONING_INTERFACE"),
 				IPAddress:        os.Getenv("PROVISIONING_IP"),

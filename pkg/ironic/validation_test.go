@@ -8,43 +8,6 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-func TestDHCPDefaults(t *testing.T) {
-	testCases := []struct {
-		Scenario string
-
-		Prefix        string
-		ExpectedFirst string
-		ExpectedLast  string
-	}{
-		{
-			Scenario:      "v4",
-			Prefix:        "10.1.42.0/24",
-			ExpectedFirst: "10.1.42.10",
-			ExpectedLast:  "10.1.42.253",
-		},
-		{
-			Scenario:      "v6",
-			Prefix:        "2001:db8::/112",
-			ExpectedFirst: "2001:db8::a",
-			ExpectedLast:  "2001:db8::fffd",
-		},
-		{
-			Scenario: "broken",
-			Prefix:   "10.1.42.0/32",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.Scenario, func(t *testing.T) {
-			dhcp := &metal3api.DHCP{NetworkCIDR: tc.Prefix}
-
-			SetDHCPDefaults(dhcp)
-			assert.Equal(t, tc.ExpectedFirst, dhcp.RangeBegin)
-			assert.Equal(t, tc.ExpectedLast, dhcp.RangeEnd)
-		})
-	}
-}
-
 func TestValidateIronic(t *testing.T) {
 	testCases := []struct {
 		Scenario string

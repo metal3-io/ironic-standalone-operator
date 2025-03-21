@@ -6,35 +6,8 @@ import (
 	"net/netip"
 	"reflect"
 
-	"go4.org/netipx"
-
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
-
-func SetDHCPDefaults(dhcp *metal3api.DHCP) {
-	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		// Let the validation hook do the actual validation
-		return
-	}
-
-	provIP := provCIDR.Addr()
-	if dhcp.RangeBegin == "" {
-		firstIP := provIP
-		for i := 0; i < 10; i++ {
-			firstIP = firstIP.Next()
-		}
-		if firstIP.IsValid() && provCIDR.Contains(firstIP) {
-			dhcp.RangeBegin = firstIP.String()
-		}
-	}
-	if dhcp.RangeEnd == "" {
-		lastIP := netipx.PrefixLastIP(provCIDR).Prev().Prev()
-		if lastIP.IsValid() && provCIDR.Contains(lastIP) {
-			dhcp.RangeEnd = lastIP.String()
-		}
-	}
-}
 
 func validateIP(ip string) error {
 	if ip == "" {
@@ -75,6 +48,9 @@ func ValidateDHCP(ironic *metal3api.IronicSpec, dhcp *metal3api.DHCP) error {
 	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
+	}
+	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
+		return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
 	}
 
 	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)

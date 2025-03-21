@@ -76,13 +76,9 @@ type DHCP struct {
 	NetworkCIDR string `json:"networkCIDR,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
-	// If not set, the 10th IP from NetworkCIDR is used (e.g. .10 for /24).
-	// +optional
 	RangeBegin string `json:"rangeBegin,omitempty"`
 
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
-	// If not set, the 2nd IP from the end of NetworkCIDR is used (e.g. .253 for /24).
-	// +optional
 	RangeEnd string `json:"rangeEnd,omitempty"`
 
 	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
