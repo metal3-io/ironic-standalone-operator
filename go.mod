@@ -5,7 +5,6 @@ go 1.23.0
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/stretchr/testify v1.10.0
-	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.36.0
 	k8s.io/api v0.32.3
 	k8s.io/apimachinery v0.32.3
