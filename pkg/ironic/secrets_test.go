@@ -173,7 +173,7 @@ password = password
 			User:            "admin",
 			Password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      strings.Replace(authConfig, "admin", "user", -1),
+			AuthConfig:      strings.ReplaceAll(authConfig, "admin", "user"),
 			ExpectedChanged: true,
 		},
 	}
