@@ -21,6 +21,7 @@ updates:
 - package-ecosystem: "gomod"
   directories:
   - "/"
+  - "/api"
   - "/test"
   schedule:
     interval: "weekly"
