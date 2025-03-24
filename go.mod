@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/go-logr/logr v1.4.2
+	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
 	github.com/stretchr/testify v1.10.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.36.0
@@ -95,3 +96,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/metal3-io/ironic-standalone-operator/api => ./api/
