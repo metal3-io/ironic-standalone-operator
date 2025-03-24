@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -106,12 +107,12 @@ func TestWithIronicOverrides(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			defaults, err := NewVersionInfo(tc.DefaultIronicImages, tc.DefaultIronicVersion, tc.DefaultDatabaseImage)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			result, err := defaults.WithIronicOverrides(&tc.Ironic)
 			if tc.ExpectError != "" {
 				assert.ErrorContains(t, err, tc.ExpectError)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.Expected, result)
 			}
 		})

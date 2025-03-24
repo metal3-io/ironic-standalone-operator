@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -85,17 +86,17 @@ func TestExpectedContainers(t *testing.T) {
 
 			podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
 			if tc.ExpectedError == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+
+				var containerNames []string
+				for _, cont := range podTemplate.Spec.Containers {
+					containerNames = append(containerNames, cont.Name)
+				}
+
+				assert.ElementsMatch(t, tc.ExpectedContainerNames, containerNames)
 			} else {
 				assert.ErrorContains(t, err, tc.ExpectedError)
 			}
-
-			var containerNames []string
-			for _, cont := range podTemplate.Spec.Containers {
-				containerNames = append(containerNames, cont.Name)
-			}
-
-			assert.ElementsMatch(t, tc.ExpectedContainerNames, containerNames)
 		})
 	}
 }
@@ -133,10 +134,10 @@ func TestImageOverrides(t *testing.T) {
 	}
 
 	version, err := cctx.VersionInfo.WithIronicOverrides(ironic)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	cctx.VersionInfo = version
 	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	images := make(map[string]string, len(expectedImages))
 	var actualBranch string
@@ -204,7 +205,7 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 	}
 
 	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	extraVars := make(map[string]string, len(expectedExtraVars))
 	for _, env := range podTemplate.Spec.Containers[0].Env {

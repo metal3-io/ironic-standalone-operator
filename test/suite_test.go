@@ -67,6 +67,8 @@ const (
 	apiVersionIn280 = "1.95"
 	// Update this periodically to make sure we're installing the latest version by default
 	knownAPIMinorVersion = 95
+
+	numberOfNodes = 100
 )
 
 var ctx context.Context
@@ -303,13 +305,13 @@ func WaitForIronicFailure(name types.NamespacedName, message string, tolerateRea
 
 func writeYAML(obj interface{}, namespace, name, typ string) {
 	fileDir := fmt.Sprintf("%s/%s", os.Getenv("LOGDIR"), namespace)
-	err := os.MkdirAll(fileDir, 0755)
+	err := os.MkdirAll(fileDir, 0o755)
 	Expect(err).NotTo(HaveOccurred())
 
 	fileName := fmt.Sprintf("%s/%s_%s.yaml", fileDir, typ, name)
 	yamlData, err := yaml.Marshal(obj)
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(fileName, yamlData, 0600)
+	err = os.WriteFile(fileName, yamlData, 0o600)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -453,8 +455,8 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	defer cancel()
 
 	drivers := []string{"ipmi", "redfish"}
-	var nodeUUIDs []string
-	for idx := 0; idx < 100; idx++ {
+	nodeUUIDs := make([]string, 0, numberOfNodes)
+	for idx := range numberOfNodes {
 		node, err := nodes.Create(withTimeout, cli, nodes.CreateOpts{
 			Driver: drivers[rand.Intn(len(drivers))], //nolint:gosec // weak crypto is ok in tests
 			Name:   fmt.Sprintf("node-%d", idx),
@@ -491,7 +493,7 @@ func CollectLogs(namespace string) {
 
 	for _, pod := range pods.Items {
 		logDir := fmt.Sprintf("%s/%s/pod_%s", os.Getenv("LOGDIR"), namespace, pod.Name)
-		err = os.MkdirAll(logDir, 0755)
+		err = os.MkdirAll(logDir, 0o755)
 		Expect(err).NotTo(HaveOccurred())
 
 		writeYAML(&pod, namespace, pod.Name, "pod")
