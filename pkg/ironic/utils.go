@@ -128,23 +128,20 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Statu
 
 	// FIXME(dtantsur): the current version of appsv1 does not seem to have
 	// constants for conditions types.
-	// var err error
-	// for _, cond := range deploy.Status.Conditions {
-	// 	if cond.Type == appsv1.??? && cond.Status == corev1.ConditionTrue {
-	// 		available = true
-	// 	}
-	// 	if cond.Type == appsv1.??? && cond.Status == corev1.ConditionTrue {
-	// 		err = fmt.Errorf("deployment failed: %s", cond.Message)
-	// 		return metal3api.IronicStatusProgressing, err
-	// 	}
-	// }
-	available := deploy.Status.NumberUnavailable == 0
 
-	if available {
+	available := deploy.Status.NumberUnavailable == 0
+	// NOTE(dtantsur): old replicas are not counted towards NumberUnavailable
+	updated := deploy.Status.UpdatedNumberScheduled >= deploy.Status.DesiredNumberScheduled
+
+	if available && updated {
 		return ready()
 	} else {
 		cctx.Logger.Info("daemon set not available yet", "DaemonSet", deploy.Name,
-			"NumberUnavailable", deploy.Status.NumberUnavailable)
+			"NumberUnavailable", deploy.Status.NumberUnavailable, "UpdatedNumberScheduled", deploy.Status.UpdatedNumberScheduled)
+		if !updated {
+			return inProgress(fmt.Sprintf("daemon set not available yet: %d replicas need updating",
+				deploy.Status.DesiredNumberScheduled-deploy.Status.UpdatedNumberScheduled))
+		}
 		return inProgress(fmt.Sprintf("daemon set not available yet: %d replicas unavailable", deploy.Status.NumberUnavailable))
 	}
 }
