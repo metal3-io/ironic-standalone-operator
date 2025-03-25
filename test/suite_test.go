@@ -223,7 +223,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 
 		logResources(ironic, "")
 		return false
-	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
 	return ironic
 }
@@ -261,7 +261,7 @@ func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *m
 
 		logResources(ironic, suffix)
 		return false
-	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
 	return ironic
 }
@@ -296,7 +296,7 @@ func WaitForIronicFailure(name types.NamespacedName, message string, tolerateRea
 		}
 
 		return true
-	}).WithTimeout(15 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(BeTrue())
 
 	return ironic
 }
