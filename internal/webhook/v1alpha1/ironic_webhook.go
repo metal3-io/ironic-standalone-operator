@@ -36,26 +36,7 @@ func SetupIronicWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&metal3api.Ironic{}).
 		WithValidator(&IronicCustomValidator{}).
-		WithDefaulter(&IronicCustomDefaulter{}).
 		Complete()
-}
-
-// +kubebuilder:webhook:path=/mutate-ironic-metal3-io-v1alpha1-ironic,mutating=true,failurePolicy=fail,sideEffects=None,groups=ironic.metal3.io,resources=ironics,verbs=create;update,versions=v1alpha1,name=mutate-ironic.ironic.metal3.io,admissionReviewVersions=v1
-
-type IronicCustomDefaulter struct{}
-
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *IronicCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	ironic, ok := obj.(*metal3api.Ironic)
-	if !ok {
-		return fmt.Errorf("expected an Ironic, got %T", obj)
-	}
-
-	ironiclog.Info("default", "name", ironic.Name)
-	if dhcp := ironic.Spec.Networking.DHCP; dhcp != nil {
-		validation.SetDHCPDefaults(dhcp)
-	}
-	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-ironic-metal3-io-v1alpha1-ironic,mutating=false,failurePolicy=fail,sideEffects=None,groups=ironic.metal3.io,resources=ironics,verbs=create;update,versions=v1alpha1,name=validate-ironic.ironic.metal3.io,admissionReviewVersions=v1

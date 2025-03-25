@@ -601,7 +601,6 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		},
 	}
 	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.HighAvailability {
-		SetDHCPDefaults(ironic.Spec.Networking.DHCP)
 		err := ValidateDHCP(&ironic.Spec, ironic.Spec.Networking.DHCP)
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
