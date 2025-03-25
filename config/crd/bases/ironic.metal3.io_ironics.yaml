@@ -302,12 +302,6 @@ spec:
                     description: CertificateName is a reference to the secret with
                       the TLS certificate.
                     type: string
-                  disableRPCHostValidation:
-                    description: |-
-                      DisableRPCHostValidation turns off TLS host validation for JSON RPC connections between Ironic instances.
-                      This reduces the security of TLS. Only use if you're unable to provide TLS certificates valid for JSON RPC.
-                      Has no effect if HighAvailability is not set to true.
-                    type: boolean
                   disableVirtualMediaTLS:
                     description: |-
                       DisableVirtualMediaTLS turns off TLS on the virtual media server,

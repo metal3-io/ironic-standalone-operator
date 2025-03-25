@@ -217,10 +217,6 @@ func buildIronicEnvVars(ironic *metal3api.Ironic, db *metal3api.Database, htpass
 				Name:  "IRONIC_DEPLOYMENT",
 				Value: "Conductor",
 			},
-			{
-				Name:  "IRONIC_INSECURE",
-				Value: strconv.FormatBool(ironic.Spec.TLS.DisableRPCHostValidation),
-			},
 		}...)
 	}
 
