@@ -183,7 +183,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	newStatus := ironicConf.Status.DeepCopy()
-	newStatus.InstalledVersion = ""
 	requeue = setConditionsFromStatus(cctx, status, &newStatus.Conditions, ironicConf.Generation, "ironic")
 	if !requeue {
 		newStatus.InstalledVersion = actuallyRequestedVersion
