@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,7 @@ func TestGenerateHtpasswd(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			result, err := generateHtpasswd([]byte(tc.User), []byte(tc.Password))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			user, password, ok := strings.Cut(result, ":")
 			assert.Truef(t, ok, "%s is not separated with a colon", result)
 			assert.Equal(t, strings.Trim(tc.User, "\n"), user)
@@ -173,7 +174,7 @@ password = password
 			User:            "admin",
 			Password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      strings.Replace(authConfig, "admin", "user", -1),
+			AuthConfig:      strings.ReplaceAll(authConfig, "admin", "user"),
 			ExpectedChanged: true,
 		},
 	}
@@ -207,8 +208,8 @@ func TestGenerateSecret(t *testing.T) {
 				Namespace: "test",
 			}
 			secret, err := GenerateSecret(meta, "foo", tc)
-			assert.NoError(t, err)
-			assert.NotNil(t, secret)
+			require.NoError(t, err)
+			require.NotNil(t, secret)
 			assert.Len(t, secret.Data["password"], passwordLength)
 			if tc {
 				assert.NotNil(t, secret.Data["htpasswd"])

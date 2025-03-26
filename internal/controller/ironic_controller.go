@@ -233,7 +233,10 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 	}
 
 	oldReferences := apiSecret.GetOwnerReferences()
-	controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
+	err = controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
+	if err != nil {
+		return nil, true, err
+	}
 	if !reflect.DeepEqual(oldReferences, apiSecret.GetOwnerReferences()) {
 		cctx.Logger.Info("updating owner reference", "Secret", apiSecret.Name)
 		err = cctx.Client.Update(cctx.Context, apiSecret)
@@ -276,7 +279,10 @@ func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicC
 	}
 
 	oldReferences := db.GetOwnerReferences()
-	controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
+	err = controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
+	if err != nil {
+		return nil, true, err
+	}
 	if !reflect.DeepEqual(oldReferences, db.GetOwnerReferences()) {
 		cctx.Logger.Info("updating owner reference", "Database", db.Name)
 		err = cctx.Client.Update(cctx.Context, db)

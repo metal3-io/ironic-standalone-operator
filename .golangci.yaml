@@ -9,13 +9,24 @@ linters:
   - bodyclose
   #- containedctx
   - copyloopvar
+  - decorder
   - dogsled
+  - dupl
   - dupword
   - durationcheck
-  #- errcheck
+  - errcheck
   - errchkjson
+  - errname
+  - errorlint
+  - exhaustive
+  - exptostd
+  - fatcontext
+  - forbidigo
+  - forcetypeassert
   #- gci
   - ginkgolinter
+  - gocheckcompilerdirectives
+  - gochecksumtype
   - goconst
   - gocritic
   #- godot
@@ -23,29 +34,43 @@ linters:
   - goimports
   - goprintffuncname
   - gosec
-  #- gosimple
+  - gosimple
+  - gosmopolitan
   - govet
-  #- importas
+  - iface
+  - importas
   - ineffassign
+  - intrange
   - loggercheck
+  - makezero
+  - mirror
   - misspell
+  #- mnd
   #- nakedret
   #- nilerr
+  - nilnesserr
+  #- nilnil
   - noctx
   - nolintlint
   - nosprintfhostport
+  #- perfsprint
   - prealloc
-  #- predeclared
+  - predeclared
+  - reassign
   #- revive
   - rowserrcheck
   - staticcheck
   - stylecheck
+  #- tagliatelle
+  - testifylint
   - thelper
+  - tparallel
   - typecheck
   - unconvert
   #- unparam
   - unused
   - usestdlibvars
+  - usetesting
   - whitespace
   # Run with --fast=false for more extensive checks
   fast: true
@@ -78,27 +103,13 @@ linters-settings:
       alias: ctrl
     # IrSO
     - pkg: github.com/metal3-io/ironic-standalone-operator/api/v1alpha1
-      alias: ironicv1alpha1
+      alias: metal3api
   nolintlint:
     allow-unused: false
     require-specific: true
   gocritic:
     enabled-tags:
     - experimental
-    disabled-checks:
-    - appendAssign
-    - dupImport # https://github.com/go-critic/go-critic/issues/845
-    - evalOrder
-    - ifElseChain
-    - octalLiteral
-    - regexpSimplify
-    - sloppyReassign
-    - truncateCmp
-    - typeDefFirst
-    - unnamedResult
-    - unnecessaryDefer
-    - whyNoLint
-    - wrapperFunc
 issues:
   exclude-files:
   - "zz_generated.*\\.go$"
@@ -115,5 +126,10 @@ issues:
   # NOTE(dtantsur): IronicDatabase is deprecated but our own code still supports it.
   # Remove this exclusion when it's entirely deleted.
   - linters:
-      - staticcheck
+    - staticcheck
     text: "SA1019: (metal3api.IronicDatabase|metal3iov1alpha1.IronicDatabase|ironicConf.Spec.DatabaseName|ironic.DatabaseName|old.DatabaseName) is deprecated"
+  # NOTE(dtantsur): Kubebuilder insists on a specific way to call imports
+  - linters:
+    - importas
+    path: cmd/main.go
+    text: metal3iov1alpha1

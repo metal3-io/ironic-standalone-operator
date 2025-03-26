@@ -126,8 +126,6 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Statu
 		return inProgress("daemon set not ready yet")
 	}
 
-	var available bool
-
 	// FIXME(dtantsur): the current version of appsv1 does not seem to have
 	// constants for conditions types.
 	// var err error
@@ -140,7 +138,7 @@ func getDaemonSetStatus(cctx ControllerContext, deploy *appsv1.DaemonSet) (Statu
 	// 		return metal3api.IronicStatusProgressing, err
 	// 	}
 	// }
-	available = deploy.Status.NumberUnavailable == 0
+	available := deploy.Status.NumberUnavailable == 0
 
 	if available {
 		return ready()

@@ -34,7 +34,7 @@ const (
 func generatePassword() ([]byte, error) {
 	password := make([]byte, passwordLength)
 	maxIdx := big.NewInt(int64(len(passwordCharset)))
-	for i := 0; i < passwordLength; i++ {
+	for i := range passwordLength {
 		idx, err := rand.Int(rand.Reader, maxIdx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot generate a new password: %w", err)
@@ -135,11 +135,11 @@ func UpdateSecret(secret *corev1.Secret, logger logr.Logger) (bool, error) {
 		return false, nil
 	}
 
-	new, err := htpasswdFromSecret(secret)
+	htpasswd, err := htpasswdFromSecret(secret)
 	if err != nil {
 		return false, err
 	}
-	secret.Data[htpasswdKey] = []byte(new)
+	secret.Data[htpasswdKey] = []byte(htpasswd)
 	secret.Data[authConfigKey] = []byte(getAuthConfig(secret))
 	return true, nil
 }
