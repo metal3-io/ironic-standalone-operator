@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LOGDIR: /tmp/logs
+      JUNIT_OUTPUT: /tmp/logs/report.xml
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - name: Calculate go version
@@ -34,4 +35,10 @@ jobs:
       with:
         name: functional
         path: /tmp/logs/*
+      if: always()
+    - name: Annotate failures
+      uses: mikepenz/action-junit-report@97744eca465b8df9e6e33271cb155003f85327f1 # v5.5.0
+      with:
+        annotate_only: true
+        report_paths: /tmp/logs/report.xml
       if: always()
