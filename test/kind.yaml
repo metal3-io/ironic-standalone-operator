@@ -12,3 +12,16 @@ nodes:
   - containerPort: 6385
     hostPort: 6385
     listenAddress: "127.0.0.1"
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 6180
+    hostPort: 6181
+    listenAddress: "127.0.0.1"
+  - containerPort: 6183
+    hostPort: 6184
+    listenAddress: "127.0.0.1"
+  - containerPort: 6385
+    hostPort: 6386
+    listenAddress: "127.0.0.1"
+- role: worker
+- role: worker
