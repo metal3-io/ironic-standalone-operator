@@ -2,6 +2,8 @@ module github.com/metal3-io/ironic-standalone-operator
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
@@ -12,7 +14,7 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/component-base v0.32.3
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
-	sigs.k8s.io/controller-runtime v0.20.3
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 require (
