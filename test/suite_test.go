@@ -854,6 +854,65 @@ var _ = Describe("Ironic object tests", func() {
 		_ = WaitForIronicFailure(name, "Ironic does not support downgrades", true)
 	})
 
+	It("creates Ironic 28.0 with HA and upgrades to latest", Label("ha-v280-to-latest"), func() {
+		if customImage != "" || customImageVersion != "" {
+			Skip("skipping because a custom image is provided")
+		}
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-api", name.Name),
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.BasicAuthUsernameKey: []byte("admin"),
+				corev1.BasicAuthPasswordKey: []byte("test-password"),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		}
+		err := k8sClient.Create(ctx, secret)
+		Expect(err).NotTo(HaveOccurred())
+
+		// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
+		ironicDB := buildDatabase(name, secret.Name)
+		err = k8sClient.Create(ctx, ironicDB)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			Database: &metal3api.Database{
+				CredentialsName: secret.Name,
+				Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
+				Name:            "ironic",
+			},
+			HighAvailability: true,
+			Version:          "28.0",
+		})
+		err = k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+
+		By("upgrading to Ironic latest")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "latest"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "28.0", "latest")
+		VerifyIronic(ironic, TestAssumptions{})
+	})
+
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
