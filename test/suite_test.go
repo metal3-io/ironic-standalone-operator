@@ -669,7 +669,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("API credentials secret %s/banana not found", namespace), false)
+		_ = WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
