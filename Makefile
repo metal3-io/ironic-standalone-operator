@@ -242,7 +242,6 @@ lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) config verify
 	$(GOLANGCI_LINT) run -v ./... --timeout=10m
 	cd api; $(GOLANGCI_LINT) run -v ./... --timeout=10m
-	cd internal/controller; $(GOLANGCI_LINT) run -v ./... --timeout=10m
 	cd test; $(GOLANGCI_LINT) run -v ./... --timeout=10m
 
 .PHONY: bundle
