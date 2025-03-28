@@ -12,6 +12,9 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
+// Leave enough time for potential debugging but don't hold jobs forever
+const jobTTLSeconds int32 = 24 * 3600
+
 type upgradePhase string
 
 const (
@@ -121,6 +124,7 @@ func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db
 		job.ObjectMeta.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
 		job.ObjectMeta.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
+		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
 		mergePodTemplates(&job.Spec.Template, template)
 
 		return controllerutil.SetControllerReference(ironic, job, cctx.Scheme)
