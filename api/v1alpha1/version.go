@@ -8,7 +8,10 @@ import (
 	"strings"
 )
 
-const versionLatestString = "latest"
+const (
+	versionLatestString = "latest"
+	versionParts        = 2
+)
 
 type Version struct {
 	Major, Minor int
@@ -46,8 +49,8 @@ func ParseVersion(version string) (Version, error) {
 		return Version{}, nil
 	}
 
-	versionSplit := strings.SplitN(version, ".", 2)
-	if len(versionSplit) != 2 {
+	versionSplit := strings.SplitN(version, ".", versionParts)
+	if len(versionSplit) != versionParts {
 		return Version{}, fmt.Errorf("invalid version %s, expected MAJOR.MINOR", version)
 	}
 

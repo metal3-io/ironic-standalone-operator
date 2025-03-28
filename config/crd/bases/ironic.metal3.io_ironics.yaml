@@ -31,7 +31,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Ironic is the Schema for the ironics API
+        description: Ironic is the Schema for the ironics API.
         properties:
           apiVersion:
             description: |-
@@ -51,7 +51,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: IronicSpec defines the desired state of Ironic
+            description: IronicSpec defines the desired state of Ironic.
             properties:
               apiCredentialsName:
                 description: |-
@@ -160,7 +160,7 @@ spec:
                     type: string
                 type: object
               inspection:
-                description: Inspection defines inspection settings
+                description: Inspection defines inspection settings.
                 properties:
                   collectors:
                     description: |-
@@ -221,7 +221,7 @@ spec:
                         items:
                           type: string
                         type: array
-                      networkCIDR:
+                      networkCidr:
                         description: NetworkCIDR is a CIRD of the provisioning network.
                           Required.
                         type: string
@@ -233,13 +233,13 @@ spec:
                         description: RangeEnd is the last IP that can be given to
                           hosts. Must be inside NetworkCIDR.
                         type: string
-                      serveDNS:
+                      serveDns:
                         description: |-
                           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
                           Must not be set together with DNSAddress.
                         type: boolean
                     type: object
-                  externalIP:
+                  externalIp:
                     description: |-
                       ExternalIP is used for accessing API and the image server from remote hosts.
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
@@ -251,7 +251,7 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
-                  imageServerTLSPort:
+                  imageServerTlsPort:
                     default: 6183
                     description: ImageServerTLSPort is the public port used for serving
                       virtual media images over TLS.
@@ -302,7 +302,7 @@ spec:
                     description: CertificateName is a reference to the secret with
                       the TLS certificate.
                     type: string
-                  disableVirtualMediaTLS:
+                  disableVirtualMediaTls:
                     description: |-
                       DisableVirtualMediaTLS turns off TLS on the virtual media server,
                       which may be required for hardware that cannot accept HTTPS links.
@@ -316,7 +316,7 @@ spec:
                 type: string
             type: object
           status:
-            description: IronicStatus defines the observed state of Ironic
+            description: IronicStatus defines the observed state of Ironic.
             properties:
               conditions:
                 description: Conditions describe the state of the Ironic deployment.
