@@ -38,7 +38,7 @@ const (
 	IronicFinalizer string = "ironic.metal3.io"
 )
 
-// IronicDatabaseReconciler reconciles a IronicDatabase object
+// IronicDatabaseReconciler reconciles a IronicDatabase object.
 type IronicDatabaseReconciler struct {
 	client.Client
 	KubeClient  kubernetes.Interface

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -156,7 +157,7 @@ func getServiceStatus(service *corev1.Service) (Status, error) {
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {
-	portString := fmt.Sprint(port)
+	portString := strconv.Itoa(port)
 	for _, ip := range ips {
 		var endpoint string
 		if (includeProto == "https" && port == 443) || (includeProto == "http" && port == 80) {

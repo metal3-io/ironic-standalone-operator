@@ -61,8 +61,9 @@ func init() {
 }
 
 const (
-	TLSVersion12 = "TLS12"
-	TLSVersion13 = "TLS13"
+	TLSVersion12       = "TLS12"
+	TLSVersion13       = "TLS13"
+	defaultWebhookPort = 9443
 )
 
 var tlsSupportedVersions = []string{TLSVersion12, TLSVersion13}
@@ -95,7 +96,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.IntVar(&webhookPort, "webhook-port", 9443, "Port to use for webhooks (0 to disable)")
+	flag.IntVar(&webhookPort, "webhook-port", defaultWebhookPort, "Port to use for webhooks (0 to disable)")
 	flag.StringVar(&watchNamespace, "namespace", os.Getenv("WATCH_NAMESPACE"),
 		"Namespace that the controller watches to reconcile resources.")
 	flag.StringVar(&tlsOptions.TLSMinVersion, "tls-min-version", TLSVersion12,
