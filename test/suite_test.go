@@ -61,12 +61,13 @@ import (
 // every time the API is changed. The listing of all versions is here:
 // https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 const (
-	// NOTE(dtantsur): latest is now at least 1.95, so we can rely on this
-	// value to check that specifying Version: 27.0 actually installs 27.0
+	// NOTE(dtantsur): latest is now at least 1.96, so we can rely on this
+	// value to check that specifying Version: 29.0 actually installs 29.0
 	apiVersionIn270 = "1.94"
 	apiVersionIn280 = "1.95"
+	apiVersionIn290 = "1.96"
 	// Update this periodically to make sure we're installing the latest version by default
-	knownAPIMinorVersion = 95
+	knownAPIMinorVersion = 96
 
 	numberOfNodes = 100
 )
@@ -609,6 +610,109 @@ func saveEvents(namespace string) {
 	}
 }
 
+func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld string, apiVersionNew string, namespace string) {
+	if customImage != "" || customImageVersion != "" {
+		Skip("skipping because a custom image is provided")
+	}
+
+	name := types.NamespacedName{
+		Name:      "test-ironic",
+		Namespace: namespace,
+	}
+
+	ironic := buildIronic(name, metal3api.IronicSpec{
+		Version: ironicVersionOld,
+	})
+	err := k8sClient.Create(ctx, ironic)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
+		CollectLogs(namespace)
+		DeleteAndWait(ironic)
+	})
+
+	ironic = WaitForIronic(name)
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
+
+	By(fmt.Sprintf("upgrading to Ironic %s", ironicVersionNew))
+
+	patch := client.MergeFrom(ironic.DeepCopy())
+	ironic.Spec.Version = ironicVersionNew
+	err = k8sClient.Patch(ctx, ironic, patch)
+	Expect(err).NotTo(HaveOccurred())
+
+	ironic = WaitForUpgrade(name, ironicVersionOld, ironicVersionNew)
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew})
+
+	By(fmt.Sprintf("downgrading to Ironic %s (without a database)", ironicVersionOld))
+
+	patch = client.MergeFrom(ironic.DeepCopy())
+	ironic.Spec.Version = ironicVersionOld
+	err = k8sClient.Patch(ctx, ironic, patch)
+	Expect(err).NotTo(HaveOccurred())
+
+	ironic = WaitForUpgrade(name, ironicVersionNew, ironicVersionOld)
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
+}
+
+func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionOld string, apiVersionNew string, namespace string) {
+	if customImage != "" || customImageVersion != "" {
+		Skip("skipping because a custom image is provided")
+	}
+
+	name := types.NamespacedName{
+		Name:      "test-ironic",
+		Namespace: namespace,
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-api", name.Name),
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			corev1.BasicAuthUsernameKey: []byte("admin"),
+			corev1.BasicAuthPasswordKey: []byte("test-password"),
+		},
+		Type: corev1.SecretTypeBasicAuth,
+	}
+	err := k8sClient.Create(ctx, secret)
+	Expect(err).NotTo(HaveOccurred())
+
+	// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
+	ironicDB := buildDatabase(name, secret.Name)
+	err = k8sClient.Create(ctx, ironicDB)
+	Expect(err).NotTo(HaveOccurred())
+
+	ironic := buildIronic(name, metal3api.IronicSpec{
+		Database: &metal3api.Database{
+			CredentialsName: secret.Name,
+			Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
+			Name:            "ironic",
+		},
+		HighAvailability: true,
+		Version:          ironicVersionOld,
+	})
+	err = k8sClient.Create(ctx, ironic)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
+		CollectLogs(namespace)
+		DeleteAndWait(ironic)
+	})
+
+	ironic = WaitForIronic(name)
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
+
+	By(fmt.Sprintf("upgrading to Ironic %s", ironicVersionNew))
+
+	patch := client.MergeFrom(ironic.DeepCopy())
+	ironic.Spec.Version = ironicVersionNew
+	err = k8sClient.Patch(ctx, ironic, patch)
+	Expect(err).NotTo(HaveOccurred())
+
+	ironic = WaitForUpgrade(name, ironicVersionOld, ironicVersionNew)
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew})
+}
+
 var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
@@ -733,91 +837,15 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("creates Ironic 27.0 and upgrades to 28.0", Label("v270-to-280"), func() {
-		if customImage != "" || customImageVersion != "" {
-			Skip("skipping because a custom image is provided")
-		}
-
-		name := types.NamespacedName{
-			Name:      "test-ironic",
-			Namespace: namespace,
-		}
-
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			Version: "27.0",
-		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
-
-		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
-
-		By("upgrading to Ironic 28.0")
-
-		patch := client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "28.0"
-		err = k8sClient.Patch(ctx, ironic, patch)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic = WaitForUpgrade(name, "27.0", "28.0")
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
-
-		By("downgrading to Ironic 27.0 (without a database)")
-
-		patch = client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "27.0"
-		err = k8sClient.Patch(ctx, ironic, patch)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic = WaitForUpgrade(name, "28.0", "27.0")
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn270})
+		testUpgrade("27.0", "28.0", apiVersionIn270, apiVersionIn280, namespace)
 	})
 
-	It("creates Ironic 28.0 and upgrades to latest", Label("v280-to-latest"), func() {
-		if customImage != "" || customImageVersion != "" {
-			Skip("skipping because a custom image is provided")
-		}
+	It("creates Ironic 28.0 and upgrades to 29.0", Label("v280-to-290"), func() {
+		testUpgrade("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
+	})
 
-		name := types.NamespacedName{
-			Name:      "test-ironic",
-			Namespace: namespace,
-		}
-
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			Version: "28.0",
-		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
-
-		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
-
-		By("upgrading to Ironic latest")
-
-		patch := client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "latest"
-		err = k8sClient.Patch(ctx, ironic, patch)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic = WaitForUpgrade(name, "28.0", "latest")
-		VerifyIronic(ironic, TestAssumptions{})
-
-		By("downgrading to Ironic 28.0 (without a database)")
-
-		patch = client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "28.0"
-		err = k8sClient.Patch(ctx, ironic, patch)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic = WaitForUpgrade(name, "latest", "28.0")
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+	It("creates Ironic 29.0 and upgrades to latest", Label("v290-to-latest"), func() {
+		testUpgrade("29.0", "latest", apiVersionIn290, "", namespace)
 	})
 
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade"), func() {
@@ -854,63 +882,12 @@ var _ = Describe("Ironic object tests", func() {
 		_ = WaitForIronicFailure(name, "Ironic does not support downgrades", true)
 	})
 
-	It("creates Ironic 28.0 with HA and upgrades to latest", Label("ha-v280-to-latest"), func() {
-		if customImage != "" || customImageVersion != "" {
-			Skip("skipping because a custom image is provided")
-		}
+	It("creates Ironic 28.0 with HA and upgrades to 29.0", Label("ha-v280-to-v290"), func() {
+		testUpgradeHA("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
+	})
 
-		name := types.NamespacedName{
-			Name:      "test-ironic",
-			Namespace: namespace,
-		}
-
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-api", name.Name),
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.BasicAuthUsernameKey: []byte("admin"),
-				corev1.BasicAuthPasswordKey: []byte("test-password"),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		}
-		err := k8sClient.Create(ctx, secret)
-		Expect(err).NotTo(HaveOccurred())
-
-		// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
-		ironicDB := buildDatabase(name, secret.Name)
-		err = k8sClient.Create(ctx, ironicDB)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database: &metal3api.Database{
-				CredentialsName: secret.Name,
-				Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
-				Name:            "ironic",
-			},
-			HighAvailability: true,
-			Version:          "28.0",
-		})
-		err = k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
-
-		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
-
-		By("upgrading to Ironic latest")
-
-		patch := client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "latest"
-		err = k8sClient.Patch(ctx, ironic, patch)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic = WaitForUpgrade(name, "28.0", "latest")
-		VerifyIronic(ironic, TestAssumptions{})
+	It("creates Ironic 29.0 with HA and upgrades to latest", Label("ha-v290-to-latest"), func() {
+		testUpgradeHA("29.0", "latest", apiVersionIn290, "", namespace)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
