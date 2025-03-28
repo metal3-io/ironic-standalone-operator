@@ -20,10 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	MajorVersion28 = 28
+	MajorVersion27 = 27
+)
+
 var (
 	VersionLatest = Version{}
-	Version280    = Version{Major: 28, Minor: 0}
-	Version270    = Version{Major: 27, Minor: 0}
+	Version280    = Version{Major: MajorVersion28, Minor: 0}
+	Version270    = Version{Major: MajorVersion27, Minor: 0}
 )
 
 // Mapping of supported versions to container image tags.
@@ -37,7 +42,7 @@ var SupportedVersions = map[Version]string{
 	Version270:    "release-27.0",
 }
 
-// Inspection defines inspection settings
+// Inspection defines inspection settings.
 type Inspection struct {
 	// Collectors is a list of inspection collectors to enable.
 	// See https://docs.openstack.org/ironic-python-agent/latest/admin/how_it_works.html#inspection-data for details.
@@ -73,7 +78,7 @@ type DHCP struct {
 	Ignore []string `json:"ignore,omitempty"`
 
 	// NetworkCIDR is a CIRD of the provisioning network. Required.
-	NetworkCIDR string `json:"networkCIDR,omitempty"`
+	NetworkCIDR string `json:"networkCidr,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
 	RangeBegin string `json:"rangeBegin,omitempty"`
@@ -84,7 +89,7 @@ type DHCP struct {
 	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 	// Must not be set together with DNSAddress.
 	// +optional
-	ServeDNS bool `json:"serveDNS,omitempty"`
+	ServeDNS bool `json:"serveDns,omitempty"`
 }
 
 type IPAddressManager string
@@ -94,7 +99,7 @@ const (
 	IPAddressManagerKeepalived IPAddressManager = "keepalived"
 )
 
-// Networking defines networking settings for Ironic
+// Networking defines networking settings for Ironic.
 type Networking struct {
 	// APIPort is the public port used for Ironic.
 	// +kubebuilder:default=6385
@@ -114,7 +119,7 @@ type Networking struct {
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
 	// +optional
-	ExternalIP string `json:"externalIP,omitempty"`
+	ExternalIP string `json:"externalIp,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180
@@ -126,7 +131,7 @@ type Networking struct {
 	// +kubebuilder:default=6183
 	// +kubebuilder:validation:Minimum=1
 	// +optional
-	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
+	ImageServerTLSPort int32 `json:"imageServerTlsPort,omitempty"`
 
 	// Interface is a Linux network device to listen on.
 	// Detected from IPAddress if missing.
@@ -152,7 +157,7 @@ type Networking struct {
 	MACAddresses []string `json:"macAddresses,omitempty"`
 }
 
-// DeployRamdisk defines IPA ramdisk settings
+// DeployRamdisk defines IPA ramdisk settings.
 type DeployRamdisk struct {
 	// DisableDownloader tells the operator not to start the IPA downloader as the init container.
 	// The user will be responsible for providing the right image to BareMetal Operator.
@@ -178,7 +183,7 @@ type TLS struct {
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.
 	// +optional
-	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
+	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTls,omitempty"`
 }
 
 type Images struct {
@@ -238,7 +243,7 @@ type Database struct {
 	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
 }
 
-// IronicSpec defines the desired state of Ironic
+// IronicSpec defines the desired state of Ironic.
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
 	// A new secret will be created if this field is empty.
@@ -277,7 +282,7 @@ type IronicSpec struct {
 	// +optional
 	Images Images `json:"images,omitempty"`
 
-	// Inspection defines inspection settings
+	// Inspection defines inspection settings.
 	// +optional
 	Inspection Inspection `json:"inspection,omitempty"`
 
@@ -302,7 +307,7 @@ type IronicSpec struct {
 	Version string `json:"version,omitempty"`
 }
 
-// IronicStatus defines the observed state of Ironic
+// IronicStatus defines the observed state of Ironic.
 type IronicStatus struct {
 	// Conditions describe the state of the Ironic deployment.
 	// +patchMergeKey=type
@@ -326,7 +331,7 @@ type IronicStatus struct {
 //+kubebuilder:printcolumn:name="Installed Version",type="string",JSONPath=".status.installedVersion",description="Currently installed version"
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`,description="Is ready"
 
-// Ironic is the Schema for the ironics API
+// Ironic is the Schema for the ironics API.
 type Ironic struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -337,7 +342,7 @@ type Ironic struct {
 
 //+kubebuilder:object:root=true
 
-// IronicList contains a list of Ironic
+// IronicList contains a list of Ironic.
 type IronicList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

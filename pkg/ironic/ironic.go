@@ -16,6 +16,7 @@ import (
 const (
 	initialLabelCapacity = 2
 	defaultExposedPort   = 80
+	httpsExposedPort     = 443
 )
 
 func ironicDeploymentName(ironic *metal3api.Ironic) string {
@@ -109,7 +110,7 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	}
 	exposedPort := int32(defaultExposedPort)
 	if ironic.Spec.TLS.CertificateName != "" {
-		exposedPort = 443
+		exposedPort = httpsExposedPort
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
