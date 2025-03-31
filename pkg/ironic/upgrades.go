@@ -101,8 +101,8 @@ func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db
 	}
 	toVersion := cctx.VersionInfo.InstalledVersion
 
-	// TODO(dtantsur): remove this when ironic-image <= 28.0 is not supported
-	if !toVersion.HasUpgradeScripts() {
+	// TODO(dtantsur): remove this when ironic-image < 29.0 is not supported
+	if toVersion.Compare(versionUpgradeScripts) < 0 {
 		cctx.Logger.Info("not running upgrade scripts: the new version does not support them", "From", fromVersion, "To", toVersion.String())
 		return ready()
 	}
