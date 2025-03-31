@@ -22,6 +22,7 @@ import (
 
 var (
 	VersionLatest = Version{}
+	Version290    = Version{Major: 29, Minor: 0}
 	Version280    = Version{Major: 28, Minor: 0}
 	Version270    = Version{Major: 27, Minor: 0}
 )
@@ -33,6 +34,7 @@ var (
 // expectations.
 var SupportedVersions = map[Version]string{
 	VersionLatest: "latest",
+	Version290:    "release-29.0",
 	Version280:    "release-28.0",
 	Version270:    "release-27.0",
 }
