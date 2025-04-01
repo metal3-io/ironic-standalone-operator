@@ -19,6 +19,7 @@ var (
 
 	versionUpgradeScripts      = metal3api.Version290
 	versionMountDatabaseSecret = metal3api.Version290
+	versionDataMounts          = metal3api.Version290
 )
 
 type VersionInfo struct {

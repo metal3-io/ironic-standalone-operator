@@ -71,10 +71,11 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(hasReadOnlyRootFilesystem(cctx)),
 			},
 		},
 	}
-	return corev1.PodTemplateSpec{
+	return addDataVolumes(cctx, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
@@ -87,7 +88,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 			// https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
 			RestartPolicy: corev1.RestartPolicyNever,
 		},
-	}
+	})
 }
 
 func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, phase upgradePhase) (Status, error) {

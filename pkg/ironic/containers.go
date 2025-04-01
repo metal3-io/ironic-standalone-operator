@@ -27,6 +27,8 @@ const (
 	authDir   = "/auth"
 	certsDir  = "/certs"
 	sharedDir = "/shared"
+	dataDir   = "/data"
+	confDir   = "/conf"
 
 	knownExistingPath = "/images/ironic-python-agent.kernel"
 )
