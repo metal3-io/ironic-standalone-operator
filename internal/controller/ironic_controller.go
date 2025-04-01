@@ -196,6 +196,33 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	return
 }
 
+// Get a secret and update its owner references.
+// Only returns a valid pointer if requeue is false and err is nil.
+func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, secretName string) (secret *corev1.Secret, requeue bool, err error) {
+	namespacedName := types.NamespacedName{
+		Namespace: ironicConf.Namespace,
+		Name:      secretName,
+	}
+	secret = &corev1.Secret{}
+	err = cctx.Client.Get(cctx.Context, namespacedName, secret)
+	if err != nil {
+		// NotFound requires a user's intervention, so reporting it in the conditions.
+		// Everything else is reported up for a retry.
+		if k8serrors.IsNotFound(err) {
+			message := fmt.Sprintf("secret %s/%s not found", ironicConf.Namespace, secretName)
+			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
+		}
+		return nil, true, fmt.Errorf("cannot load secret %s/%s: %w", ironicConf.Namespace, secretName, err)
+	}
+
+	requeue, err = updateSecretOwners(cctx, ironicConf, secret)
+	if requeue || err != nil {
+		return nil, requeue, err
+	}
+
+	return secret, false, nil
+}
+
 func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (apiSecret *corev1.Secret, requeue bool, err error) {
 	if ironicConf.Spec.APICredentialsName == "" {
 		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service", true)
@@ -216,32 +243,9 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 		return
 	}
 
-	secretName := types.NamespacedName{
-		Namespace: ironicConf.Namespace,
-		Name:      ironicConf.Spec.APICredentialsName,
-	}
-	apiSecret = &corev1.Secret{}
-	err = cctx.Client.Get(cctx.Context, secretName, apiSecret)
-	if err != nil {
-		// NotFound requires a user's intervention, so reporting it in the conditions.
-		// Everything else is reported up for a retry.
-		if k8serrors.IsNotFound(err) {
-			message := fmt.Sprintf("API credentials secret %s/%s not found", ironicConf.Namespace, ironicConf.Spec.APICredentialsName)
-			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
-		}
-		return nil, true, fmt.Errorf("cannot load API credentials %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.APICredentialsName, err)
-	}
-
-	oldReferences := apiSecret.GetOwnerReferences()
-	err = controllerutil.SetOwnerReference(ironicConf, apiSecret, cctx.Scheme)
-	if err != nil {
-		return nil, true, err
-	}
-	if !reflect.DeepEqual(oldReferences, apiSecret.GetOwnerReferences()) {
-		cctx.Logger.Info("updating owner reference", "Secret", apiSecret.Name)
-		err = cctx.Client.Update(cctx.Context, apiSecret)
-		requeue = true
-		return
+	apiSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, ironicConf.Spec.APICredentialsName)
+	if requeue || err != nil {
+		return nil, requeue, err
 	}
 
 	requeue, err = ironic.UpdateSecret(apiSecret, cctx.Logger)
