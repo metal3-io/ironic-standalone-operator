@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -171,13 +172,13 @@ func getJobStatus(cctx ControllerContext, job *batchv1.Job, jobType string) (Sta
 		}
 	}
 
-	messageWithType := fmt.Sprintf("%s job not complete yet", jobType)
+	messageWithType := jobType + " job not complete yet"
 	cctx.Logger.Info(messageWithType, "Job", job.Name, "Conditions", job.Status.Conditions)
 	return inProgress(messageWithType)
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {
-	portString := fmt.Sprint(port)
+	portString := strconv.Itoa(port)
 	for _, ip := range ips {
 		var endpoint string
 		if (includeProto == "https" && port == 443) || (includeProto == "http" && port == 80) {

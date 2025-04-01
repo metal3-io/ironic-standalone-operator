@@ -22,12 +22,12 @@ const (
 )
 
 func databaseDeploymentName(db *metal3api.IronicDatabase) string {
-	return fmt.Sprintf("%s-database", db.Name)
+	return db.Name + "-database"
 }
 
 func DatabaseDNSName(db *metal3api.IronicDatabase, domain string) string {
 	if domain != "" && domain[0] != '.' {
-		domain = fmt.Sprintf(".%s", domain)
+		domain = "." + domain
 	}
 	return fmt.Sprintf("%s.%s.%s%s:%d", databaseDeploymentName(db), db.Namespace, serviceDNSSuffix, domain, databasePort)
 }

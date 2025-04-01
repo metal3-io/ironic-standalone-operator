@@ -41,7 +41,7 @@ import (
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 )
 
-// IronicReconciler reconciles a Ironic object
+// IronicReconciler reconciles a Ironic object.
 type IronicReconciler struct {
 	client.Client
 	KubeClient  kubernetes.Interface

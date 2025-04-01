@@ -2,8 +2,8 @@ package ironic
 
 import (
 	"context"
-	"fmt"
 
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,12 +11,15 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
 
-	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+const (
+	defaultExposedPort = 80
+	httpsExposedPort   = 443
 )
 
 func ironicDeploymentName(ironic *metal3api.Ironic) string {
-	return fmt.Sprintf("%s-service", ironic.Name)
+	return ironic.Name + "-service"
 }
 
 func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (Status, error) {
@@ -104,9 +107,9 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
 	}
-	exposedPort := int32(80)
+	exposedPort := int32(defaultExposedPort)
 	if ironic.Spec.TLS.CertificateName != "" {
-		exposedPort = 443
+		exposedPort = httpsExposedPort
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {

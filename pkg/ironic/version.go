@@ -11,11 +11,11 @@ const (
 )
 
 var (
-	// NOTE(dtantsur): defaultVersion must be updated after branching
+	// NOTE(dtantsur): defaultVersion must be updated after branching.
 	defaultVersion                = metal3api.VersionLatest
-	defaultMariaDBImage           = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
-	defaultRamdiskDownloaderImage = fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry)
-	defaultKeepalivedImage        = fmt.Sprintf("%s/keepalived:latest", defaultRegistry)
+	defaultMariaDBImage           = defaultRegistry + "/mariadb:latest"
+	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
+	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
 
 	versionUpgradeScripts = metal3api.Version290
 )

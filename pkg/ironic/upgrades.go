@@ -12,7 +12,7 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-// Leave enough time for potential debugging but don't hold jobs forever
+// Leave enough time for potential debugging but don't hold jobs forever.
 const jobTTLSeconds int32 = 24 * 3600
 
 type upgradePhase string

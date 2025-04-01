@@ -31,7 +31,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Ironic is the Schema for the ironics API
+        description: Ironic is the Schema for the ironics API.
         properties:
           apiVersion:
             description: |-
@@ -51,7 +51,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: IronicSpec defines the desired state of Ironic
+            description: IronicSpec defines the desired state of Ironic.
             properties:
               apiCredentialsName:
                 description: |-
@@ -160,7 +160,7 @@ spec:
                     type: string
                 type: object
               inspection:
-                description: Inspection defines inspection settings
+                description: Inspection defines inspection settings.
                 properties:
                   collectors:
                     description: |-
@@ -316,7 +316,7 @@ spec:
                 type: string
             type: object
           status:
-            description: IronicStatus defines the observed state of Ironic
+            description: IronicStatus defines the observed state of Ironic.
             properties:
               conditions:
                 description: Conditions describe the state of the Ironic deployment.

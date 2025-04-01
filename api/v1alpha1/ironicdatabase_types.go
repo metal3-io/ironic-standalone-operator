@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// IronicDatabaseSpec defines the desired state of IronicDatabase
+// IronicDatabaseSpec defines the desired state of IronicDatabase.
 type IronicDatabaseSpec struct {
 	// CredentialsName is a reference to the secret with database credentials.
 	// A new secret will be created if this field is empty.
@@ -36,7 +36,7 @@ type IronicDatabaseSpec struct {
 	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
 }
 
-// IronicDatabaseStatus defines the observed state of IronicDatabase
+// IronicDatabaseStatus defines the observed state of IronicDatabase.
 type IronicDatabaseStatus struct {
 	// Conditions describe the state of the Ironic deployment.
 	// +patchMergeKey=type
@@ -63,7 +63,7 @@ type IronicDatabase struct {
 
 //+kubebuilder:object:root=true
 
-// IronicDatabaseList contains a list of IronicDatabase
+// IronicDatabaseList contains a list of IronicDatabase.
 type IronicDatabaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
