@@ -494,6 +494,7 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 				Drop: []corev1.Capability{"ALL"},
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
 			},
+			ReadOnlyRootFilesystem: ptr.To(true),
 		},
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
@@ -525,6 +526,7 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 				Drop: []corev1.Capability{"ALL"},
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BROADCAST", "NET_RAW"},
 			},
+			ReadOnlyRootFilesystem: ptr.To(true),
 		},
 	}
 }
@@ -559,6 +561,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 		})
 	}
@@ -582,6 +585,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 			Ports:          ironicPorts,
 			LivenessProbe:  newProbe(ironicHandler),
@@ -599,6 +603,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 			Ports:          httpdPorts,
 			LivenessProbe:  newProbe(httpdHandler),
@@ -615,6 +620,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 		},
 	}

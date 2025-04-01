@@ -71,6 +71,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 		},
 	}
