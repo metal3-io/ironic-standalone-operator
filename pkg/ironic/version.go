@@ -16,6 +16,8 @@ var (
 	defaultMariaDBImage           = fmt.Sprintf("%s/mariadb:latest", defaultRegistry)
 	defaultRamdiskDownloaderImage = fmt.Sprintf("%s/ironic-ipa-downloader:latest", defaultRegistry)
 	defaultKeepalivedImage        = fmt.Sprintf("%s/keepalived:latest", defaultRegistry)
+
+	versionUpgradeScripts = metal3api.Version290
 )
 
 type VersionInfo struct {

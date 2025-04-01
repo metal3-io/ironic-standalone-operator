@@ -503,6 +503,17 @@ func CollectLogs(namespace string) {
 			writeContainerLogs(&pod, cont.Name, logDir)
 		}
 	}
+
+	jobs, err := clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, job := range jobs.Items {
+		logDir := fmt.Sprintf("%s/%s/job_%s", os.Getenv("LOGDIR"), namespace, job.Name)
+		err = os.MkdirAll(logDir, 0o755)
+		Expect(err).NotTo(HaveOccurred())
+
+		writeYAML(&job, namespace, job.Name, "job")
+	}
 }
 
 func DeleteAndWait(ironic *metal3api.Ironic) {
