@@ -37,9 +37,9 @@ func upgradeJobRequired(cctx ControllerContext, ironic *metal3api.Ironic, db *me
 func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, database *metal3api.Database, phase upgradePhase) corev1.PodTemplateSpec {
 	script := commandPerPhase[phase]
 
-	volumes, mounts := databaseClientMounts(database)
+	volumes, mounts := databaseClientMounts(cctx, database)
 
-	envVars := databaseClientEnvVars(database)
+	envVars := databaseClientEnvVars(cctx, database)
 	envVars = append(envVars, []corev1.EnvVar{
 		{
 			Name:  "IRONIC_USE_MARIADB",
