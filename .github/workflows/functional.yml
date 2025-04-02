@@ -8,6 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
+      CLUSTER_TYPE: minikube
       LOGDIR: /tmp/logs
       JUNIT_OUTPUT: /tmp/logs/report.xml
     steps:
@@ -19,10 +20,8 @@ jobs:
       uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
       with:
         go-version: ${{ steps.vars.outputs.go_version }}
-    - uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-      with:
-        cluster_name: kind
-        config: ./test/kind.yaml
+    - name: Setup a minikube cluster
+      uses: medyagh/setup-minikube@cea33675329b799adccc9526aa5daccc26cd5052 # v0.0.19
     - name: Prepare tests
       run: ./test/prepare.sh
     - name: Run tests
