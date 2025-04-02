@@ -133,3 +133,7 @@ issues:
     - importas
     path: cmd/main.go
     text: metal3iov1alpha1
+  - linters:
+    - gosec
+    path: suite_test.go
+    text: "G404: Use of weak random number generator .*"

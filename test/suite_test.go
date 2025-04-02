@@ -70,13 +70,16 @@ const (
 	knownAPIMinorVersion = 96
 
 	numberOfNodes = 100
+
+	clusterTypeKind = "kind"
 )
 
 var ctx context.Context
 var k8sClient client.Client
 var clientset *kubernetes.Clientset
 
-var ironicIP string
+var clusterType string
+var ironicIPs []string
 var ironicCertPEM []byte
 var ironicKeyPEM []byte
 
@@ -116,8 +119,31 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	ironicIP = os.Getenv("IRONIC_IP")
-	Expect(ironicIP).NotTo(BeEmpty())
+	clusterType = os.Getenv("CLUSTER_TYPE")
+	if clusterType == "" {
+		clusterType = clusterTypeKind // for now
+	}
+
+	ironicIP := os.Getenv("IRONIC_IP")
+	if clusterType == clusterTypeKind {
+		Expect(ironicIP).NotTo(BeEmpty())
+		ironicIPs = []string{ironicIP}
+	} else {
+		listOptions := metav1.ListOptions{
+			LabelSelector: "node-role.kubernetes.io/control-plane",
+		}
+		nodes, err := clientset.CoreV1().Nodes().List(ctx, listOptions)
+		Expect(err).NotTo(HaveOccurred())
+		for _, node := range nodes.Items {
+			for _, addr := range node.Status.Addresses {
+				if addr.Type == corev1.NodeInternalIP {
+					ironicIPs = append(ironicIPs, addr.Address)
+				}
+			}
+		}
+		Expect(ironicIPs).NotTo(BeEmpty())
+	}
+
 	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE"))
 	Expect(err).NotTo(HaveOccurred())
 	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
@@ -331,6 +357,9 @@ type TestAssumptions struct {
 
 	// Verify that the downloader is disabled
 	disableDownloader bool
+
+	// Assume that HA is used
+	withHA bool
 }
 
 func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
@@ -350,7 +379,27 @@ func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assum
 	}
 }
 
-func verifyHTTPD(ctx context.Context, assumptions TestAssumptions) {
+func getCurrentIronicIPs(ctx context.Context, namespace, name string) []string {
+	if clusterType == clusterTypeKind {
+		return ironicIPs
+	}
+
+	listOptions := metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s-service", metal3api.IronicAppLabel, name),
+	}
+	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, listOptions)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(pods.Items).NotTo(BeEmpty())
+
+	addresses := make([]string, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		// Only use one address per pod, no need for both IP families
+		addresses = append(addresses, pod.Status.HostIP)
+	}
+	return addresses
+}
+
+func verifyHTTPD(ctx context.Context, currentIronicIPs []string, assumptions TestAssumptions) {
 	By("checking the httpd server existence and the ramdisk downloader")
 
 	httpClient := http.Client{}
@@ -372,14 +421,72 @@ func verifyHTTPD(ctx context.Context, assumptions TestAssumptions) {
 		expectedCode = 404
 	}
 
-	statusCode := getStatusCode(fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180")))
-	Expect(statusCode).To(Equal(expectedCode))
+	// NOTE(dtantsur): each Ironic replica has its own httpd, so verify them all independently
+	for _, ironicIP := range currentIronicIPs {
+		statusCode := getStatusCode(fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180")))
+		Expect(statusCode).To(Equal(expectedCode))
+	}
 
 	if assumptions.withTLS {
-		statusCode = getStatusCode(fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183")))
-		// NOTE(dtantsur): without any valid virtual media images nothing will return a success code (not even /redfish/).
-		// We get 200, 403 or 404 depending on a few factors. Check at least that we don't have 5xx.
-		Expect(statusCode).To(BeNumerically("<", 500))
+		for _, ironicIP := range currentIronicIPs {
+			statusCode := getStatusCode(fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183")))
+			// NOTE(dtantsur): without any valid virtual media images nothing will return a success code (not even /redfish/).
+			// We get 200, 403 or 404 depending on a few factors. Check at least that we don't have 5xx.
+			Expect(statusCode).To(BeNumerically("<", 500))
+		}
+	}
+}
+
+func verifyAuthentication(ctx context.Context, ironicURLs []string) {
+	By("checking Ironic authentication")
+
+	for _, ironicURL := range ironicURLs {
+		cli, err := NewNoAuthClient(ironicURL)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(gophercloud.ResponseCodeIs(err, 401)).To(BeTrue())
+	}
+}
+
+func verifyConductorList(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
+	conductorPager, err := conductors.List(cli, conductors.ListOpts{}).AllPages(ctx)
+	Expect(err).NotTo(HaveOccurred())
+	conductors, err := conductors.ExtractConductors(conductorPager)
+	Expect(err).NotTo(HaveOccurred())
+
+	var aliveConductors []string
+	for _, cond := range conductors {
+		if cond.Alive {
+			aliveConductors = append(aliveConductors, cond.Hostname)
+		}
+	}
+	if assumptions.activeConductor != "" {
+		Expect(aliveConductors).To(ContainElement(assumptions.activeConductor))
+	} else {
+		Expect(aliveConductors).NotTo(BeEmpty())
+	}
+}
+
+func stressTest(ctx context.Context, clients []*gophercloud.ServiceClient) {
+	drivers := []string{"ipmi", "redfish"}
+	nodeUUIDs := make([]string, 0, numberOfNodes)
+	for idx := range numberOfNodes {
+		// NOTE(dtantsur): Ironic replicas are clustered, we can pick any at random
+		cli := clients[rand.Intn(len(clients))]
+
+		node, err := nodes.Create(ctx, cli, nodes.CreateOpts{
+			Driver: drivers[rand.Intn(len(drivers))],
+			Name:   fmt.Sprintf("node-%d", idx),
+		}).Extract()
+		Expect(err).NotTo(HaveOccurred())
+		nodeUUIDs = append(nodeUUIDs, node.UUID)
+	}
+
+	for _, nodeUUID := range nodeUUIDs {
+		cli := clients[rand.Intn(len(clients))]
+		err := nodes.Delete(ctx, cli, nodeUUID).ExtractErr()
+		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
@@ -390,7 +497,6 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	if assumptions.withTLS {
 		proto = "https"
 	}
-	ironicURL := fmt.Sprintf("%s://%s:6385", proto, ironicIP)
 
 	By("checking the service")
 
@@ -412,42 +518,38 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 		Expect(ironic.Spec.APICredentialsName).To(Equal(secret.Name))
 	}
 
+	// NOTE(dtantsur): in the HA scenario, verify that one Ironic exists on each node.
+	currentIronicIPs := ironicIPs
+	if !assumptions.withHA {
+		currentIronicIPs = getCurrentIronicIPs(ctx, ironic.Namespace, ironic.Name)
+	}
+	ironicURLs := make([]string, 0, len(currentIronicIPs))
+	for _, ironicIP := range currentIronicIPs {
+		ironicURLs = append(ironicURLs, fmt.Sprintf("%s://%s", proto, net.JoinHostPort(ironicIP, "6385")))
+	}
+
 	// Do not let the test get stuck here in case of connection issues
 	withTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
-	verifyHTTPD(withTimeout, assumptions)
+	verifyHTTPD(withTimeout, currentIronicIPs, assumptions)
 
-	By("checking Ironic authentication")
+	verifyAuthentication(withTimeout, ironicURLs)
 
-	cli, err := NewNoAuthClient(ironicURL)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(withTimeout)
-	Expect(err).To(HaveOccurred())
+	clients := make([]*gophercloud.ServiceClient, 0, len(ironicURLs))
 
-	cli, err = NewHTTPBasicClient(ironicURL, secret)
-	Expect(err).NotTo(HaveOccurred())
-	cli.Microversion = "1.81" // minimum version supported by BMO
-
-	verifyAPIVersion(withTimeout, cli, assumptions)
+	for _, ironicURL := range ironicURLs {
+		cli, err := NewHTTPBasicClient(ironicURL, secret)
+		Expect(err).NotTo(HaveOccurred())
+		cli.Microversion = "1.81" // minimum version supported by BMO
+		verifyAPIVersion(withTimeout, cli, assumptions)
+		clients = append(clients, cli)
+	}
 
 	By("checking Ironic conductor list")
 
-	conductorPager, err := conductors.List(cli, conductors.ListOpts{}).AllPages(withTimeout)
-	Expect(err).NotTo(HaveOccurred())
-	conductors, err := conductors.ExtractConductors(conductorPager)
-	Expect(err).NotTo(HaveOccurred())
-
-	var aliveConductors []string
-	for _, cond := range conductors {
-		if cond.Alive {
-			aliveConductors = append(aliveConductors, cond.Hostname)
-		}
-	}
-	if assumptions.activeConductor != "" {
-		Expect(aliveConductors).To(ContainElement(assumptions.activeConductor))
-	} else {
-		Expect(aliveConductors).NotTo(BeEmpty())
+	for _, cli := range clients {
+		verifyConductorList(ctx, cli, assumptions)
 	}
 
 	By("creating and deleting a lot of Nodes")
@@ -455,21 +557,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	withTimeout, cancel = context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	drivers := []string{"ipmi", "redfish"}
-	nodeUUIDs := make([]string, 0, numberOfNodes)
-	for idx := range numberOfNodes {
-		node, err := nodes.Create(withTimeout, cli, nodes.CreateOpts{
-			Driver: drivers[rand.Intn(len(drivers))], //nolint:gosec // weak crypto is ok in tests
-			Name:   fmt.Sprintf("node-%d", idx),
-		}).Extract()
-		Expect(err).NotTo(HaveOccurred())
-		nodeUUIDs = append(nodeUUIDs, node.UUID)
-	}
-
-	for _, nodeUUID := range nodeUUIDs {
-		err = nodes.Delete(withTimeout, cli, nodeUUID).ExtractErr()
-		Expect(err).NotTo(HaveOccurred())
-	}
+	stressTest(withTimeout, clients)
 }
 
 func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
@@ -711,7 +799,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	})
 
 	ironic = WaitForIronic(name)
-	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld, withHA: true})
 
 	By("upgrading to Ironic " + ironicVersionNew)
 
@@ -721,7 +809,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	Expect(err).NotTo(HaveOccurred())
 
 	ironic = WaitForUpgrade(name, ironicVersionOld, ironicVersionNew)
-	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew})
+	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew, withHA: true})
 }
 
 var _ = Describe("Ironic object tests", func() {
@@ -1003,7 +1091,7 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{})
+		VerifyIronic(ironic, TestAssumptions{withHA: true})
 	})
 
 	It("creates Ironic with extraConfig", Label("extra-config"), func() {
