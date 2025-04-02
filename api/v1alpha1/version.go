@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-const versionLatestString = "latest"
+const (
+	versionLatestString = "latest"
+)
 
 type Version struct {
 	Major, Minor int

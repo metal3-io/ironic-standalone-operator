@@ -40,7 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: IronicDatabaseSpec defines the desired state of IronicDatabase
+            description: IronicDatabaseSpec defines the desired state of IronicDatabase.
             properties:
               credentialsName:
                 description: |-
@@ -56,7 +56,7 @@ spec:
                 type: string
             type: object
           status:
-            description: IronicDatabaseStatus defines the observed state of IronicDatabase
+            description: IronicDatabaseStatus defines the observed state of IronicDatabase.
             properties:
               conditions:
                 description: Conditions describe the state of the Ironic deployment.

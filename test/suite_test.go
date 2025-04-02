@@ -62,11 +62,11 @@ import (
 // https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 const (
 	// NOTE(dtantsur): latest is now at least 1.96, so we can rely on this
-	// value to check that specifying Version: 29.0 actually installs 29.0
+	// value to check that specifying Version: 29.0 actually installs 29.0.
 	apiVersionIn270 = "1.94"
 	apiVersionIn280 = "1.95"
 	apiVersionIn290 = "1.96"
-	// Update this periodically to make sure we're installing the latest version by default
+	// Update this periodically to make sure we're installing the latest version by default.
 	knownAPIMinorVersion = 96
 
 	numberOfNodes = 100
@@ -166,7 +166,7 @@ func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.Se
 }
 
 func logResources(ironic *metal3api.Ironic, suffix string) {
-	deployName := fmt.Sprintf("%s-service", ironic.Name)
+	deployName := ironic.Name + "-service"
 	if ironic.Spec.HighAvailability {
 		deploy, err := clientset.AppsV1().DaemonSets(ironic.Namespace).Get(ctx, deployName, metav1.GetOptions{})
 		if err == nil {
@@ -559,7 +559,7 @@ func buildIronic(name types.NamespacedName, spec metal3api.IronicSpec) *metal3ap
 func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api.IronicDatabase {
 	result := &metal3api.IronicDatabase{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-db", name.Name),
+			Name:      name.Name + "-db",
 			Namespace: name.Namespace,
 		},
 		Spec: metal3api.IronicDatabaseSpec{
@@ -577,7 +577,7 @@ func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api
 func getDatabaseConnection(name types.NamespacedName) *metal3api.Database {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-api", name.Name),
+			Name:      name.Name + "-api",
 			Namespace: name.Namespace,
 		},
 		Data: map[string][]byte{
@@ -644,7 +644,7 @@ func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld
 	ironic = WaitForIronic(name)
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
 
-	By(fmt.Sprintf("upgrading to Ironic %s", ironicVersionNew))
+	By("upgrading to Ironic " + ironicVersionNew)
 
 	patch := client.MergeFrom(ironic.DeepCopy())
 	ironic.Spec.Version = ironicVersionNew
@@ -677,7 +677,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-api", name.Name),
+			Name:      name.Name + "-api",
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
@@ -713,7 +713,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	ironic = WaitForIronic(name)
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
 
-	By(fmt.Sprintf("upgrading to Ironic %s", ironicVersionNew))
+	By("upgrading to Ironic " + ironicVersionNew)
 
 	patch := client.MergeFrom(ironic.DeepCopy())
 	ironic.Spec.Version = ironicVersionNew
@@ -728,7 +728,7 @@ var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
 	BeforeEach(func() {
-		namespace = fmt.Sprintf("test-%s", CurrentSpecReport().LeafNodeLabels[0])
+		namespace = "test-" + CurrentSpecReport().LeafNodeLabels[0]
 		nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 
 		_, err := clientset.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
@@ -790,7 +790,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-api", name.Name),
+				Name:      name.Name + "-api",
 				Namespace: namespace,
 			},
 			Data: map[string][]byte{
@@ -819,7 +819,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-api", name.Name),
+				Name:      name.Name + "-api",
 				Namespace: namespace,
 			},
 			Data: map[string][]byte{
