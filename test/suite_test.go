@@ -812,10 +812,28 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("creates Ironic with TLS", Label("tls"), func() {
+		By("creating a failing Ironic with non-existent TLS")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
 		}
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			TLS: metal3api.TLS{
+				CertificateName: "banana",
+			},
+		})
+		err := k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		_ = WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+
+		By("creating the secret and recovering the Ironic")
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -828,20 +846,13 @@ var _ = Describe("Ironic object tests", func() {
 			},
 			Type: corev1.SecretTypeTLS,
 		}
-		err := k8sClient.Create(ctx, secret)
+		err = k8sClient.Create(ctx, secret)
 		Expect(err).NotTo(HaveOccurred())
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			TLS: metal3api.TLS{
-				CertificateName: secret.Name,
-			},
-		})
-		err = k8sClient.Create(ctx, ironic)
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.TLS.CertificateName = secret.Name
+		err = k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
