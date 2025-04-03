@@ -24,6 +24,12 @@ const (
 	probeFailureThreshold = 12
 
 	serviceDNSSuffix = "svc"
+
+	dataDir        = "/data"
+	confDir        = "/conf"
+	tmpDir         = "/tmp"
+	dataVolumeName = "ironic-data"
+	tmpVolumeName  = "ironic-tmp"
 )
 
 type ControllerContext struct {
@@ -250,7 +256,12 @@ func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) 
 	}
 
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, corev1.Volume{
-		Name: "data",
+		Name: dataVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}, corev1.Volume{
+		Name: tmpVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
@@ -261,18 +272,23 @@ func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) 
 		// FIXME(dtantsur): ironic-image tries to run mkdir on various /certs subdirectories, which fails with a read-only filesystem
 		// Remove this workaround once https://github.com/metal3-io/ironic-image/pull/661 merges to all supported versions
 		cont.VolumeMounts = slices.Insert(cont.VolumeMounts, 0, corev1.VolumeMount{
-			Name:      "data",
+			Name:      dataVolumeName,
 			MountPath: certsDir,
 		})
 
 		cont.VolumeMounts = append(cont.VolumeMounts, []corev1.VolumeMount{
 			{
-				Name:      "data",
+				Name:      dataVolumeName,
 				MountPath: dataDir,
 			},
 			{
-				Name:      "data",
+				Name:      dataVolumeName,
 				MountPath: confDir,
+			},
+			// NOTE(dtantsur): Ironic relies on a writable /tmp
+			{
+				Name:      tmpVolumeName,
+				MountPath: tmpDir,
 			},
 		}...)
 		containers = append(containers, cont)
