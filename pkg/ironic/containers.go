@@ -654,6 +654,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
 				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion.String(),
 			},
+			Annotations: secretVersionAnnotations("api-secret", apiSecret),
 		},
 		Spec: corev1.PodSpec{
 			Containers:     containers,
