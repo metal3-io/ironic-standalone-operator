@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"context"
+	"errors"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -157,6 +158,12 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (status Status, err error) {
 	if validationErr := ValidateIronic(&ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
+		return
+	}
+
+	if ironic.Spec.HighAvailability && cctx.VersionInfo.InstalledVersion.Compare(versionWithoutAuthConfig) < 0 {
+		err = errors.New("using HA is only possible for Ironic 28.0 or newer")
+		status = Status{Fatal: err}
 		return
 	}
 

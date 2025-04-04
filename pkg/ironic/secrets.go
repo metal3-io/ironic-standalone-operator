@@ -81,24 +81,8 @@ func htpasswdFromSecret(secret *corev1.Secret) (string, error) {
 }
 
 const (
-	htpasswdKey   = "htpasswd"
-	authConfigKey = "auth-config"
+	htpasswdKey = "htpasswd"
 )
-
-func getAuthConfig(secret *corev1.Secret) string {
-	user := normalizeSecretValue(secret.Data["username"])
-	password := normalizeSecretValue(secret.Data["password"])
-	return fmt.Sprintf(`
-[DEFAULT]
-auth_strategy = http_basic
-http_basic_auth_user_file = /etc/ironic/htpasswd
-[json_rpc]
-auth_strategy = http_basic
-auth_type = http_basic
-username = %s
-password = %s
-`, user, password)
-}
 
 func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 	existing := secret.Data[htpasswdKey]
@@ -110,13 +94,8 @@ func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
 			newPassword, ok := secret.Data[corev1.BasicAuthPasswordKey]
 			newPasswordString := normalizeSecretValue(newPassword)
 			if ok && bcrypt.CompareHashAndPassword([]byte(password), []byte(newPasswordString)) == nil {
-				authConfig := secret.Data[authConfigKey]
-				if string(authConfig) == getAuthConfig(secret) {
-					// All good, keep the secret the way it is
-					return false
-				} else {
-					logger.Info("API secret needs updating: outdated auth-config")
-				}
+				// All good, keep the secret the way it is
+				return false
 			} else {
 				logger.Info("API secret needs updating: passwords don't match")
 			}
@@ -140,7 +119,6 @@ func UpdateSecret(secret *corev1.Secret, logger logr.Logger) (bool, error) {
 		return false, err
 	}
 	secret.Data[htpasswdKey] = []byte(htpasswd)
-	secret.Data[authConfigKey] = []byte(getAuthConfig(secret))
 	return true, nil
 }
 

@@ -82,23 +82,12 @@ func TestGenerateHtpasswd(t *testing.T) {
 }
 
 func TestSecretNeedsUpdating(t *testing.T) {
-	authConfig := `
-[DEFAULT]
-auth_strategy = http_basic
-http_basic_auth_user_file = /etc/ironic/htpasswd
-[json_rpc]
-auth_strategy = http_basic
-auth_type = http_basic
-username = admin
-password = password
-`
 	testCases := []struct {
 		Scenario string
 
 		User            string
 		Password        string
 		CurrentHtpasswd string
-		AuthConfig      string
 
 		ExpectedChanged bool
 	}{
@@ -108,7 +97,6 @@ password = password
 			User:            "admin",
 			Password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
 		},
 		{
 			Scenario: "newlines",
@@ -116,14 +104,12 @@ password = password
 			User:            "admin\n",
 			Password:        "password\n",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
 		},
 		{
 			Scenario: "new-value",
 
 			User:            "admin",
 			Password:        "password",
-			AuthConfig:      authConfig,
 			ExpectedChanged: true,
 		},
 		{
@@ -132,7 +118,6 @@ password = password
 			User:            "admin2",
 			Password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
 			ExpectedChanged: true,
 		},
 		{
@@ -141,7 +126,6 @@ password = password
 			User:            "admin",
 			Password:        "password2",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
 			ExpectedChanged: true,
 		},
 		{
@@ -149,7 +133,6 @@ password = password
 
 			Password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
 			ExpectedChanged: true,
 		},
 		{
@@ -157,24 +140,6 @@ password = password
 
 			User:            "admin",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      authConfig,
-			ExpectedChanged: true,
-		},
-		{
-			Scenario: "missing-auth-config",
-
-			User:            "admin",
-			Password:        "password",
-			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			ExpectedChanged: true,
-		},
-		{
-			Scenario: "outdated-auth-config",
-
-			User:            "admin",
-			Password:        "password",
-			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
-			AuthConfig:      strings.ReplaceAll(authConfig, "admin", "user"),
 			ExpectedChanged: true,
 		},
 	}
@@ -189,9 +154,6 @@ password = password
 			}
 			if tc.CurrentHtpasswd != "" {
 				secret.Data["htpasswd"] = []byte(tc.CurrentHtpasswd)
-			}
-			if tc.AuthConfig != "" {
-				secret.Data["auth-config"] = []byte(tc.AuthConfig)
 			}
 
 			changed := secretNeedsUpdating(secret, logr.Discard())
@@ -213,10 +175,8 @@ func TestGenerateSecret(t *testing.T) {
 			assert.Len(t, secret.Data["password"], passwordLength)
 			if tc {
 				assert.NotNil(t, secret.Data["htpasswd"])
-				assert.NotNil(t, secret.Data["auth-config"])
 			} else {
 				assert.Nil(t, secret.Data["htpasswd"])
-				assert.Nil(t, secret.Data["auth-config"])
 			}
 			assert.Equal(t, "test", secret.Namespace)
 			assert.Equal(t, "my-ironic-foo-", secret.GenerateName)
