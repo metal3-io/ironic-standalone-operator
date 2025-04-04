@@ -149,3 +149,9 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*c
 
 	return secret, nil
 }
+
+func secretVersionAnnotations(secretType string, secret *corev1.Secret) map[string]string {
+	return map[string]string{
+		fmt.Sprintf("ironic.metal3.io/%s-version", secretType): fmt.Sprintf("%s/%s", secret.UID, secret.ResourceVersion),
+	}
+}
