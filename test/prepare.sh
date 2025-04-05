@@ -33,35 +33,32 @@ kubectl wait --for=condition=Available --timeout=60s \
 
 # Caching required images
 
-kind_load() {
+image_load() {
     local image="$1"
-    if [[ "${CONTAINER_RUNTIME}" == "podman" ]]; then
-        local archive="$(mktemp --suffix=.tar)"
-        podman save "${image}" > "${archive}"
+    local archive="$(mktemp --suffix=.tar)"
+    "${CONTAINER_RUNTIME}" save "${image}" > "${archive}"
+    if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
         kind load image-archive -v 2 "${archive}"
-        rm -f "${archive}"
     else
-        kind load docker-image -v 2 "${image}"
+        minikube image load --logtostderr "${archive}"
     fi
+    rm -f "${archive}"
 }
 
 for image in ironic mariadb ironic-ipa-downloader; do
     if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
         "${CONTAINER_RUNTIME}" pull "quay.io/metal3-io/${image}"
-        kind_load "quay.io/metal3-io/${image}"
+        image_load "quay.io/metal3-io/${image}"
     else
-        minikube image pull "quay.io/metal3-io/${image}"
+        minikube image pull --logtostderr "quay.io/metal3-io/${image}"
     fi
 done
 
 # Building and installing the operator
 
-if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
-    "${CONTAINER_RUNTIME}" build -t "${IMG}" . 2>&1 | tee "${LOGDIR}/docker-build.log"
-    kind_load "${IMG}"
-else
-    minikube image build -t "${IMG}" . 2>&1 | tee "${LOGDIR}/docker-build.log"
-fi
+"${CONTAINER_RUNTIME}" build -t "${IMG}" . 2>&1 | tee "${LOGDIR}/docker-build.log"
+image_load "${IMG}" 2>&1
+
 make install deploy IMG="${IMG}" DEPLOY_TARGET=testing
 
 kubectl wait --for=condition=Available --timeout=60s \
