@@ -42,7 +42,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 		if deploy.Labels == nil {
 			deploy.Labels = make(map[string]string, 2)
 		}
-		deploy.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		deploy.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
@@ -80,7 +80,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 		if deploy.Labels == nil {
 			deploy.Labels = make(map[string]string, 2)
 		}
-		deploy.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		deploy.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
@@ -115,9 +115,10 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.ObjectMeta.Labels == nil {
 			cctx.Logger.Info("creating a new ironic service")
-			service.ObjectMeta.Labels = make(map[string]string)
+			service.ObjectMeta.Labels = make(map[string]string, 2)
 		}
-		service.ObjectMeta.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		service.Labels[metal3api.IronicServiceLabel] = ironic.Name
+		service.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		service.Spec.Selector = map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
 		service.Spec.Ports = []corev1.ServicePort{

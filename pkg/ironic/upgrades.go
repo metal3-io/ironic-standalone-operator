@@ -77,7 +77,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
+				metal3api.IronicServiceLabel: ironic.Name,
 				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion.String(),
 			},
 		},
@@ -121,7 +121,7 @@ func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db
 			cctx.Logger.Info("creating a new upgrade job", "Phase", phase, "From", fromVersion, "To", toVersion.String())
 			job.ObjectMeta.Labels = make(map[string]string, 2)
 		}
-		job.ObjectMeta.Labels[metal3api.IronicAppLabel] = ironicDeploymentName(ironic)
+		job.ObjectMeta.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		job.ObjectMeta.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
