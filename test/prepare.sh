@@ -66,7 +66,15 @@ kubectl wait --for=condition=Available --timeout=60s \
 
 # Preparing the TLS certificate
 
+SUBJECT_ALT_NAME="IP:${PROVISIONING_IP}"
+if [[ "${CLUSTER_TYPE}" == kind ]]; then
+    SUBJECT_ALT_NAME+=",IP:${IRONIC_IP}"
+else
+    for node_ip in $(minikube node list | awk '{ print $2; }'); do
+        SUBJECT_ALT_NAME+=",IP:${node_ip}"
+    done
+fi
 openssl req -x509 -new -subj "/CN=ironic" \
-    -addext "subjectAltName = IP:${IRONIC_IP},IP:${PROVISIONING_IP}" \
+    -addext "subjectAltName = ${SUBJECT_ALT_NAME}" \
     -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
     -keyout "${IRONIC_KEY_FILE}" -out "${IRONIC_CERT_FILE}"
