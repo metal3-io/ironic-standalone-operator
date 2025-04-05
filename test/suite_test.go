@@ -246,6 +246,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 				} else {
 					Expect(ironic.Status.InstalledVersion).ToNot(BeEmpty())
 				}
+				logResources(ironic, "")
 				return true
 			}
 		}
