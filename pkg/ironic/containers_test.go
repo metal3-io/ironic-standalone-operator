@@ -84,7 +84,8 @@ func TestExpectedContainers(t *testing.T) {
 				Spec: tc.Ironic,
 			}
 
-			podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
 			if tc.ExpectedError == "" {
 				require.NoError(t, err)
 
@@ -136,7 +137,9 @@ func TestImageOverrides(t *testing.T) {
 	version, err := cctx.VersionInfo.WithIronicOverrides(ironic)
 	require.NoError(t, err)
 	cctx.VersionInfo = version
-	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
+
+	resources := Resources{Ironic: ironic, APISecret: secret}
+	podTemplate, err := newIronicPodTemplate(cctx, resources)
 	require.NoError(t, err)
 
 	images := make(map[string]string, len(expectedImages))
@@ -204,7 +207,8 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 		},
 	}
 
-	podTemplate, err := newIronicPodTemplate(cctx, ironic, nil, secret, "test-domain.example.com")
+	resources := Resources{Ironic: ironic, APISecret: secret}
+	podTemplate, err := newIronicPodTemplate(cctx, resources)
 	require.NoError(t, err)
 
 	extraVars := make(map[string]string, len(expectedExtraVars))

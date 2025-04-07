@@ -23,16 +23,16 @@ func ironicDeploymentName(ironic *metal3api.Ironic) string {
 	return ironic.Name + "-service"
 }
 
-func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (Status, error) {
-	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
+func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status, error) {
+	template, err := newIronicPodTemplate(cctx, resources)
 	if err != nil {
 		return transientError(err)
 	}
 
 	deploy := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ironicDeploymentName(ironic),
-			Namespace: ironic.Namespace,
+			Name:      ironicDeploymentName(resources.Ironic),
+			Namespace: resources.Ironic.Namespace,
 		},
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
@@ -42,13 +42,13 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 		if deploy.Labels == nil {
 			deploy.Labels = make(map[string]string, 2)
 		}
-		deploy.Labels[metal3api.IronicServiceLabel] = ironic.Name
+		deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
-		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
+		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(resources.Ironic)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		mergePodTemplates(&deploy.Spec.Template, template)
-		return controllerutil.SetControllerReference(ironic, deploy, cctx.Scheme)
+		return controllerutil.SetControllerReference(resources.Ironic, deploy, cctx.Scheme)
 	})
 	if err != nil {
 		return transientError(err)
@@ -61,16 +61,16 @@ func ensureIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic, db 
 	return getDaemonSetStatus(cctx, deploy)
 }
 
-func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (Status, error) {
-	template, err := newIronicPodTemplate(cctx, ironic, db, apiSecret, cctx.Domain)
+func ensureIronicDeployment(cctx ControllerContext, resources Resources) (Status, error) {
+	template, err := newIronicPodTemplate(cctx, resources)
 	if err != nil {
 		return transientError(err)
 	}
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ironicDeploymentName(ironic),
-			Namespace: ironic.Namespace,
+			Name:      ironicDeploymentName(resources.Ironic),
+			Namespace: resources.Ironic.Namespace,
 		},
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
@@ -80,10 +80,10 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 		if deploy.Labels == nil {
 			deploy.Labels = make(map[string]string, 2)
 		}
-		deploy.Labels[metal3api.IronicServiceLabel] = ironic.Name
+		deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
-		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
+		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(resources.Ironic)}
 		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
 		deploy.Spec.Replicas = ptr.To(int32(1))
 		mergePodTemplates(&deploy.Spec.Template, template)
@@ -91,7 +91,7 @@ func ensureIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic, db
 		deploy.Spec.Strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RecreateDeploymentStrategyType,
 		}
-		return controllerutil.SetControllerReference(ironic, deploy, cctx.Scheme)
+		return controllerutil.SetControllerReference(resources.Ironic, deploy, cctx.Scheme)
 	})
 	if err != nil {
 		return transientError(err)
@@ -156,37 +156,37 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 }
 
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
-func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret) (status Status, err error) {
-	if validationErr := ValidateIronic(&ironic.Spec, nil); validationErr != nil {
+func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, err error) {
+	if validationErr := ValidateIronic(&resources.Ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
 		return
 	}
 
-	if ironic.Spec.HighAvailability && cctx.VersionInfo.InstalledVersion.Compare(versionWithoutAuthConfig) < 0 {
+	if resources.Ironic.Spec.HighAvailability && cctx.VersionInfo.InstalledVersion.Compare(versionWithoutAuthConfig) < 0 {
 		err = errors.New("using HA is only possible for Ironic 28.0 or newer")
 		status = Status{Fatal: err}
 		return
 	}
 
-	if db != nil {
-		jobStatus, err := ensureIronicUpgradeJob(cctx, ironic, db, preUpgrade)
+	if resources.Database != nil {
+		jobStatus, err := ensureIronicUpgradeJob(cctx, resources, preUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
 	}
 
-	if ironic.Spec.HighAvailability {
-		err = removeIronicDeployment(cctx, ironic)
+	if resources.Ironic.Spec.HighAvailability {
+		err = removeIronicDeployment(cctx, resources.Ironic)
 		if err != nil {
 			return
 		}
-		status, err = ensureIronicDaemonSet(cctx, ironic, db, apiSecret)
+		status, err = ensureIronicDaemonSet(cctx, resources)
 	} else {
-		err = removeIronicDaemonSet(cctx, ironic)
+		err = removeIronicDaemonSet(cctx, resources.Ironic)
 		if err != nil {
 			return
 		}
-		status, err = ensureIronicDeployment(cctx, ironic, db, apiSecret)
+		status, err = ensureIronicDeployment(cctx, resources)
 	}
 
 	if err != nil || status.IsError() {
@@ -195,13 +195,13 @@ func EnsureIronic(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3ap
 
 	// Let the service be created while Ironic is being deployed, but do
 	// not report overall success until both are done.
-	serviceStatus, err := ensureIronicService(cctx, ironic)
+	serviceStatus, err := ensureIronicService(cctx, resources.Ironic)
 	if err != nil || !serviceStatus.IsReady() {
 		return serviceStatus, err
 	}
 
-	if db != nil {
-		jobStatus, err := ensureIronicUpgradeJob(cctx, ironic, db, postUpgrade)
+	if resources.Database != nil {
+		jobStatus, err := ensureIronicUpgradeJob(cctx, resources, postUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
