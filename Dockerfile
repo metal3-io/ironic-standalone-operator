@@ -7,10 +7,8 @@ FROM $BUILD_IMAGE AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-COPY api/go.mod api/go.mod
-COPY api/go.sum api/go.sum
+COPY go.mod go.sum ./
+COPY api/go.mod api/go.sum api/
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download -x
@@ -26,11 +24,18 @@ RUN CGO_ENABLED=0 go build -a -o manager cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
 FROM $BASE_IMAGE
+
+# image.version is set during image build by automation
+LABEL org.opencontainers.image.authors="metal3-dev@googlegroups.com"
+LABEL org.opencontainers.image.description="Operator managing an Ironic deployment for Metal3"
+LABEL org.opencontainers.image.documentation="https://book.metal3.io/irso/introduction"
+LABEL org.opencontainers.image.licenses="Apache License 2.0"
+LABEL org.opencontainers.image.title="Ironic Standalone Operator"
+LABEL org.opencontainers.image.url="https://github.com/metal3-io/ironic-standalone-operator"
+LABEL org.opencontainers.image.vendor="Metal3-io"
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER nonroot:nonroot
 
 ENTRYPOINT ["/manager"]
-
-LABEL io.k8s.display-name="Metal3 Ironic Operator" \
-      io.k8s.description="Operator managing an Ironic deployment for Metal3"
