@@ -7,6 +7,8 @@ type Status struct {
 	Fatal error
 	// Message explaining what is not ready.
 	Message string
+	// Whether a requeue will be needed.
+	requeue bool
 }
 
 func (status Status) IsError() bool {
@@ -15,6 +17,14 @@ func (status Status) IsError() bool {
 
 func (status Status) IsReady() bool {
 	return status.Ready && !status.IsError()
+}
+
+func (status Status) NeedsRequeue() bool {
+	if status.Fatal != nil {
+		return false
+	}
+
+	return status.requeue
 }
 
 func (status Status) String() string {
@@ -39,7 +49,7 @@ func ready() (Status, error) {
 
 // We have updated dependent resources.
 func updated() (Status, error) {
-	return Status{Message: "dependent resources are being updated"}, nil
+	return Status{Message: "dependent resources are being updated", requeue: true}, nil
 }
 
 // We are passively waiting for something external to happen.
@@ -50,5 +60,5 @@ func inProgress(message string) (Status, error) {
 // Checking or updating status failed, we hope it's going to resolve itself
 // (e.g. a glitch in access to Kube API).
 func transientError(err error) (Status, error) {
-	return Status{}, err
+	return Status{requeue: true}, err
 }

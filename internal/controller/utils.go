@@ -123,7 +123,7 @@ func updateSecretOwners(cctx ironic.ControllerContext, ironicConf *metal3api.Iro
 	return false, nil
 }
 
-func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status, conditions *[]metav1.Condition, generation int64, resource string) (requeue bool) {
+func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status, conditions *[]metav1.Condition, generation int64, resource string) {
 	message := fmt.Sprintf("%s: %s", resource, status)
 
 	if !status.IsReady() {
@@ -135,11 +135,9 @@ func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status
 		cctx.Logger.Info(status.String())
 		setCondition(cctx, conditions, generation, metal3api.IronicStatusReady, false, reason, message)
 
-		requeue = status.Fatal == nil
 		return
 	}
 
 	setCondition(cctx, conditions, generation,
 		metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, message)
-	return
 }

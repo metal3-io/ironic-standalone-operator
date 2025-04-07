@@ -123,7 +123,8 @@ func (r *IronicDatabaseReconciler) handleDatabase(cctx ironic.ControllerContext,
 		return
 	}
 
-	requeue = setConditionsFromStatus(cctx, status, &newStatus.Conditions, db.Generation, "database")
+	setConditionsFromStatus(cctx, status, &newStatus.Conditions, db.Generation, "database")
+	requeue = status.NeedsRequeue()
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &db.Status) {
 		cctx.Logger.Info("updating status", "Status", newStatus)
