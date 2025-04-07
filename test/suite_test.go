@@ -232,7 +232,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 		GinkgoWriter.Printf("Current status of Ironic: %+v\n", ironic.Status)
 
 		cond := meta.FindStatusCondition(ironic.Status.Conditions, string(metal3api.IronicStatusReady))
-		if cond != nil {
+		if cond != nil && cond.ObservedGeneration >= ironic.Generation {
 			expectedVersion := ironic.Spec.Version
 			if expectedVersion != "" {
 				Expect(ironic.Status.RequestedVersion).To(Equal(expectedVersion))
@@ -895,6 +895,19 @@ var _ = Describe("Ironic object tests", func() {
 		ironic.Spec.APICredentialsName = secret.Name
 		err = k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{apiSecret: secret})
+
+		By("changing the credentials")
+
+		patch = client.MergeFrom(secret.DeepCopy())
+		secret.Data[corev1.BasicAuthPasswordKey] = []byte("new-password")
+		err = k8sClient.Patch(ctx, secret, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		// NOTE(dtantsur): this check is racy, so make sure the controller has time to catch up
+		time.Sleep(1 * time.Second)
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{apiSecret: secret})

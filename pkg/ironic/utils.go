@@ -3,6 +3,7 @@ package ironic
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"sort"
 	"strconv"
@@ -76,8 +77,12 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	if target.ObjectMeta.Labels == nil {
 		target.ObjectMeta.Labels = make(map[string]string, len(source.ObjectMeta.Labels))
 	}
-	for k, v := range source.ObjectMeta.Labels {
-		target.ObjectMeta.Labels[k] = v
+	maps.Copy(target.Labels, source.Labels)
+	if source.Annotations != nil {
+		if target.Annotations == nil {
+			target.Annotations = make(map[string]string, len(source.Annotations))
+		}
+		maps.Copy(target.Annotations, source.Annotations)
 	}
 
 	target.Spec.InitContainers = mergeContainers(target.Spec.InitContainers, source.Spec.InitContainers)
