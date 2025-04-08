@@ -107,24 +107,29 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Sta
 		return inProgress("deployment not ready yet")
 	}
 
-	var available bool
-	var err error
+	var available, updated bool
 	for _, cond := range deploy.Status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			if cond.Status == corev1.ConditionFalse && cond.Reason == "ProgressDeadlineExceeded" {
+				cctx.Logger.Info("deployment stopped progressing", "Deployment", deploy.Name, "Status", deploy.Status)
+				err := fmt.Errorf("deployment stopped progressing: %s", cond.Message)
+				return Status{Fatal: err}, nil
+			}
+			updated = cond.Reason == "NewReplicaSetAvailable"
+		}
 		if cond.Type == appsv1.DeploymentAvailable && cond.Status == corev1.ConditionTrue {
 			available = true
 		}
 		if cond.Type == appsv1.DeploymentReplicaFailure && cond.Status == corev1.ConditionTrue {
-			err = fmt.Errorf("deployment failed: %s", cond.Message)
-			// TODO(dtantsur): can we determine if it's fatal or not?
+			err := fmt.Errorf("deployment failed: %s", cond.Message)
 			return transientError(err)
 		}
 	}
 
-	if available {
+	if available && updated {
 		return ready()
 	} else {
-		cctx.Logger.Info("deployment not available yet", "Deployment", deploy.Name,
-			"Conditions", deploy.Status.Conditions)
+		cctx.Logger.Info("deployment not available yet", "Deployment", deploy.Name, "Status", deploy.Status)
 		return inProgress("deployment not available yet")
 	}
 }
