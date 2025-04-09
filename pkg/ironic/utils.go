@@ -115,7 +115,7 @@ func getDeploymentStatus(cctx ControllerContext, deploy *appsv1.Deployment) (Sta
 				err := fmt.Errorf("deployment stopped progressing: %s", cond.Message)
 				return Status{Fatal: err}, nil
 			}
-			updated = cond.Reason == "NewReplicaSetAvailable"
+			updated = cond.Reason == "NewReplicaSetAvailable" && deploy.Status.UpdatedReplicas >= deploy.Status.Replicas
 		}
 		if cond.Type == appsv1.DeploymentAvailable && cond.Status == corev1.ConditionTrue {
 			available = true
