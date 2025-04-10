@@ -395,7 +395,9 @@ func getCurrentIronicIPs(ctx context.Context, namespace, name string) []string {
 	addresses := make([]string, 0, len(pods.Items))
 	for _, pod := range pods.Items {
 		// Only use one address per pod, no need for both IP families
-		addresses = append(addresses, pod.Status.HostIP)
+		if pod.Status.Phase == corev1.PodRunning {
+			addresses = append(addresses, pod.Status.HostIP)
+		}
 	}
 	return addresses
 }
@@ -588,7 +590,10 @@ func CollectLogs(namespace string) {
 
 		writeYAML(&pod, namespace, pod.Name, "pod")
 
-		for _, cont := range pod.Spec.Containers {
+		for _, cont := range pod.Status.ContainerStatuses {
+			writeContainerLogs(&pod, cont.Name, logDir)
+		}
+		for _, cont := range pod.Status.InitContainerStatuses {
 			writeContainerLogs(&pod, cont.Name, logDir)
 		}
 	}
