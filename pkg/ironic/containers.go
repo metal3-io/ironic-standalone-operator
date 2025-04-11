@@ -202,21 +202,21 @@ func databaseClientEnvVars(cctx ControllerContext, db *metal3api.Database) []cor
 	return envVars
 }
 
-func buildIronicEnvVars(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, htpasswd string) []corev1.EnvVar {
-	result := buildCommonEnvVars(ironic)
+func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
+	result := buildCommonEnvVars(resources.Ironic)
 	result = append(result, []corev1.EnvVar{
 		{
 			Name:  "IRONIC_USE_MARIADB",
-			Value: strconv.FormatBool(db != nil),
+			Value: strconv.FormatBool(resources.Database != nil),
 		},
 		{
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
-			Value: strconv.FormatBool(ironic.Spec.HighAvailability),
+			Value: strconv.FormatBool(resources.Ironic.Spec.HighAvailability),
 		},
 	}...)
 
-	if db != nil {
-		result = append(result, databaseClientEnvVars(cctx, db)...)
+	if resources.Database != nil {
+		result = append(result, databaseClientEnvVars(cctx, resources.Database)...)
 		// NOTE(dtantsur): upgrades are handled by a separate job
 		result = append(result, corev1.EnvVar{
 			Name:  "IRONIC_SKIP_DBSYNC",
@@ -224,7 +224,7 @@ func buildIronicEnvVars(cctx ControllerContext, ironic *metal3api.Ironic, db *me
 		})
 	}
 
-	if ironic.Spec.HighAvailability {
+	if resources.Ironic.Spec.HighAvailability {
 		result = append(result, []corev1.EnvVar{
 			// NOTE(dtantsur): this is not strictly correct but is required for JSON RPC authentication
 			{
@@ -236,14 +236,14 @@ func buildIronicEnvVars(cctx ControllerContext, ironic *metal3api.Ironic, db *me
 
 	// When TLS is used, httpd is responsible for authentication.
 	// When JSON RPC is enabled, the password is required for it as well.
-	if htpasswd != "" && (ironic.Spec.TLS.CertificateName == "" || ironic.Spec.HighAvailability) {
+	if resources.TLSSecret == nil || resources.Ironic.Spec.HighAvailability {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: htpasswd,
+							Name: resources.APISecret.Name,
 						},
 						Key: htpasswdKey,
 					},
@@ -252,27 +252,27 @@ func buildIronicEnvVars(cctx ControllerContext, ironic *metal3api.Ironic, db *me
 		)
 	}
 
-	if ironic.Spec.ExtraConfig != nil {
-		result = append(result, buildExtraConfigVars(ironic)...)
+	if resources.Ironic.Spec.ExtraConfig != nil {
+		result = append(result, buildExtraConfigVars(resources.Ironic)...)
 	}
 
-	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", ironic.Spec.Networking.ExternalIP)
+	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
 
 	return result
 }
 
-func buildHttpdEnvVars(ironic *metal3api.Ironic, htpasswd string) []corev1.EnvVar {
-	result := buildCommonEnvVars(ironic)
+func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
+	result := buildCommonEnvVars(resources.Ironic)
 
 	// When TLS is used, httpd is responsible for authentication
-	if htpasswd != "" && ironic.Spec.TLS.CertificateName != "" {
+	if resources.TLSSecret != nil {
 		result = append(result,
 			corev1.EnvVar{
 				Name: "IRONIC_HTPASSWD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: htpasswd,
+							Name: resources.APISecret.Name,
 						},
 						Key: htpasswdKey,
 					},
@@ -320,7 +320,7 @@ func databaseClientMounts(cctx ControllerContext, db *metal3api.Database) (volum
 	return
 }
 
-func buildIronicVolumesAndMounts(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
+func buildIronicVolumesAndMounts(cctx ControllerContext, resources Resources) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
 	volumes = []corev1.Volume{
 		{
 			Name: "ironic-shared",
@@ -332,7 +332,7 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, ironic *metal3api.Ironi
 			Name: "ironic-auth",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  ironic.Spec.APICredentialsName,
+					SecretName:  resources.APISecret.Name,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 				},
 			},
@@ -344,20 +344,20 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, ironic *metal3api.Ironi
 			MountPath: sharedDir,
 		},
 	}
-	if ironic.Spec.HighAvailability {
+	if resources.Ironic.Spec.HighAvailability {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "ironic-auth",
 			MountPath: authDir + "/ironic-rpc",
 		})
 	}
 
-	if ironic.Spec.TLS.CertificateName != "" {
+	if resources.TLSSecret != nil {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: "cert-ironic",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  ironic.Spec.TLS.CertificateName,
+						SecretName:  resources.TLSSecret.Name,
 						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
 					},
 				},
@@ -370,7 +370,7 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, ironic *metal3api.Ironi
 				ReadOnly:  true,
 			},
 		)
-		if !ironic.Spec.TLS.DisableVirtualMediaTLS {
+		if !resources.Ironic.Spec.TLS.DisableVirtualMediaTLS {
 			mounts = append(mounts,
 				corev1.VolumeMount{
 					Name:      "cert-ironic",
@@ -381,8 +381,8 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, ironic *metal3api.Ironi
 		}
 	}
 
-	if db != nil {
-		dbVolumes, dbMounts := databaseClientMounts(cctx, db)
+	if resources.Database != nil {
+		dbVolumes, dbMounts := databaseClientMounts(cctx, resources.Database)
 		volumes = append(volumes, dbVolumes...)
 		mounts = append(mounts, dbMounts...)
 	}
@@ -547,25 +547,20 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 	}
 }
 
-func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, apiSecret *corev1.Secret, domain string) (corev1.PodTemplateSpec, error) {
-	var htpasswd string
-	if apiSecret != nil {
-		if len(apiSecret.Data[htpasswdKey]) == 0 {
-			return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
-		}
-
-		htpasswd = apiSecret.Name
+func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.PodTemplateSpec, error) {
+	if len(resources.APISecret.Data[htpasswdKey]) == 0 {
+		return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
 	}
 
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
 
-	volumes, mounts := buildIronicVolumesAndMounts(cctx, ironic, db)
+	volumes, mounts := buildIronicVolumesAndMounts(cctx, resources)
 	sharedVolumeMount := mounts[0]
 
 	var initContainers []corev1.Container
-	if !ironic.Spec.DeployRamdisk.DisableDownloader {
+	if !resources.Ironic.Spec.DeployRamdisk.DisableDownloader {
 		initContainers = append(initContainers, corev1.Container{
 			Name:         "ramdisk-downloader",
 			Image:        cctx.VersionInfo.RamdiskDownloaderImage,
@@ -581,18 +576,18 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 		})
 	}
 
-	ironicPorts, httpdPorts := buildIronicHttpdPorts(ironic)
+	ironicPorts, httpdPorts := buildIronicHttpdPorts(resources.Ironic)
 
-	ironicHandler := newURLProbeHandler(ironic, ironic.Spec.TLS.CertificateName != "", int(ironic.Spec.Networking.APIPort), "/v1", true)
-	httpPathExpected := !ironic.Spec.DeployRamdisk.DisableDownloader
-	httpdHandler := newURLProbeHandler(ironic, false, int(ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
+	ironicHandler := newURLProbeHandler(resources.Ironic, resources.TLSSecret != nil, int(resources.Ironic.Spec.Networking.APIPort), "/v1", true)
+	httpPathExpected := !resources.Ironic.Spec.DeployRamdisk.DisableDownloader
+	httpdHandler := newURLProbeHandler(resources.Ironic, false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
 
 	containers := []corev1.Container{
 		{
 			Name:         "ironic",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
-			Env:          buildIronicEnvVars(cctx, ironic, db, htpasswd),
+			Env:          buildIronicEnvVars(cctx, resources),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
@@ -609,7 +604,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			Name:         "httpd",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runhttpd"},
-			Env:          buildHttpdEnvVars(ironic, htpasswd),
+			Env:          buildHttpdEnvVars(resources),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
@@ -636,26 +631,26 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			},
 		},
 	}
-	if ironic.Spec.Networking.DHCP != nil && !ironic.Spec.HighAvailability {
-		err := ValidateDHCP(&ironic.Spec, ironic.Spec.Networking.DHCP)
+	if resources.Ironic.Spec.Networking.DHCP != nil && !resources.Ironic.Spec.HighAvailability {
+		err := ValidateDHCP(&resources.Ironic.Spec)
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, ironic))
+		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, resources.Ironic))
 	}
 
-	if ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
-		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, ironic))
+	if resources.Ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
+		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, resources.Ironic))
 	}
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				metal3api.IronicAppLabel:     ironicDeploymentName(ironic),
-				metal3api.IronicServiceLabel: ironic.Name,
+				metal3api.IronicAppLabel:     ironicDeploymentName(resources.Ironic),
+				metal3api.IronicServiceLabel: resources.Ironic.Name,
 				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion.String(),
 			},
-			Annotations: secretVersionAnnotations("api-secret", apiSecret),
+			Annotations: secretVersionAnnotations("api-secret", resources.APISecret),
 		},
 		Spec: corev1.PodSpec{
 			Containers:     containers,
@@ -664,7 +659,7 @@ func newIronicPodTemplate(cctx ControllerContext, ironic *metal3api.Ironic, db *
 			// Ironic needs to be accessed by external machines
 			HostNetwork:  true,
 			DNSPolicy:    corev1.DNSClusterFirstWithHostNet,
-			NodeSelector: ironic.Spec.NodeSelector,
+			NodeSelector: resources.Ironic.Spec.NodeSelector,
 		},
 	}, nil
 }

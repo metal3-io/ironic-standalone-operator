@@ -38,7 +38,8 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	return nil
 }
 
-func ValidateDHCP(ironic *metal3api.IronicSpec, dhcp *metal3api.DHCP) error {
+func ValidateDHCP(ironic *metal3api.IronicSpec) error {
+	dhcp := ironic.Networking.DHCP
 	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
 	if !hasNetworking {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
@@ -124,12 +125,12 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("networking.ipAddress makes no sense with highly available architecture")
 	}
 
-	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+	if ironic.Networking.DHCP != nil {
 		if ironic.HighAvailability {
 			return errors.New("DHCP support is not implemented in the highly available architecture")
 		}
 
-		if err := ValidateDHCP(ironic, dhcp); err != nil {
+		if err := ValidateDHCP(ironic); err != nil {
 			return err
 		}
 	}

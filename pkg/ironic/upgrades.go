@@ -90,12 +90,12 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 	}
 }
 
-func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database, phase upgradePhase) (Status, error) {
-	if !upgradeJobRequired(cctx, ironic, db) {
+func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase upgradePhase) (Status, error) {
+	if !upgradeJobRequired(cctx, resources.Ironic, resources.Database) {
 		return ready()
 	}
 
-	fromVersion := ironic.Status.InstalledVersion
+	fromVersion := resources.Ironic.Status.InstalledVersion
 	if fromVersion == "" {
 		fromVersion = "none"
 	}
@@ -109,25 +109,25 @@ func ensureIronicUpgradeJob(cctx ControllerContext, ironic *metal3api.Ironic, db
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s-to-%s", ironic.Name, phase, fromVersion, cctx.VersionInfo.InstalledVersion),
-			Namespace: ironic.Namespace,
+			Name:      fmt.Sprintf("%s-%s-%s-to-%s", resources.Ironic.Name, phase, fromVersion, cctx.VersionInfo.InstalledVersion),
+			Namespace: resources.Ironic.Namespace,
 		},
 	}
 
-	template := newMigrationTemplate(cctx, ironic, db, phase)
+	template := newMigrationTemplate(cctx, resources.Ironic, resources.Database, phase)
 
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
 		if job.ObjectMeta.Labels == nil {
 			cctx.Logger.Info("creating a new upgrade job", "Phase", phase, "From", fromVersion, "To", toVersion.String())
 			job.ObjectMeta.Labels = make(map[string]string, 2)
 		}
-		job.ObjectMeta.Labels[metal3api.IronicServiceLabel] = ironic.Name
+		job.ObjectMeta.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		job.ObjectMeta.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
 		mergePodTemplates(&job.Spec.Template, template)
 
-		return controllerutil.SetControllerReference(ironic, job, cctx.Scheme)
+		return controllerutil.SetControllerReference(resources.Ironic, job, cctx.Scheme)
 	})
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("ironic upgrade job", "Job", job.Name, "Status", result,
