@@ -67,7 +67,7 @@ linters:
   - tparallel
   - typecheck
   - unconvert
-  #- unparam
+  - unparam
   - unused
   - usestdlibvars
   - usetesting
