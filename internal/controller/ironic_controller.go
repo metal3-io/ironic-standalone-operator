@@ -178,14 +178,22 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
+	var tlsSecret *corev1.Secret
 	if tlsSecretName := ironicConf.Spec.TLS.CertificateName; tlsSecretName != "" {
-		_, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, tlsSecretName)
+		tlsSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, tlsSecretName)
 		if requeue || err != nil {
 			return
 		}
 	}
 
-	status, err := ironic.EnsureIronic(cctx, ironicConf, dbConf, apiSecret)
+	resources := ironic.Resources{
+		Ironic:    ironicConf,
+		Database:  dbConf,
+		APISecret: apiSecret,
+		TLSSecret: tlsSecret,
+	}
+
+	status, err := ironic.EnsureIronic(cctx, resources)
 	if err != nil {
 		cctx.Logger.Error(err, "potentially transient error, will retry")
 		return
