@@ -672,7 +672,7 @@ func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api
 func getDatabaseConnection(name types.NamespacedName) *metal3api.Database {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name + "-api",
+			Name:      name.Name + "-db",
 			Namespace: name.Namespace,
 		},
 		Data: map[string][]byte{
@@ -1093,7 +1093,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{})
 	})
 
-	It("creates highly available Ironic", Label("high-availability-no-provnet"), func() {
+	It("creates highly available Ironic", Label("ha-no-params"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1112,6 +1112,63 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{withHA: true})
+	})
+
+	It("creates highly available Ironic with TLS and credentials", Label("ha-tls-api-secret"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		apiSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name + "-api",
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.BasicAuthUsernameKey: []byte("admin"),
+				corev1.BasicAuthPasswordKey: []byte("test-password"),
+			},
+			Type: corev1.SecretTypeBasicAuth,
+		}
+		err := k8sClient.Create(ctx, apiSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		tlsSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name + "-tls",
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				corev1.TLSCertKey:       ironicCertPEM,
+				corev1.TLSPrivateKeyKey: ironicKeyPEM,
+			},
+			Type: corev1.SecretTypeTLS,
+		}
+		err = k8sClient.Create(ctx, tlsSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic := buildIronic(name, metal3api.IronicSpec{
+			APICredentialsName: apiSecret.Name,
+			Database:           getDatabaseConnection(name),
+			HighAvailability:   true,
+			TLS: metal3api.TLS{
+				CertificateName: tlsSecret.Name,
+			},
+		})
+		err = k8sClient.Create(ctx, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{
+			apiSecret: apiSecret,
+			withHA:    true,
+			withTLS:   true,
+		})
 	})
 
 	It("creates Ironic with extraConfig", Label("extra-config"), func() {
