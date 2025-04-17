@@ -39,6 +39,18 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 
 	volumes, mounts := databaseClientMounts(cctx, database)
 
+	// NOTE(dtantsur): these are not actually needed for upgrade scripts but are currently required by configure-ironic
+	volumes = append(volumes, corev1.Volume{
+		Name: "ironic-shared",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	mounts = append(mounts, corev1.VolumeMount{
+		Name:      "ironic-shared",
+		MountPath: sharedDir,
+	})
+
 	envVars := databaseClientEnvVars(cctx, database)
 	envVars = append(envVars, []corev1.EnvVar{
 		{
@@ -71,10 +83,11 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
+				ReadOnlyRootFilesystem: ptr.To(hasReadOnlyRootFilesystem(cctx)),
 			},
 		},
 	}
-	return corev1.PodTemplateSpec{
+	return addDataVolumes(cctx, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicServiceLabel: ironic.Name,
@@ -87,7 +100,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 			// https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
 			RestartPolicy: corev1.RestartPolicyNever,
 		},
-	}
+	})
 }
 
 func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase upgradePhase) (Status, error) {
