@@ -3,6 +3,7 @@ package ironic
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -33,10 +34,6 @@ const (
 
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	result := []corev1.EnvVar{
-		{
-			Name:  "RESTART_CONTAINER_CERTIFICATE_UPDATED",
-			Value: "true",
-		},
 		{
 			Name:  "IRONIC_LISTEN_PORT",
 			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
@@ -643,6 +640,12 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, resources.Ironic))
 	}
 
+	// Make sure the pod is restarted when secrets change.
+	annotations := secretVersionAnnotations("api-secret", resources.APISecret)
+	if resources.TLSSecret != nil {
+		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
+	}
+
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -650,7 +653,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 				metal3api.IronicServiceLabel: resources.Ironic.Name,
 				metal3api.IronicVersionLabel: cctx.VersionInfo.InstalledVersion.String(),
 			},
-			Annotations: secretVersionAnnotations("api-secret", resources.APISecret),
+			Annotations: annotations,
 		},
 		Spec: corev1.PodSpec{
 			Containers:     containers,
