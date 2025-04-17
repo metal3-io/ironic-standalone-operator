@@ -102,3 +102,7 @@ openssl req -x509 -new -subj "/CN=ironic" \
     -addext "subjectAltName = ${SUBJECT_ALT_NAME}" \
     -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
     -keyout "${IRONIC_KEY_FILE}" -out "${IRONIC_CERT_FILE}"
+
+# Creating the database
+
+kubectl create -f test/database.yaml

@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mariadb
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: root-credentials
+  namespace: mariadb
+type: Opaque
+data:
+  username: aXJvbmlj
+  password: cGEkJHcwcmQ=
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: ironic-database
+  namespace: mariadb
+spec:
+  rootPasswordSecretKeyRef:
+    name: root-credentials
+    key: password
+  storage:
+    ephemeral: true
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: user
+spec:
+  mariaDbRef:
+    name: ironic-database
+  passwordSecretKeyRef:
+    name: mariadb-credentials
+    key: password
+  host: "%"
+  cleanupPolicy: Delete
