@@ -258,7 +258,7 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 	return ironic
 }
 
-func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *metal3api.Ironic {
+func WaitForUpgrade(name types.NamespacedName, toVersion string) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{}
 	suffix := "-upgraded-" + toVersion
 
@@ -296,7 +296,7 @@ func WaitForUpgrade(name types.NamespacedName, fromVersion, toVersion string) *m
 	return ironic
 }
 
-func WaitForIronicFailure(name types.NamespacedName, message string, tolerateReady bool) *metal3api.Ironic {
+func WaitForIronicFailure(name types.NamespacedName, message string, tolerateReady bool) {
 	ironic := &metal3api.Ironic{}
 
 	By("waiting for Ironic deployment to fail")
@@ -327,8 +327,6 @@ func WaitForIronicFailure(name types.NamespacedName, message string, tolerateRea
 
 		return true
 	}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(BeTrue())
-
-	return ironic
 }
 
 func writeYAML(obj interface{}, namespace, name, typ string) {
@@ -746,7 +744,7 @@ func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld
 	err = k8sClient.Patch(ctx, ironic, patch)
 	Expect(err).NotTo(HaveOccurred())
 
-	ironic = WaitForUpgrade(name, ironicVersionOld, ironicVersionNew)
+	ironic = WaitForUpgrade(name, ironicVersionNew)
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew})
 
 	By(fmt.Sprintf("downgrading to Ironic %s (without a database)", ironicVersionOld))
@@ -756,7 +754,7 @@ func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld
 	err = k8sClient.Patch(ctx, ironic, patch)
 	Expect(err).NotTo(HaveOccurred())
 
-	ironic = WaitForUpgrade(name, ironicVersionNew, ironicVersionOld)
+	ironic = WaitForUpgrade(name, ironicVersionOld)
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionOld})
 }
 
@@ -815,7 +813,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	err = k8sClient.Patch(ctx, ironic, patch)
 	Expect(err).NotTo(HaveOccurred())
 
-	ironic = WaitForUpgrade(name, ironicVersionOld, ironicVersionNew)
+	ironic = WaitForUpgrade(name, ironicVersionNew)
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew, withHA: true})
 }
 
@@ -879,7 +877,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+		WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
@@ -939,7 +937,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+		WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
@@ -1009,7 +1007,7 @@ var _ = Describe("Ironic object tests", func() {
 		err = k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
-		_ = WaitForIronicFailure(name, "Ironic does not support downgrades", true)
+		WaitForIronicFailure(name, "Ironic does not support downgrades", true)
 	})
 
 	It("creates Ironic 28.0 with HA and upgrades to 29.0", Label("ha-v280-to-v290"), func() {
@@ -1065,7 +1063,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		_ = WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace), false)
+		WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace), false)
 	})
 
 	It("creates Ironic with IronicDatabase", Label("ironicdatabase"), func() {

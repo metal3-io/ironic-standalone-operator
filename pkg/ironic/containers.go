@@ -445,7 +445,7 @@ func buildDNSIP(dhcp *metal3api.DHCP) string {
 	return ""
 }
 
-func newURLProbeHandler(ironic *metal3api.Ironic, https bool, port int, path string, requiresOk bool) corev1.ProbeHandler {
+func newURLProbeHandler(https bool, port int, path string, requiresOk bool) corev1.ProbeHandler {
 	proto := "http"
 	if https {
 		proto = "https"
@@ -578,9 +578,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(resources.Ironic)
 
-	ironicHandler := newURLProbeHandler(resources.Ironic, resources.TLSSecret != nil, int(resources.Ironic.Spec.Networking.APIPort), "/v1", true)
+	ironicHandler := newURLProbeHandler(resources.TLSSecret != nil, int(resources.Ironic.Spec.Networking.APIPort), "/v1", true)
 	httpPathExpected := !resources.Ironic.Spec.DeployRamdisk.DisableDownloader
-	httpdHandler := newURLProbeHandler(resources.Ironic, false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
+	httpdHandler := newURLProbeHandler(false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
 
 	containers := []corev1.Container{
 		{

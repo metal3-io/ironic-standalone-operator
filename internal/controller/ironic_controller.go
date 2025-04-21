@@ -96,9 +96,9 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *IronicReconciler) setCondition(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, value bool, reason, message string) error {
-	setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation,
-		metal3api.IronicStatusReady, value, reason, message)
+func (r *IronicReconciler) setNotReady(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, reason, message string) error {
+	setCondition(&ironicConf.Status.Conditions, ironicConf.Generation,
+		false, reason, message)
 
 	err := cctx.Client.Status().Update(cctx.Context, ironicConf)
 	if err != nil {
@@ -120,7 +120,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	versionInfo, err := cctx.VersionInfo.WithIronicOverrides(ironicConf)
 	if err != nil {
 		// This condition requires a user's intervention
-		_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
+		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
 		return true, err
 	}
 	cctx.VersionInfo = versionInfo
@@ -140,13 +140,13 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			// This requires a user to ensure that the new version is actually newer, but it's a valid scenario.
 			if !parsedVersion.IsLatest() && cctx.VersionInfo.InstalledVersion.Compare(parsedVersion) < 0 {
 				cctx.Logger.Info("refusing to downgrade Ironic", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
-				_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, "Ironic does not support downgrades with an external database")
+				_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, "Ironic does not support downgrades with an external database")
 				return false, nil
 			}
 		}
 		cctx.Logger.Info("new version requested", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
 		ironicConf.Status.RequestedVersion = actuallyRequestedVersion
-		err = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonInProgress, "new version requested")
+		err = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonInProgress, "new version requested")
 		if err != nil {
 			return
 		}
@@ -165,8 +165,8 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	// Compatibility logic, remove when IronicDatabase is removed
 	if db != nil {
 		if !meta.IsStatusConditionTrue(db.Status.Conditions, string(metal3api.IronicStatusReady)) {
-			setCondition(cctx, &ironicConf.Status.Conditions, ironicConf.Generation, metal3api.IronicStatusReady,
-				false, metal3api.IronicReasonInProgress, "database is not ready yet")
+			setCondition(&ironicConf.Status.Conditions, ironicConf.Generation, false,
+				metal3api.IronicReasonInProgress, "database is not ready yet")
 			err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 			return
 		}
@@ -228,7 +228,7 @@ func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, iro
 		// Everything else is reported up for a retry.
 		if k8serrors.IsNotFound(err) {
 			message := fmt.Sprintf("secret %s/%s not found", ironicConf.Namespace, secretName)
-			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
 		}
 		return nil, true, fmt.Errorf("cannot load secret %s/%s: %w", ironicConf.Namespace, secretName, err)
 	}
@@ -245,7 +245,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 	if ironicConf.Spec.APICredentialsName == "" {
 		apiSecret, err = generateSecret(cctx, ironicConf, &ironicConf.ObjectMeta, "service", true)
 		if err != nil {
-			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
 			return nil, true, err
 		}
 
@@ -268,7 +268,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 
 	requeue, err = ironic.UpdateSecret(apiSecret, cctx.Logger)
 	if err != nil {
-		_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, err.Error())
+		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
 		return nil, true, err
 	}
 	if requeue {
@@ -295,7 +295,7 @@ func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicC
 		// Everything else is reported up for a retry.
 		if k8serrors.IsNotFound(err) {
 			message := fmt.Sprintf("database %s/%s not found", ironicConf.Namespace, ironicConf.Spec.DatabaseName)
-			_ = r.setCondition(cctx, ironicConf, false, metal3api.IronicReasonFailed, message)
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
 		}
 		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
 	}

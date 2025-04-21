@@ -44,11 +44,12 @@ func removeFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, er
 	return false, nil
 }
 
-func setCondition(cctx ironic.ControllerContext, conditions *[]metav1.Condition, generation int64, status metal3api.IronicStatusConditionType, value bool, reason, message string) {
+func setCondition(conditions *[]metav1.Condition, generation int64, value bool, reason, message string) {
 	condStatus := metav1.ConditionFalse
 	if value {
 		condStatus = metav1.ConditionTrue
 	}
+	status := metal3api.IronicStatusReady
 	cond := metav1.Condition{
 		Type:               string(status),
 		Status:             condStatus,
@@ -133,11 +134,10 @@ func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status
 		}
 
 		cctx.Logger.Info(status.String())
-		setCondition(cctx, conditions, generation, metal3api.IronicStatusReady, false, reason, message)
+		setCondition(conditions, generation, false, reason, message)
 
 		return
 	}
 
-	setCondition(cctx, conditions, generation,
-		metal3api.IronicStatusReady, true, metal3api.IronicReasonAvailable, message)
+	setCondition(conditions, generation, true, metal3api.IronicReasonAvailable, message)
 }
