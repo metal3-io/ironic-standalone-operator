@@ -303,12 +303,14 @@ func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) 
 				Name:      dataVolumeName,
 				MountPath: confDir,
 			},
+
 			// NOTE(dtantsur): Ironic relies on a writable /tmp
 			{
 				Name:      tmpVolumeName,
 				MountPath: tmpDir,
 			},
 		}...)
+
 		containers = append(containers, cont)
 	}
 	podTemplate.Spec.Containers = containers
