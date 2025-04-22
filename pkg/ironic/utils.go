@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"net"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -287,13 +286,6 @@ func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) 
 
 	containers := make([]corev1.Container, 0, len(podTemplate.Spec.Containers)+1)
 	for _, cont := range podTemplate.Spec.Containers {
-		// FIXME(dtantsur): ironic-image tries to run mkdir on various /certs subdirectories, which fails with a read-only filesystem
-		// Remove this workaround once https://github.com/metal3-io/ironic-image/pull/661 merges to all supported versions
-		cont.VolumeMounts = slices.Insert(cont.VolumeMounts, 0, corev1.VolumeMount{
-			Name:      dataVolumeName,
-			MountPath: certsDir,
-		})
-
 		cont.VolumeMounts = append(cont.VolumeMounts, []corev1.VolumeMount{
 			{
 				Name:      dataVolumeName,
