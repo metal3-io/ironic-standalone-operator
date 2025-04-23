@@ -452,14 +452,18 @@ func verifyAuthentication(ctx context.Context, ironicURLs []string) {
 	}
 }
 
-func verifyRPC(ctx context.Context, ironicIPs []string) {
+func verifyRPC(ctx context.Context, ironicIPs []string, withTLS bool) {
 	By("checking RPC authentication")
 
 	httpClient := http.Client{}
 	addHTTPTransport(&httpClient)
 
 	for _, ironicIP := range ironicIPs {
-		testURL := "http://" + net.JoinHostPort(ironicIP, "8089")
+		proto := "http://"
+		if withTLS {
+			proto = "https://"
+		}
+		testURL := proto + net.JoinHostPort(ironicIP, "8089")
 		statusCode := getStatusCode(ctx, &httpClient, testURL)
 		Expect(statusCode).To(Equal(401))
 	}
@@ -554,7 +558,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	verifyAuthentication(withTimeout, ironicURLs)
 
 	if assumptions.withHA {
-		verifyRPC(withTimeout, currentIronicIPs)
+		verifyRPC(withTimeout, currentIronicIPs, assumptions.withTLS)
 	}
 
 	clients := make([]*gophercloud.ServiceClient, 0, len(ironicURLs))
