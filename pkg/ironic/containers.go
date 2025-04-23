@@ -229,6 +229,12 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 				Value: "Conductor",
 			},
 		}...)
+		if insecureRPC := resources.Ironic.Spec.TLS.InsecureRPC; insecureRPC != nil && *insecureRPC {
+			result = append(result, corev1.EnvVar{
+				Name:  "OS_JSON_RPC__INSECURE",
+				Value: "true",
+			})
+		}
 	}
 
 	// When TLS is used, httpd is responsible for authentication.

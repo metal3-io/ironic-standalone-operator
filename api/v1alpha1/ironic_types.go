@@ -187,6 +187,14 @@ type TLS struct {
 	// which may be required for hardware that cannot accept HTTPS links.
 	// +optional
 	DisableVirtualMediaTLS bool `json:"disableVirtualMediaTLS,omitempty"`
+
+	// InsecureRPC disables TLS validation for the internal RPC.
+	// Without it, the certificate must be valid for all IP addresses on
+	// which Ironic replicas may end up running.
+	// Has no effect when HighAvailability is false and requires the
+	// HighAvailability feature gate to be set.
+	// +optional
+	InsecureRPC *bool `json:"insecureRPC,omitempty"`
 }
 
 type Images struct {

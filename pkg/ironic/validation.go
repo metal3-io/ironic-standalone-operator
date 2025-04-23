@@ -148,6 +148,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
 
+	if !ironic.HighAvailability && ironic.TLS.InsecureRPC != nil {
+		return errors.New("insecureRPC makes no sense without highAvailability")
+	}
+
 	if ironic.Version != "" {
 		if err := metal3api.ValidateVersion(ironic.Version); err != nil {
 			return err
