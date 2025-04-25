@@ -84,13 +84,6 @@ spec:
                 - host
                 - name
                 type: object
-              databaseName:
-                description: |-
-                  DatabaseName is a reference to the IronicDatabase object.
-                  If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
-
-                  Deprecated: the IronicDatabase API is deprecated and will be removed soon in favour of explicit connection parameters.
-                type: string
               deployRamdisk:
                 description: DeployRamdisk defines settings for the provisioning/inspection
                   ramdisk based on Ironic Python Agent.
@@ -132,7 +125,7 @@ spec:
               highAvailability:
                 description: |-
                   HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
-                  Requires database to be installed and linked to DatabaseName.
+                  Requires database to be installed and linked in the Database field.
                   DHCP support is not yet implemented in the highly available architecture.
                   EXPERIMENTAL: do not use, the implementation is incomplete.
                 type: boolean

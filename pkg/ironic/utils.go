@@ -24,8 +24,6 @@ const (
 	probeTimeout          = 5
 	probeFailureThreshold = 12
 
-	serviceDNSSuffix = "svc"
-
 	dataDir        = "/data"
 	confDir        = "/conf"
 	tmpDir         = "/tmp"
@@ -45,7 +43,6 @@ type ControllerContext struct {
 
 type Resources struct {
 	Ironic    *metal3api.Ironic
-	Database  *metal3api.Database
 	APISecret *corev1.Secret
 	TLSSecret *corev1.Secret
 }

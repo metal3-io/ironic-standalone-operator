@@ -267,13 +267,6 @@ type IronicSpec struct {
 	// +optional
 	Database *Database `json:"database,omitempty"`
 
-	// DatabaseName is a reference to the IronicDatabase object.
-	// If missing, a local SQLite database will be used. Must be provided for a highly available architecture.
-	//
-	// Deprecated: the IronicDatabase API is deprecated and will be removed soon in favour of explicit connection parameters.
-	// +optional
-	DatabaseName string `json:"databaseName,omitempty"`
-
 	// DeployRamdisk defines settings for the provisioning/inspection ramdisk based on Ironic Python Agent.
 	// +optional
 	DeployRamdisk DeployRamdisk `json:"deployRamdisk,omitempty"`
@@ -283,7 +276,7 @@ type IronicSpec struct {
 	ExtraConfig []ExtraConfig `json:"extraConfig,omitempty"`
 
 	// HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
-	// Requires database to be installed and linked to DatabaseName.
+	// Requires database to be installed and linked in the Database field.
 	// DHCP support is not yet implemented in the highly available architecture.
 	// EXPERIMENTAL: do not use, the implementation is incomplete.
 	// +optional

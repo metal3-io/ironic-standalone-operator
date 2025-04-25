@@ -204,7 +204,7 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	result = append(result, []corev1.EnvVar{
 		{
 			Name:  "IRONIC_USE_MARIADB",
-			Value: strconv.FormatBool(resources.Database != nil),
+			Value: strconv.FormatBool(resources.Ironic.Spec.Database != nil),
 		},
 		{
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
@@ -212,8 +212,8 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		},
 	}...)
 
-	if resources.Database != nil {
-		result = append(result, databaseClientEnvVars(cctx, resources.Database)...)
+	if resources.Ironic.Spec.Database != nil {
+		result = append(result, databaseClientEnvVars(cctx, resources.Ironic.Spec.Database)...)
 		// NOTE(dtantsur): upgrades are handled by a separate job
 		result = append(result, corev1.EnvVar{
 			Name:  "IRONIC_SKIP_DBSYNC",
@@ -384,8 +384,8 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, resources Resources) (v
 		}
 	}
 
-	if resources.Database != nil {
-		dbVolumes, dbMounts := databaseClientMounts(cctx, resources.Database)
+	if resources.Ironic.Spec.Database != nil {
+		dbVolumes, dbMounts := databaseClientMounts(cctx, resources.Ironic.Spec.Database)
 		volumes = append(volumes, dbVolumes...)
 		mounts = append(mounts, dbMounts...)
 	}
