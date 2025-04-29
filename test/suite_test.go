@@ -40,6 +40,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/conductors"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
+	mariadbapi "github.com/mariadb-operator/mariadb-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,6 +49,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -87,6 +89,9 @@ var customImage string
 var customImageVersion string
 var customDatabaseImage string
 
+var mariadbName string
+var mariadbNamespace string
+
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -107,6 +112,8 @@ var _ = BeforeSuite(func() {
 	var err error
 
 	err = metal3api.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = mariadbapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	cfg, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
@@ -152,6 +159,9 @@ var _ = BeforeSuite(func() {
 	customImage = os.Getenv("IRONIC_CUSTOM_IMAGE")
 	customImageVersion = os.Getenv("IRONIC_CUSTOM_VERSION")
 	customDatabaseImage = os.Getenv("MARIADB_CUSTOM_IMAGE")
+
+	mariadbName = os.Getenv("MARIADB_NAME")
+	mariadbNamespace = os.Getenv("MARIADB_NAMESPACE")
 })
 
 func addHTTPTransport(httpClient *http.Client) {
@@ -601,6 +611,34 @@ func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func collectDatabaseLogs(namespace string) {
+	listOptions := client.ListOptions{Namespace: namespace}
+
+	databases := &mariadbapi.DatabaseList{}
+	err := k8sClient.List(ctx, databases, &listOptions)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, db := range databases.Items {
+		writeYAML(&db, namespace, db.Name, "db")
+	}
+
+	users := &mariadbapi.UserList{}
+	err = k8sClient.List(ctx, users, &listOptions)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, usr := range users.Items {
+		writeYAML(&usr, namespace, usr.Name, "user")
+	}
+
+	grants := &mariadbapi.GrantList{}
+	err = k8sClient.List(ctx, grants, &listOptions)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, grant := range grants.Items {
+		writeYAML(&grant, namespace, grant.Name, "grant")
+	}
+}
+
 func CollectLogs(namespace string) {
 	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
@@ -630,6 +668,8 @@ func CollectLogs(namespace string) {
 
 		writeYAML(&job, namespace, job.Name, "job")
 	}
+
+	collectDatabaseLogs(namespace)
 }
 
 func DeleteAndWait(ironic *metal3api.Ironic) {
@@ -690,30 +730,95 @@ func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api
 	return result
 }
 
-func getDatabaseConnection(name types.NamespacedName) *metal3api.Database {
+func createDatabase(name types.NamespacedName) *metal3api.Database {
+	mariadbRef := mariadbapi.MariaDBRef{
+		ObjectReference: mariadbapi.ObjectReference{
+			Name:      mariadbName,
+			Namespace: mariadbNamespace,
+		},
+		WaitForIt: true,
+	}
+	// In these tests namespace is more unique than name
+	dbUserName := name.Namespace
+
+	database := &mariadbapi.Database{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dbUserName,
+			Namespace: name.Namespace,
+		},
+		Spec: mariadbapi.DatabaseSpec{
+			MariaDBRef:   mariadbRef,
+			CharacterSet: "utf8",
+			Collate:      "utf8_general_ci",
+			SQLTemplate: mariadbapi.SQLTemplate{
+				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
+			},
+		},
+	}
+	err := k8sClient.Create(ctx, database)
+	Expect(err).NotTo(HaveOccurred())
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name + "-db",
+			Name:      dbUserName,
 			Namespace: name.Namespace,
 		},
 		Data: map[string][]byte{
-			corev1.BasicAuthUsernameKey: []byte("admin"),
+			corev1.BasicAuthUsernameKey: []byte(dbUserName),
 			corev1.BasicAuthPasswordKey: []byte("test-password"),
 		},
 		Type: corev1.SecretTypeBasicAuth,
 	}
-	err := k8sClient.Create(ctx, secret)
+	err = k8sClient.Create(ctx, secret)
 	Expect(err).NotTo(HaveOccurred())
 
-	// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
-	ironicDB := buildDatabase(name, secret.Name)
-	err = k8sClient.Create(ctx, ironicDB)
+	user := &mariadbapi.User{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret.Name,
+			Namespace: name.Namespace,
+		},
+		Spec: mariadbapi.UserSpec{
+			MariaDBRef: mariadbRef,
+			PasswordSecretKeyRef: &mariadbapi.SecretKeySelector{
+				LocalObjectReference: mariadbapi.LocalObjectReference{
+					Name: secret.Name,
+				},
+				Key: corev1.BasicAuthPasswordKey,
+			},
+			Host: "%",
+			SQLTemplate: mariadbapi.SQLTemplate{
+				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
+			},
+			MaxUserConnections: 100,
+		},
+	}
+	err = k8sClient.Create(ctx, user)
+	Expect(err).NotTo(HaveOccurred())
+
+	grant := &mariadbapi.Grant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+		},
+		Spec: mariadbapi.GrantSpec{
+			MariaDBRef: mariadbRef,
+			Privileges: []string{"ALL PRIVILEGES"},
+			Database:   database.Name,
+			Table:      "*",
+			Username:   dbUserName,
+			Host:       ptr.To("%"),
+			SQLTemplate: mariadbapi.SQLTemplate{
+				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
+			},
+		},
+	}
+	err = k8sClient.Create(ctx, grant)
 	Expect(err).NotTo(HaveOccurred())
 
 	return &metal3api.Database{
 		CredentialsName: secret.Name,
-		Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, name.Namespace),
-		Name:            "ironic",
+		Host:            fmt.Sprintf("%s.%s.svc", mariadbName, mariadbNamespace),
+		Name:            database.Name,
 	}
 }
 
@@ -805,17 +910,8 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	err := k8sClient.Create(ctx, secret)
 	Expect(err).NotTo(HaveOccurred())
 
-	// FIXME(dtantsur): use a real database in this test, e.g. one deployed by mariadb-operator.
-	ironicDB := buildDatabase(name, secret.Name)
-	err = k8sClient.Create(ctx, ironicDB)
-	Expect(err).NotTo(HaveOccurred())
-
 	ironic := buildIronic(name, metal3api.IronicSpec{
-		Database: &metal3api.Database{
-			CredentialsName: secret.Name,
-			Host:            fmt.Sprintf("%s-database.%s.svc", ironicDB.Name, namespace),
-			Name:            "ironic",
-		},
+		Database:         createDatabase(name),
 		HighAvailability: true,
 		Version:          ironicVersionOld,
 	})
@@ -1010,7 +1106,7 @@ var _ = Describe("Ironic object tests", func() {
 		}
 
 		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database: getDatabaseConnection(name),
+			Database: createDatabase(name),
 			Version:  "28.0",
 		})
 		err := k8sClient.Create(ctx, ironic)
@@ -1089,7 +1185,7 @@ var _ = Describe("Ironic object tests", func() {
 		WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace), false)
 	})
 
-	It("creates Ironic with IronicDatabase", Label("ironicdatabase"), func() {
+	It("creates Ironic with deprecated IronicDatabase", Label("ironicdatabase"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1121,7 +1217,7 @@ var _ = Describe("Ironic object tests", func() {
 		}
 
 		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database:         getDatabaseConnection(name),
+			Database:         createDatabase(name),
 			HighAvailability: true,
 		})
 		err := k8sClient.Create(ctx, ironic)
@@ -1171,7 +1267,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic := buildIronic(name, metal3api.IronicSpec{
 			APICredentialsName: apiSecret.Name,
-			Database:           getDatabaseConnection(name),
+			Database:           createDatabase(name),
 			HighAvailability:   true,
 			TLS: metal3api.TLS{
 				CertificateName: tlsSecret.Name,
