@@ -278,7 +278,7 @@ type IronicSpec struct {
 	// HighAvailability causes Ironic to be deployed as a DaemonSet on control plane nodes instead of a deployment with 1 replica.
 	// Requires database to be installed and linked in the Database field.
 	// DHCP support is not yet implemented in the highly available architecture.
-	// EXPERIMENTAL: do not use, the implementation is incomplete.
+	// Requires the HighAvailability feature gate to be set.
 	// +optional
 	HighAvailability bool `json:"highAvailability,omitempty"`
 

@@ -11,7 +11,7 @@ const (
 
 var (
 	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{
-		FeatureHighAvailability: {Default: false, PreRelease: featuregate.Alpha},
+		FeatureHighAvailability: {Default: false, PreRelease: featuregate.Beta},
 	}
 
 	CurrentFeatureGate = featuregate.NewFeatureGate()
