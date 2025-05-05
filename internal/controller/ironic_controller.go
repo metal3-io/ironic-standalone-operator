@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,14 +26,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -125,12 +122,10 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 	cctx.VersionInfo = versionInfo
 
-	dbConf := ironicConf.Spec.Database
-
 	actuallyRequestedVersion := cctx.VersionInfo.InstalledVersion.String()
 	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
 		// Ironic does not support downgrades when a real external database is used.
-		if ironicConf.Status.InstalledVersion != "" && dbConf != nil {
+		if ironicConf.Status.InstalledVersion != "" && ironicConf.Spec.Database != nil {
 			parsedVersion, err := metal3api.ParseVersion(ironicConf.Status.InstalledVersion)
 			if err != nil {
 				return false, err
@@ -157,27 +152,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return
 	}
 
-	db, requeue, err := r.ensureDatabase(cctx, ironicConf)
-	if requeue || err != nil {
-		return
-	}
-
-	// Compatibility logic, remove when IronicDatabase is removed
-	if db != nil {
-		if !meta.IsStatusConditionTrue(db.Status.Conditions, string(metal3api.IronicStatusReady)) {
-			setCondition(&ironicConf.Status.Conditions, ironicConf.Generation, false,
-				metal3api.IronicReasonInProgress, "database is not ready yet")
-			err = cctx.Client.Status().Update(cctx.Context, ironicConf)
-			return
-		}
-		dbConf = &metal3api.Database{
-			CredentialsName:    db.Spec.CredentialsName,
-			Host:               ironic.DatabaseDNSName(db, cctx.Domain),
-			Name:               ironic.DatabaseName,
-			TLSCertificateName: db.Spec.TLSCertificateName,
-		}
-	}
-
 	var tlsSecret *corev1.Secret
 	if tlsSecretName := ironicConf.Spec.TLS.CertificateName; tlsSecretName != "" {
 		tlsSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, tlsSecretName)
@@ -188,7 +162,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 	resources := ironic.Resources{
 		Ironic:    ironicConf,
-		Database:  dbConf,
 		APISecret: apiSecret,
 		TLSSecret: tlsSecret,
 	}
@@ -279,41 +252,6 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 	return
 }
 
-func (r *IronicReconciler) ensureDatabase(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (db *metal3api.IronicDatabase, requeue bool, err error) {
-	if ironicConf.Spec.DatabaseName == "" {
-		return
-	}
-
-	dbName := types.NamespacedName{
-		Namespace: ironicConf.Namespace,
-		Name:      ironicConf.Spec.DatabaseName,
-	}
-	db = &metal3api.IronicDatabase{}
-	err = cctx.Client.Get(cctx.Context, dbName, db)
-	if err != nil {
-		// NotFound requires a user's intervention, so reporting it in the conditions.
-		// Everything else is reported up for a retry.
-		if k8serrors.IsNotFound(err) {
-			message := fmt.Sprintf("database %s/%s not found", ironicConf.Namespace, ironicConf.Spec.DatabaseName)
-			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
-		}
-		return nil, true, fmt.Errorf("cannot load linked database %s/%s: %w", ironicConf.Namespace, ironicConf.Spec.DatabaseName, err)
-	}
-
-	oldReferences := db.GetOwnerReferences()
-	err = controllerutil.SetControllerReference(ironicConf, db, cctx.Scheme)
-	if err != nil {
-		return nil, true, err
-	}
-	if !reflect.DeepEqual(oldReferences, db.GetOwnerReferences()) {
-		cctx.Logger.Info("updating owner reference", "Database", db.Name)
-		err = cctx.Client.Update(cctx.Context, db)
-		requeue = true
-	}
-
-	return
-}
-
 func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (bool, error) {
 	if !slices.Contains(ironicConf.Finalizers, IronicFinalizer) {
 		return false, nil
@@ -337,6 +275,5 @@ func (r *IronicReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&batchv1.Job{}).
-		Owns(&metal3api.IronicDatabase{}).
 		Complete(r)
 }

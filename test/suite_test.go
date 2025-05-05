@@ -712,24 +712,6 @@ func buildIronic(name types.NamespacedName, spec metal3api.IronicSpec) *metal3ap
 	return result
 }
 
-func buildDatabase(name types.NamespacedName, credentialsName string) *metal3api.IronicDatabase {
-	result := &metal3api.IronicDatabase{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name + "-db",
-			Namespace: name.Namespace,
-		},
-		Spec: metal3api.IronicDatabaseSpec{
-			CredentialsName: credentialsName,
-		},
-	}
-
-	if customDatabaseImage != "" {
-		result.Spec.Image = customDatabaseImage
-	}
-
-	return result
-}
-
 func createDatabase(name types.NamespacedName) *metal3api.Database {
 	mariadbRef := mariadbapi.MariaDBRef{
 		ObjectReference: mariadbapi.ObjectReference{
@@ -1156,50 +1138,6 @@ var _ = Describe("Ironic object tests", func() {
 			},
 		})
 		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
-
-		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{})
-	})
-
-	It("creates Ironic with non-existent database", Label("non-existent-database"), func() {
-		name := types.NamespacedName{
-			Name:      "test-ironic",
-			Namespace: namespace,
-		}
-
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			DatabaseName: "banana",
-		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() {
-			CollectLogs(namespace)
-			DeleteAndWait(ironic)
-		})
-
-		WaitForIronicFailure(name, fmt.Sprintf("database %s/banana not found", namespace), false)
-	})
-
-	It("creates Ironic with deprecated IronicDatabase", Label("ironicdatabase"), func() {
-		name := types.NamespacedName{
-			Name:      "test-ironic",
-			Namespace: namespace,
-		}
-
-		ironicDB := buildDatabase(name, "")
-
-		err := k8sClient.Create(ctx, ironicDB)
-		Expect(err).NotTo(HaveOccurred())
-
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			DatabaseName: ironicDB.Name,
-		})
-		err = k8sClient.Create(ctx, ironic)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)

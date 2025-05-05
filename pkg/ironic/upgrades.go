@@ -30,12 +30,13 @@ var commandPerPhase = map[upgradePhase]string{
 	postUpgrade: "online-data-migrations",
 }
 
-func upgradeJobRequired(cctx ControllerContext, ironic *metal3api.Ironic, db *metal3api.Database) bool {
-	return db != nil && cctx.VersionInfo.InstalledVersion.String() != ironic.Status.InstalledVersion
+func upgradeJobRequired(cctx ControllerContext, ironic *metal3api.Ironic) bool {
+	return ironic.Spec.Database != nil && cctx.VersionInfo.InstalledVersion.String() != ironic.Status.InstalledVersion
 }
 
-func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, database *metal3api.Database, phase upgradePhase) corev1.PodTemplateSpec {
+func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, phase upgradePhase) corev1.PodTemplateSpec {
 	script := commandPerPhase[phase]
+	database := ironic.Spec.Database
 
 	volumes, mounts := databaseClientMounts(cctx, database)
 
@@ -104,7 +105,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, data
 }
 
 func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase upgradePhase) (Status, error) {
-	if !upgradeJobRequired(cctx, resources.Ironic, resources.Database) {
+	if !upgradeJobRequired(cctx, resources.Ironic) {
 		return ready()
 	}
 
@@ -127,7 +128,7 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 		},
 	}
 
-	template := newMigrationTemplate(cctx, resources.Ironic, resources.Database, phase)
+	template := newMigrationTemplate(cctx, resources.Ironic, phase)
 
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
 		if job.ObjectMeta.Labels == nil {

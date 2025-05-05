@@ -16,6 +16,8 @@ import (
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 )
 
+const IronicFinalizer = "ironic.metal3.io"
+
 func ensureFinalizer(cctx ironic.ControllerContext, obj client.Object) (bool, error) {
 	changed := controllerutil.AddFinalizer(obj, IronicFinalizer)
 	if changed {
@@ -71,20 +73,6 @@ func getIronic(cctx ironic.ControllerContext, name types.NamespacedName) (*metal
 	}
 
 	return ironicConf, nil
-}
-
-func getDatabase(cctx ironic.ControllerContext, name types.NamespacedName) (*metal3api.IronicDatabase, error) {
-	db := &metal3api.IronicDatabase{}
-	err := cctx.Client.Get(cctx.Context, name, db)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		cctx.Logger.Error(err, "unexpected error when loading the database")
-		return nil, fmt.Errorf("could not load database configuration %s: %w", name, err)
-	}
-
-	return db, nil
 }
 
 func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *metav1.ObjectMeta, name string, extraFields bool) (secret *corev1.Secret, err error) {

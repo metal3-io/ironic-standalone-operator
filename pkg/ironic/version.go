@@ -113,12 +113,3 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 
 	return versionInfo, nil
 }
-
-// Takes VersionInfo with defaults from the configuration and applies any overrides from the IronicDatabase object.
-func (versionInfo VersionInfo) WithIronicDatabaseOverrides(db *metal3api.IronicDatabase) VersionInfo {
-	if db.Spec.Image != "" {
-		versionInfo.MariaDBImage = db.Spec.Image
-	}
-
-	return versionInfo
-}

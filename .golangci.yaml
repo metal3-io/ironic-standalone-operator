@@ -123,11 +123,6 @@ issues:
   # within test files.
   - path: test/.*.go
     text: should not use dot imports
-  # NOTE(dtantsur): IronicDatabase is deprecated but our own code still supports it.
-  # Remove this exclusion when it's entirely deleted.
-  - linters:
-    - staticcheck
-    text: "SA1019: (metal3api.IronicDatabase|metal3iov1alpha1.IronicDatabase|ironicConf.Spec.DatabaseName|ironic.DatabaseName|old.DatabaseName) is deprecated"
   # NOTE(dtantsur): Kubebuilder insists on a specific way to call imports
   - linters:
     - importas

@@ -63,7 +63,6 @@ rules:
 - apiGroups:
   - ironic.metal3.io
   resources:
-  - ironicdatabases
   - ironics
   verbs:
   - create
@@ -76,14 +75,12 @@ rules:
 - apiGroups:
   - ironic.metal3.io
   resources:
-  - ironicdatabases/finalizers
   - ironics/finalizers
   verbs:
   - update
 - apiGroups:
   - ironic.metal3.io
   resources:
-  - ironicdatabases/status
   - ironics/status
   verbs:
   - get

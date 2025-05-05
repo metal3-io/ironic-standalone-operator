@@ -20,12 +20,6 @@ func TestValidateIronic(t *testing.T) {
 			Scenario: "empty",
 		},
 		{
-			Scenario: "with old database",
-			Ironic: metal3api.IronicSpec{
-				DatabaseName: "db",
-			},
-		},
-		{
 			Scenario: "with database",
 			Ironic: metal3api.IronicSpec{
 				Database: &metal3api.Database{
@@ -128,7 +122,11 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "no DHCP with HA",
 			Ironic: metal3api.IronicSpec{
-				DatabaseName:     "db",
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
 				HighAvailability: true,
 				Networking: metal3api.Networking{
 					DHCP: &metal3api.DHCP{},
@@ -184,7 +182,11 @@ func TestValidateIronic(t *testing.T) {
 		{
 			Scenario: "Keepalived exclusive with HA",
 			Ironic: metal3api.IronicSpec{
-				DatabaseName:     "db",
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
 				HighAvailability: true,
 				Networking: metal3api.Networking{
 					Interface:        "eth0",
