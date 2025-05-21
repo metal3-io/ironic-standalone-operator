@@ -1,5 +1,7 @@
 # Ironic Standalone Operator
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9986/badge)](https://www.bestpractices.dev/projects/9986)
+
 Operator to maintain an [Ironic][ironic] deployment for Metal3. See the user
 guide for more details:
 
