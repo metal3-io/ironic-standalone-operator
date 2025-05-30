@@ -225,7 +225,20 @@ func logResources(ironic *metal3api.Ironic, suffix string) {
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, pod := range pods.Items {
-		GinkgoWriter.Printf("... status of pod %s: %+v\n", pod.Name, pod.Status)
+		var notReady []string
+		if pod.Status.Phase != corev1.PodSucceeded {
+			for _, cont := range pod.Status.InitContainerStatuses {
+				if !cont.Ready {
+					notReady = append(notReady, cont.Name)
+				}
+			}
+			for _, cont := range pod.Status.ContainerStatuses {
+				if !cont.Ready {
+					notReady = append(notReady, cont.Name)
+				}
+			}
+		}
+		GinkgoWriter.Printf("... status of pod %s: %s, not ready: %+v\n", pod.Name, pod.Status.Phase, notReady)
 	}
 }
 
