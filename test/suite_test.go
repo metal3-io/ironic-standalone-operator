@@ -544,7 +544,6 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	By("checking the service")
 
 	svc, err := clientset.CoreV1().Services(ironic.Namespace).Get(ctx, ironic.Name, metav1.GetOptions{})
-	GinkgoWriter.Printf("Ironic service: %+v\n", svc)
 	Expect(err).NotTo(HaveOccurred())
 
 	writeYAML(svc, svc.Namespace, svc.Name, "service")
