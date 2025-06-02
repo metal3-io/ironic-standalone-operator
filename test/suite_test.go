@@ -1077,19 +1077,19 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
-	It("creates Ironic 27.0 and upgrades to 28.0", Label("v270-to-280"), func() {
+	It("creates Ironic 27.0 and upgrades to 28.0", Label("v270-to-280", "upgrade"), func() {
 		testUpgrade("27.0", "28.0", apiVersionIn270, apiVersionIn280, namespace)
 	})
 
-	It("creates Ironic 28.0 and upgrades to 29.0", Label("v280-to-290"), func() {
+	It("creates Ironic 28.0 and upgrades to 29.0", Label("v280-to-290", "upgrade"), func() {
 		testUpgrade("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
 	})
 
-	It("creates Ironic 29.0 and upgrades to latest", Label("v290-to-latest"), func() {
+	It("creates Ironic 29.0 and upgrades to latest", Label("v290-to-latest", "upgrade"), func() {
 		testUpgrade("29.0", "latest", apiVersionIn290, "", namespace)
 	})
 
-	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade"), func() {
+	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
 		if customImage != "" || customImageVersion != "" {
 			Skip("skipping because a custom image is provided")
 		}
@@ -1123,11 +1123,11 @@ var _ = Describe("Ironic object tests", func() {
 		WaitForIronicFailure(name, "Ironic does not support downgrades", true)
 	})
 
-	It("creates Ironic 28.0 with HA and upgrades to 29.0", Label("ha-v280-to-v290"), func() {
+	It("creates Ironic 28.0 with HA and upgrades to 29.0", Label("ha-v280-to-v290", "ha", "upgrade"), func() {
 		testUpgradeHA("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
 	})
 
-	It("creates Ironic 29.0 with HA and upgrades to latest", Label("ha-v290-to-latest"), func() {
+	It("creates Ironic 29.0 with HA and upgrades to latest", Label("ha-v290-to-latest", "ha", "upgrade"), func() {
 		testUpgradeHA("29.0", "latest", apiVersionIn290, "", namespace)
 	})
 
@@ -1160,7 +1160,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{})
 	})
 
-	It("creates highly available Ironic", Label("ha-no-params"), func() {
+	It("creates highly available Ironic", Label("ha-no-params", "ha"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1181,7 +1181,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withHA: true})
 	})
 
-	It("creates highly available Ironic with TLS and credentials", Label("ha-tls-api-secret"), func() {
+	It("creates highly available Ironic with TLS and credentials", Label("ha-tls-api-secret", "ha"), func() {
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
