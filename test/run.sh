@@ -13,4 +13,10 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-90m}"
 
 mkdir -p "${LOGDIR}"
 
-exec go test --ginkgo.vv --ginkgo.junit-report "${JUNIT_OUTPUT}" -timeout "${TEST_TIMEOUT}"
+declare -a EXTRA_ARGS
+if [[ -n "${LABEL_FILTER:-}" ]]; then
+    EXTRA_ARGS=(--ginkgo.label-filter "${LABEL_FILTER}")
+fi
+
+exec go test --ginkgo.vv --ginkgo.junit-report "${JUNIT_OUTPUT}" -timeout "${TEST_TIMEOUT}" \
+    --ginkgo.fail-on-empty "${EXTRA_ARGS[@]}"
