@@ -7,5 +7,6 @@ guide for more details:
 
 * [Introduction and architecture](https://book.metal3.io/irso/introduction)
 * [Installing Ironic](https://book.metal3.io/irso/install-basics)
+* [API reference](docs/api.md)
 
 [ironic]: https://ironicbaremetal.org/

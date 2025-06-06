@@ -110,6 +110,7 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	./hack/gen-api-doc.sh
 
 .PHONY: modules
 modules: ## Runs go mod to ensure proper vendoring.
