@@ -80,7 +80,7 @@ type DHCP struct {
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
 
-	// NetworkCIDR is a CIRD of the provisioning network. Required.
+	// NetworkCIDR is a CIDR of the provisioning network. Required.
 	NetworkCIDR string `json:"networkCIDR,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.

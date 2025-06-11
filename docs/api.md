@@ -567,7 +567,7 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIRD of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
         </td>
         <td>false</td>
       </tr><tr>
