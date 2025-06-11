@@ -19,13 +19,10 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"math/rand"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -36,8 +33,6 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/apiversions"
-	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/httpbasic"
-	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/noauth"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/conductors"
 	"github.com/gophercloud/gophercloud/v2/openstack/baremetal/v1/nodes"
 	mariadbapi "github.com/mariadb-operator/mariadb-operator/api/v1alpha1"
@@ -49,13 +44,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	yaml "sigs.k8s.io/yaml"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+	"github.com/metal3-io/ironic-standalone-operator/test/helpers"
 )
 
 // NOTE(dtantsur): these two constants refer to the Ironic API version (which
@@ -82,15 +77,6 @@ var clientset *kubernetes.Clientset
 
 var clusterType string
 var ironicIPs []string
-var ironicCertPEM []byte
-var ironicKeyPEM []byte
-
-var customImage string
-var customImageVersion string
-var customDatabaseImage string
-
-var mariadbName string
-var mariadbNamespace string
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -151,55 +137,10 @@ var _ = BeforeSuite(func() {
 		Expect(ironicIPs).NotTo(BeEmpty())
 	}
 
-	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE"))
-	Expect(err).NotTo(HaveOccurred())
-	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
-	Expect(err).NotTo(HaveOccurred())
-
-	customImage = os.Getenv("IRONIC_CUSTOM_IMAGE")
-	customImageVersion = os.Getenv("IRONIC_CUSTOM_VERSION")
-	customDatabaseImage = os.Getenv("MARIADB_CUSTOM_IMAGE")
-
-	mariadbName = os.Getenv("MARIADB_NAME")
-	mariadbNamespace = os.Getenv("MARIADB_NAMESPACE")
+	helpers.LoadIronicCert()
+	helpers.LoadCustomImages()
+	helpers.LoadDatabaseParams()
 })
-
-func addHTTPTransport(httpClient *http.Client) {
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(ironicCertPEM)
-
-	tlsConfig := &tls.Config{
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS13,
-	}
-	httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-}
-
-func NewNoAuthClient(endpoint string) (*gophercloud.ServiceClient, error) {
-	serviceClient, err := noauth.NewBareMetalNoAuth(noauth.EndpointOpts{
-		IronicEndpoint: endpoint,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
-	}
-
-	addHTTPTransport(&serviceClient.HTTPClient)
-	return serviceClient, nil
-}
-
-func NewHTTPBasicClient(endpoint string, secret *corev1.Secret) (*gophercloud.ServiceClient, error) {
-	serviceClient, err := httpbasic.NewBareMetalHTTPBasic(httpbasic.EndpointOpts{
-		IronicEndpoint:     endpoint,
-		IronicUser:         string(secret.Data[corev1.BasicAuthUsernameKey]),
-		IronicUserPassword: string(secret.Data[corev1.BasicAuthPasswordKey]),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("cannot create an Ironic client: %w", err)
-	}
-
-	addHTTPTransport(&serviceClient.HTTPClient)
-	return serviceClient, nil
-}
 
 func logResources(ironic *metal3api.Ironic, suffix string) {
 	deployName := ironic.Name + "-service"
@@ -391,7 +332,7 @@ func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assum
 	Expect(err).NotTo(HaveOccurred())
 	if assumptions.maxAPIVersion != "" {
 		Expect(version.Version).To(Equal(assumptions.maxAPIVersion))
-	} else if customImage == "" && customImageVersion == "" {
+	} else if !helpers.UsesCustomImage() {
 		// NOTE(dtantsur): we cannot make any assumptions about the provided image and version,
 		// so this check only runs when they are not set.
 		var minorVersion int
@@ -423,22 +364,10 @@ func getCurrentIronicIPs(ctx context.Context, namespace, name string) []string {
 	return addresses
 }
 
-func getStatusCode(ctx context.Context, httpClient *http.Client, url string) int {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
-	Expect(err).NotTo(HaveOccurred())
-
-	resp, err := httpClient.Do(req)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	return resp.StatusCode
-}
-
 func verifyHTTPD(ctx context.Context, currentIronicIPs []string, assumptions TestAssumptions) {
 	By("checking the httpd server existence and the ramdisk downloader")
 
-	httpClient := http.Client{}
-	addHTTPTransport(&httpClient)
+	httpClient := helpers.NewHTTPClient()
 
 	expectedCode := 200
 	if assumptions.disableDownloader {
@@ -448,14 +377,14 @@ func verifyHTTPD(ctx context.Context, currentIronicIPs []string, assumptions Tes
 	// NOTE(dtantsur): each Ironic replica has its own httpd, so verify them all independently
 	for _, ironicIP := range currentIronicIPs {
 		testURL := fmt.Sprintf("http://%s/images/ironic-python-agent.kernel", net.JoinHostPort(ironicIP, "6180"))
-		statusCode := getStatusCode(ctx, &httpClient, testURL)
+		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
 		Expect(statusCode).To(Equal(expectedCode))
 	}
 
 	if assumptions.withTLS {
 		for _, ironicIP := range currentIronicIPs {
 			testURL := fmt.Sprintf("https://%s/redfish/", net.JoinHostPort(ironicIP, "6183"))
-			statusCode := getStatusCode(ctx, &httpClient, testURL)
+			statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
 			// NOTE(dtantsur): without any valid virtual media images nothing will return a success code (not even /redfish/).
 			// We get 200, 403 or 404 depending on a few factors. Check at least that we don't have 5xx.
 			Expect(statusCode).To(BeNumerically("<", 500))
@@ -467,7 +396,7 @@ func verifyAuthentication(ctx context.Context, ironicURLs []string) {
 	By("checking Ironic authentication")
 
 	for _, ironicURL := range ironicURLs {
-		cli, err := NewNoAuthClient(ironicURL)
+		cli, err := helpers.NewNoAuthClient(ironicURL)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = nodes.List(cli, nodes.ListOpts{}).AllPages(ctx)
 		Expect(err).To(HaveOccurred())
@@ -478,8 +407,7 @@ func verifyAuthentication(ctx context.Context, ironicURLs []string) {
 func verifyRPC(ctx context.Context, ironicIPs []string, withTLS bool) {
 	By("checking RPC authentication")
 
-	httpClient := http.Client{}
-	addHTTPTransport(&httpClient)
+	httpClient := helpers.NewHTTPClient()
 
 	for _, ironicIP := range ironicIPs {
 		proto := "http://"
@@ -487,7 +415,7 @@ func verifyRPC(ctx context.Context, ironicIPs []string, withTLS bool) {
 			proto = "https://"
 		}
 		testURL := proto + net.JoinHostPort(ironicIP, "8089")
-		statusCode := getStatusCode(ctx, &httpClient, testURL)
+		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
 		Expect(statusCode).To(Equal(401))
 	}
 }
@@ -586,7 +514,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	clients := make([]*gophercloud.ServiceClient, 0, len(ironicURLs))
 
 	for _, ironicURL := range ironicURLs {
-		cli, err := NewHTTPBasicClient(ironicURL, secret)
+		cli, err := helpers.NewHTTPBasicClient(ironicURL, secret)
 		Expect(err).NotTo(HaveOccurred())
 		cli.Microversion = "1.81" // minimum version supported by BMO
 		verifyAPIVersion(withTimeout, cli, assumptions)
@@ -705,117 +633,6 @@ func DeleteAndWait(ironic *metal3api.Ironic) {
 	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 }
 
-func buildIronic(name types.NamespacedName, spec metal3api.IronicSpec) *metal3api.Ironic {
-	result := &metal3api.Ironic{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name,
-			Namespace: name.Namespace,
-		},
-		Spec: spec,
-	}
-
-	if customImage != "" {
-		result.Spec.Images.Ironic = customImage
-	}
-	if customImageVersion != "" {
-		result.Spec.Version = customImageVersion
-	}
-
-	return result
-}
-
-func createDatabase(name types.NamespacedName) *metal3api.Database {
-	mariadbRef := mariadbapi.MariaDBRef{
-		ObjectReference: mariadbapi.ObjectReference{
-			Name:      mariadbName,
-			Namespace: mariadbNamespace,
-		},
-		WaitForIt: true,
-	}
-	// In these tests namespace is more unique than name
-	dbUserName := name.Namespace
-
-	database := &mariadbapi.Database{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbUserName,
-			Namespace: name.Namespace,
-		},
-		Spec: mariadbapi.DatabaseSpec{
-			MariaDBRef:   mariadbRef,
-			CharacterSet: "utf8",
-			Collate:      "utf8_general_ci",
-			SQLTemplate: mariadbapi.SQLTemplate{
-				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
-			},
-		},
-	}
-	err := k8sClient.Create(ctx, database)
-	Expect(err).NotTo(HaveOccurred())
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dbUserName,
-			Namespace: name.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.BasicAuthUsernameKey: []byte(dbUserName),
-			corev1.BasicAuthPasswordKey: []byte("test-password"),
-		},
-		Type: corev1.SecretTypeBasicAuth,
-	}
-	err = k8sClient.Create(ctx, secret)
-	Expect(err).NotTo(HaveOccurred())
-
-	user := &mariadbapi.User{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secret.Name,
-			Namespace: name.Namespace,
-		},
-		Spec: mariadbapi.UserSpec{
-			MariaDBRef: mariadbRef,
-			PasswordSecretKeyRef: &mariadbapi.SecretKeySelector{
-				LocalObjectReference: mariadbapi.LocalObjectReference{
-					Name: secret.Name,
-				},
-				Key: corev1.BasicAuthPasswordKey,
-			},
-			Host: "%",
-			SQLTemplate: mariadbapi.SQLTemplate{
-				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
-			},
-			MaxUserConnections: 100,
-		},
-	}
-	err = k8sClient.Create(ctx, user)
-	Expect(err).NotTo(HaveOccurred())
-
-	grant := &mariadbapi.Grant{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name.Name,
-			Namespace: name.Namespace,
-		},
-		Spec: mariadbapi.GrantSpec{
-			MariaDBRef: mariadbRef,
-			Privileges: []string{"ALL PRIVILEGES"},
-			Database:   database.Name,
-			Table:      "*",
-			Username:   dbUserName,
-			Host:       ptr.To("%"),
-			SQLTemplate: mariadbapi.SQLTemplate{
-				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
-			},
-		},
-	}
-	err = k8sClient.Create(ctx, grant)
-	Expect(err).NotTo(HaveOccurred())
-
-	return &metal3api.Database{
-		CredentialsName: secret.Name,
-		Host:            fmt.Sprintf("%s.%s.svc", mariadbName, mariadbNamespace),
-		Name:            database.Name,
-	}
-}
-
 func saveEvents(namespace string) {
 	events, err := clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
@@ -837,20 +654,16 @@ func saveEvents(namespace string) {
 }
 
 func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld string, apiVersionNew string, namespace string) {
-	if customImage != "" || customImageVersion != "" {
-		Skip("skipping because a custom image is provided")
-	}
+	helpers.SkipIfCustomImage()
 
 	name := types.NamespacedName{
 		Name:      "test-ironic",
 		Namespace: namespace,
 	}
 
-	ironic := buildIronic(name, metal3api.IronicSpec{
+	ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 		Version: ironicVersionOld,
 	})
-	err := k8sClient.Create(ctx, ironic)
-	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
 		CollectLogs(namespace)
 		DeleteAndWait(ironic)
@@ -863,7 +676,7 @@ func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld
 
 	patch := client.MergeFrom(ironic.DeepCopy())
 	ironic.Spec.Version = ironicVersionNew
-	err = k8sClient.Patch(ctx, ironic, patch)
+	err := k8sClient.Patch(ctx, ironic, patch)
 	Expect(err).NotTo(HaveOccurred())
 
 	ironic = WaitForUpgrade(name, ironicVersionNew)
@@ -881,9 +694,7 @@ func testUpgrade(ironicVersionOld string, ironicVersionNew string, apiVersionOld
 }
 
 func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionOld string, apiVersionNew string, namespace string) {
-	if customImage != "" || customImageVersion != "" {
-		Skip("skipping because a custom image is provided")
-	}
+	helpers.SkipIfCustomImage()
 
 	name := types.NamespacedName{
 		Name:      "test-ironic",
@@ -904,13 +715,11 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	err := k8sClient.Create(ctx, secret)
 	Expect(err).NotTo(HaveOccurred())
 
-	ironic := buildIronic(name, metal3api.IronicSpec{
-		Database:         createDatabase(name),
+	ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+		Database:         helpers.CreateDatabase(ctx, k8sClient, name),
 		HighAvailability: true,
 		Version:          ironicVersionOld,
 	})
-	err = k8sClient.Create(ctx, ironic)
-	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() {
 		CollectLogs(namespace)
 		DeleteAndWait(ironic)
@@ -960,9 +769,7 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{})
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -980,11 +787,9 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			APICredentialsName: "banana",
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -994,23 +799,11 @@ var _ = Describe("Ironic object tests", func() {
 
 		By("creating the secret and recovering the Ironic")
 
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name + "-api",
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.BasicAuthUsernameKey: []byte("admin"),
-				corev1.BasicAuthPasswordKey: []byte("test-password"),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		}
-		err = k8sClient.Create(ctx, secret)
-		Expect(err).NotTo(HaveOccurred())
+		secret := helpers.NewAuthSecret(ctx, k8sClient, namespace, name.Name+"-api")
 
 		patch := client.MergeFrom(ironic.DeepCopy())
 		ironic.Spec.APICredentialsName = secret.Name
-		err = k8sClient.Patch(ctx, ironic, patch)
+		err := k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic = WaitForIronic(name)
@@ -1038,13 +831,11 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			TLS: metal3api.TLS{
 				CertificateName: "banana",
 			},
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1054,23 +845,11 @@ var _ = Describe("Ironic object tests", func() {
 
 		By("creating the secret and recovering the Ironic")
 
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name + "-api",
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.TLSCertKey:       ironicCertPEM,
-				corev1.TLSPrivateKeyKey: ironicKeyPEM,
-			},
-			Type: corev1.SecretTypeTLS,
-		}
-		err = k8sClient.Create(ctx, secret)
-		Expect(err).NotTo(HaveOccurred())
+		secret := helpers.NewTLSSecret(ctx, k8sClient, namespace, name.Name+"-api")
 
 		patch := client.MergeFrom(ironic.DeepCopy())
 		ironic.Spec.TLS.CertificateName = secret.Name
-		err = k8sClient.Patch(ctx, ironic, patch)
+		err := k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
 		ironic = WaitForIronic(name)
@@ -1090,21 +869,17 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
-		if customImage != "" || customImageVersion != "" {
-			Skip("skipping because a custom image is provided")
-		}
+		helpers.SkipIfCustomImage()
 
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database: createDatabase(name),
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			Database: helpers.CreateDatabase(ctx, k8sClient, name),
 			Version:  "28.0",
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1117,7 +892,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		patch := client.MergeFrom(ironic.DeepCopy())
 		ironic.Spec.Version = "27.0"
-		err = k8sClient.Patch(ctx, ironic, patch)
+		err := k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
 		WaitForIronicFailure(name, "Ironic does not support downgrades", true)
@@ -1137,7 +912,7 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			Networking: metal3api.Networking{
 				DHCP: &metal3api.DHCP{
 					NetworkCIDR: os.Getenv("PROVISIONING_CIDR"),
@@ -1149,8 +924,6 @@ var _ = Describe("Ironic object tests", func() {
 				IPAddressManager: metal3api.IPAddressManagerKeepalived,
 			},
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1166,12 +939,10 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
-			Database:         createDatabase(name),
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			Database:         helpers.CreateDatabase(ctx, k8sClient, name),
 			HighAvailability: true,
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1187,44 +958,18 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		apiSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name + "-api",
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.BasicAuthUsernameKey: []byte("admin"),
-				corev1.BasicAuthPasswordKey: []byte("test-password"),
-			},
-			Type: corev1.SecretTypeBasicAuth,
-		}
-		err := k8sClient.Create(ctx, apiSecret)
-		Expect(err).NotTo(HaveOccurred())
+		apiSecret := helpers.NewAuthSecret(ctx, k8sClient, namespace, name.Name+"-api")
 
-		tlsSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name + "-tls",
-				Namespace: namespace,
-			},
-			Data: map[string][]byte{
-				corev1.TLSCertKey:       ironicCertPEM,
-				corev1.TLSPrivateKeyKey: ironicKeyPEM,
-			},
-			Type: corev1.SecretTypeTLS,
-		}
-		err = k8sClient.Create(ctx, tlsSecret)
-		Expect(err).NotTo(HaveOccurred())
+		tlsSecret := helpers.NewTLSSecret(ctx, k8sClient, namespace, name.Name+"-tls")
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			APICredentialsName: apiSecret.Name,
-			Database:           createDatabase(name),
+			Database:           helpers.CreateDatabase(ctx, k8sClient, name),
 			HighAvailability:   true,
 			TLS: metal3api.TLS{
 				CertificateName: tlsSecret.Name,
 			},
 		})
-		err = k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1246,7 +991,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		conductorName := "test-conductor"
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			ExtraConfig: []metal3api.ExtraConfig{
 				{
 					Name:  "host",
@@ -1254,8 +999,6 @@ var _ = Describe("Ironic object tests", func() {
 				},
 			},
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
@@ -1271,13 +1014,11 @@ var _ = Describe("Ironic object tests", func() {
 			Namespace: namespace,
 		}
 
-		ironic := buildIronic(name, metal3api.IronicSpec{
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			DeployRamdisk: metal3api.DeployRamdisk{
 				DisableDownloader: true,
 			},
 		})
-		err := k8sClient.Create(ctx, ironic)
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			CollectLogs(namespace)
 			DeleteAndWait(ironic)
