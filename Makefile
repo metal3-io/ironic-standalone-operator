@@ -304,3 +304,25 @@ catalog-push: ## Push a catalog image.
 ##@ helpers:
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)
+
+## --------------------------------------
+## Release
+## --------------------------------------
+RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
+ifneq (,$(findstring -,$(RELEASE_TAG)))
+    PRE_RELEASE=true
+endif
+# the previous release tag, e.g., v1.7.0, excluding pre-release tags
+PREVIOUS_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | grep -B1 $(RELEASE_TAG) | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$$" | head -n 1 2>/dev/null)
+RELEASE_DIR := out
+RELEASE_NOTES_DIR := releasenotes
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
+
+$(RELEASE_NOTES_DIR):
+	mkdir -p $(RELEASE_NOTES_DIR)/
+
+.PHONY: release-notes
+release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
+	cd hack/tools && $(GO) run release/notes.go  --releaseTag=$(RELEASE_TAG) > $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md
