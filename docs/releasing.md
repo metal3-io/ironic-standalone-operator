@@ -37,21 +37,6 @@ To make sure the correct Ironic versions are supported and tested:
 [known-api-versions]: https://github.com/metal3-io/ironic-standalone-operator/blob/b630805cdd782a51845fc16086e5f64fa77e29af/test/suite_test.go#L56-L67
 [api-versions-list]: https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 
-## Permissions
-
-Creating a release requires repository `write` permissions for:
-
-- Tag pushing
-- Branch creation
-- GitHub Release publishing
-
-These permissions are implicit for the org admins and repository admins. Release
-team member gets his/her permissions via `metal3-release-team` membership. This
-GitHub team has the required permissions in each repository required to release
-IrSO. Adding person to the team gives him/her the necessary rights in all
-relevant repositories in the organization. Individual persons should not be
-given permissions directly.
-
 ## Process
 
 IrSO uses [semantic versioning](https://semver.org).

@@ -104,11 +104,6 @@ jobs:
       uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
         go-version: ${{ env.go_version }}
-    - name: generate release artifacts
-      run: |
-        make release-notes
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: get release notes
       run: |
         curl -L "https://raw.githubusercontent.com/${{ github.repository }}/main/releasenotes/${{ env.RELEASE_TAG }}.md" \
