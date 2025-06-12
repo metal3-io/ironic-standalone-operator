@@ -93,8 +93,10 @@ On the newly created branch:
   [Kustomize configuration][kustomize].
 
 - Commit your changes, push the new branch and create a pull request:
-  - The commit and PR title should be 🌱 Prepare branch release-0.x:
-    -`git commit -S -s -m ":seedling: Prepare branch release-0.x"`
+  - The commit and PR title should be
+    ✨ Switch to Ironic X.Y by default, prepare release-0.x:
+    -`git commit -S -s -m ":sparkles: Switch to Ironic X.Y by default, prepare release-0.x"`
+     where X.Y is the Ironic branch you used [above][default-version]
     -`git push -u origin release-0.x`
 
 Wait for the pull request to be merged before proceeding.
