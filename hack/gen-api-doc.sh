@@ -9,3 +9,7 @@ CRDOC_VERSION="0.6.2@sha256:355ef777a45021ee864e613b2234b4f2c6193762e3e0de94a26b
     ghcr.io/fybrik/crdoc:"${CRDOC_VERSION}" \
     --resources /src/config/crd/bases/ --output /dev/stdout \
     > docs/api.md
+
+# FIXME: crdoc generates links to old k8s documentation, link checker complains
+sed -i -e 's#/v1.20/#/v1.32/#' docs/api.md
+
