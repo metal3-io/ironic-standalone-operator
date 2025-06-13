@@ -32,7 +32,7 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	}
 
 	if !prefix.Contains(parsed) {
-		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+		return fmt.Errorf("%s is not in networking.dhcp.networkCidr", ip)
 	}
 
 	return nil
@@ -45,7 +45,7 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
 	if dhcp.NetworkCIDR == "" {
-		return errors.New("networking.dhcp.networkCIRD is required when DHCP is used")
+		return errors.New("networking.dhcp.networkCidr is required when DHCP is used")
 	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
@@ -56,7 +56,7 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 
 	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
 	if err != nil {
-		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+		return fmt.Errorf("networking.dhcp.networkCidr is invalid: %w", err)
 	}
 
 	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
@@ -84,7 +84,7 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 	if ironic.Networking.IPAddress != "" {
 		provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
 		if !provCIDR.Contains(provIP) {
-			return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+			return errors.New("networking.dhcp.networkCidr must contain networking.ipAddress")
 		}
 	}
 

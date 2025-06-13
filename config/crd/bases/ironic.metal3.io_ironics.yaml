@@ -214,8 +214,8 @@ spec:
                         items:
                           type: string
                         type: array
-                      networkCIDR:
-                        description: NetworkCIDR is a CIRD of the provisioning network.
+                      networkCidr:
+                        description: NetworkCIDR is a CIDR of the provisioning network.
                           Required.
                         type: string
                       rangeBegin:
