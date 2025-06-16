@@ -3,9 +3,8 @@
 This document details the steps to create a release for
 `ironic-standalone-operator` aka IrSO.
 
-**NOTE**: Always follow
-[release documentation from the main branch](https://github.com/metal3-io/ironic-standalone-operator/blob/main/docs/releasing.md).
-Release documentation in release branches may be outdated.
+**NOTE**: Always follow release documentation from the main branch. Release
+documentation in release branches may be outdated.
 
 ## Before making a release
 
