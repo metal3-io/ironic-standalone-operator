@@ -61,7 +61,7 @@ linters:
   - rowserrcheck
   - staticcheck
   - stylecheck
-  #- tagliatelle
+  - tagliatelle
   - testifylint
   - thelper
   - tparallel
@@ -110,6 +110,10 @@ linters-settings:
   gocritic:
     enabled-tags:
     - experimental
+  tagliatelle:
+    case:
+      rules:
+        json: goCamel
 issues:
   exclude-files:
   - "zz_generated.*\\.go$"
@@ -132,3 +136,6 @@ issues:
     - gosec
     path: suite_test.go
     text: "G404: Use of weak random number generator .*"
+  - linters:
+    - tagliatelle
+    text: "CIDR"

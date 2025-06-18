@@ -45,7 +45,7 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
 	if dhcp.NetworkCIDR == "" {
-		return errors.New("networking.dhcp.networkCIRD is required when DHCP is used")
+		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
 	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
