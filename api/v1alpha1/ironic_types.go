@@ -24,10 +24,12 @@ const (
 	majorVersion28 = 28
 	majorVersion27 = 27
 	majorVersion29 = 29
+	majorVersion30 = 30
 )
 
 var (
 	VersionLatest = Version{}
+	Version300    = Version{Major: majorVersion30, Minor: 0}
 	Version290    = Version{Major: majorVersion29, Minor: 0}
 	Version280    = Version{Major: majorVersion28, Minor: 0}
 	Version270    = Version{Major: majorVersion27, Minor: 0}
@@ -40,6 +42,7 @@ var (
 // expectations.
 var SupportedVersions = map[Version]string{
 	VersionLatest: "latest",
+	Version300:    "release-30.0",
 	Version290:    "release-29.0",
 	Version280:    "release-28.0",
 	Version270:    "release-27.0",

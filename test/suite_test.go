@@ -58,13 +58,14 @@ import (
 // every time the API is changed. The listing of all versions is here:
 // https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 const (
-	// NOTE(dtantsur): latest is now at least 1.96, so we can rely on this
-	// value to check that specifying Version: 29.0 actually installs 29.0.
+	// NOTE(dtantsur): latest is now at least 1.99, so we can rely on this
+	// value to check that specifying Version: 30.0 actually installs 30.0.
 	apiVersionIn270 = "1.94"
 	apiVersionIn280 = "1.95"
 	apiVersionIn290 = "1.96"
+	apiVersionIn300 = "1.99"
 	// Update this periodically to make sure we're installing the latest version by default.
-	knownAPIMinorVersion = 96
+	knownAPIMinorVersion = 99
 
 	numberOfNodes = 100
 
@@ -864,8 +865,12 @@ var _ = Describe("Ironic object tests", func() {
 		testUpgrade("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
 	})
 
-	It("creates Ironic 29.0 and upgrades to latest", Label("v290-to-latest", "upgrade"), func() {
-		testUpgrade("29.0", "latest", apiVersionIn290, "", namespace)
+	It("creates Ironic 29.0 and upgrades to 30.0", Label("v290-to-300", "upgrade"), func() {
+		testUpgrade("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
+	})
+
+	It("creates Ironic 30.0 and upgrades to latest", Label("v300-to-latest", "upgrade"), func() {
+		testUpgrade("30.0", "latest", apiVersionIn300, "", namespace)
 	})
 
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
@@ -902,8 +907,12 @@ var _ = Describe("Ironic object tests", func() {
 		testUpgradeHA("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
 	})
 
-	It("creates Ironic 29.0 with HA and upgrades to latest", Label("ha-v290-to-latest", "ha", "upgrade"), func() {
-		testUpgradeHA("29.0", "latest", apiVersionIn290, "", namespace)
+	It("creates Ironic 29.0 with HA and upgrades to 30.0", Label("ha-v290-to-300", "ha", "upgrade"), func() {
+		testUpgradeHA("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
+	})
+
+	It("creates Ironic 30.0 with HA and upgrades to latest", Label("ha-v300-to-latest", "ha", "upgrade"), func() {
+		testUpgradeHA("30.0", "latest", apiVersionIn300, "", namespace)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
