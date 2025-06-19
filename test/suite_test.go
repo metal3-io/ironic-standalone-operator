@@ -869,10 +869,6 @@ var _ = Describe("Ironic object tests", func() {
 		testUpgrade("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
 	})
 
-	It("creates Ironic 30.0 and upgrades to latest", Label("v300-to-latest", "upgrade"), func() {
-		testUpgrade("30.0", "latest", apiVersionIn300, "", namespace)
-	})
-
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
 		helpers.SkipIfCustomImage()
 
@@ -909,10 +905,6 @@ var _ = Describe("Ironic object tests", func() {
 
 	It("creates Ironic 29.0 with HA and upgrades to 30.0", Label("ha-v290-to-300", "ha", "upgrade"), func() {
 		testUpgradeHA("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
-	})
-
-	It("creates Ironic 30.0 with HA and upgrades to latest", Label("ha-v300-to-latest", "ha", "upgrade"), func() {
-		testUpgradeHA("30.0", "latest", apiVersionIn300, "", namespace)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {

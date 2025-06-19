@@ -72,7 +72,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/metal3-io/ironic-standalone-operator:latest
+IMG ?= quay.io/metal3-io/ironic-standalone-operator:release-0.4
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
