@@ -48,5 +48,50 @@ updates:
     prefix: ":seedling:"
   labels:
   - "ok-to-test"
-
 ## main branch config ends here
+
+## release-0.4 branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+    day: "thursday"
+  target-branch: release-0.4
+  ## group all action bumps into single PR
+  groups:
+    github-actions:
+      patterns: ["*"]
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/api"
+  - "/test"
+  schedule:
+    interval: "weekly"
+    day: "thursday"
+  target-branch: release-0.4
+  ## group all dependencies with a k8s.io prefix into a single PR.
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+
+## release-0.4 branch config ends here
