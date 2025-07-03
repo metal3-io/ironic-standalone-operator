@@ -543,7 +543,11 @@ func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
 	podLogOpts := corev1.PodLogOptions{Container: containerName}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 	podLogs, err := req.Stream(ctx)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		// Not fatal in many cases, report and move on
+		GinkgoWriter.Printf("Warning: logs not available for pod %s container %s: %s\n", pod.Name, containerName, err)
+		return
+	}
 	defer podLogs.Close()
 
 	targetFileName := fmt.Sprintf("%s/%s.log", logDir, containerName)
