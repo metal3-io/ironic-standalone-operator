@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -182,6 +183,8 @@ func logResources(ironic *metal3api.Ironic, suffix string) {
 		}
 		GinkgoWriter.Printf("... status of pod %s: %s, not ready: %+v\n", pod.Name, pod.Status.Phase, notReady)
 	}
+
+	CollectLogs(ironic.Namespace)
 }
 
 func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
@@ -540,7 +543,11 @@ func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
 	podLogOpts := corev1.PodLogOptions{Container: containerName}
 	req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
 	podLogs, err := req.Stream(ctx)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		// Not fatal in many cases, report and move on
+		GinkgoWriter.Printf("Warning: logs not available for pod %s container %s: %s\n", pod.Name, containerName, err)
+		return
+	}
 	defer podLogs.Close()
 
 	targetFileName := fmt.Sprintf("%s/%s.log", logDir, containerName)
@@ -599,6 +606,17 @@ func CollectLogs(namespace string) {
 		}
 	}
 
+	rsets, err := clientset.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, rset := range rsets.Items {
+		logDir := fmt.Sprintf("%s/%s/replicaset_%s", os.Getenv("LOGDIR"), namespace, rset.Name)
+		err = os.MkdirAll(logDir, 0o755)
+		Expect(err).NotTo(HaveOccurred())
+
+		writeYAML(&rset, namespace, rset.Name, "replicaset")
+	}
+
 	jobs, err := clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -634,6 +652,17 @@ func DeleteAndWait(ironic *metal3api.Ironic) {
 	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
 }
 
+// Copied from kubectl pkg/cmd/events/events.go.
+func eventTime(event corev1.Event) time.Time {
+	if event.Series != nil {
+		return event.Series.LastObservedTime.Time
+	}
+	if !event.LastTimestamp.Time.IsZero() {
+		return event.LastTimestamp.Time
+	}
+	return event.EventTime.Time
+}
+
 func saveEvents(namespace string) {
 	events, err := clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 	Expect(err).NotTo(HaveOccurred())
@@ -642,6 +671,11 @@ func saveEvents(namespace string) {
 	logFile, err := os.Create(targetFileName)
 	Expect(err).NotTo(HaveOccurred())
 	defer logFile.Close()
+
+	compareEvents := func(i, j corev1.Event) int {
+		return eventTime(i).Compare(eventTime(j))
+	}
+	slices.SortFunc(events.Items, compareEvents)
 
 	for _, event := range events.Items {
 		yamlData, err := yaml.Marshal(event)

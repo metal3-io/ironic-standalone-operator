@@ -140,6 +140,7 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 
 		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
 		mergePodTemplates(&job.Spec.Template, template)
+		job.Spec.PodReplacementPolicy = ptr.To(batchv1.Failed)
 
 		return controllerutil.SetControllerReference(resources.Ironic, job, cctx.Scheme)
 	})
