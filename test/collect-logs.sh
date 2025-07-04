@@ -9,37 +9,34 @@ cd "${REPO_ROOT}"
 LOGDIR="${LOGDIR:-/tmp/logs}"
 CLUSTER_TYPE="${CLUSTER_TYPE:-kind}"
 
-mkdir -p "${LOGDIR}/controller/" "${LOGDIR}/ironic-database/pod" "${LOGDIR}/mariadb-operator/pod"
-
 . test/testing.env
 
-kubectl get deploy -o wide -A > "${LOGDIR}/deployments.txt"
-kubectl get service -o wide -A > "${LOGDIR}/services.txt"
-
-kubectl get -o yaml \
-    -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager \
-    > "${LOGDIR}/controller/deployment.yaml"
-kubectl get pod -o yaml \
-    -n ironic-standalone-operator-system > "${LOGDIR}/controller/pods.yaml"
-kubectl logs \
-    -n ironic-standalone-operator-system deployment/ironic-standalone-operator-controller-manager \
-    > "${LOGDIR}/controller/manager.log"
 if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then
     minikube logs --file "${LOGDIR}/minikube.log"
 fi
 
-kubectl get all -n "${MARIADB_NAMESPACE}" > "${LOGDIR}/ironic-database/all.txt"
-kubectl get pod -o yaml -n "${MARIADB_NAMESPACE}" \
-    > "${LOGDIR}/ironic-database/pods.yaml"
-for pod in $(kubectl get pod -o name -n "${MARIADB_NAMESPACE}"); do
-    kubectl logs "${pod}" -n "${MARIADB_NAMESPACE}" \
-        >"${LOGDIR}/ironic-database/${pod}.log" 2>&1
-done
+kubectl get node -o wide > "${LOGDIR}/nodes.txt"
+kubectl get deploy -o wide -A > "${LOGDIR}/deployments.txt"
+kubectl get daemonset -o wide -A > "${LOGDIR}/daemonsets.txt"
+kubectl get service -o wide -A > "${LOGDIR}/services.txt"
 
-kubectl get all -n mariadb-operator > "${LOGDIR}/mariadb-operator/all.txt"
-kubectl get pod -o yaml -n mariadb-operator \
-    > "${LOGDIR}/mariadb-operator/pods.yaml"
-for pod in $(kubectl get pod -o name -n mariadb-operator); do
-    kubectl logs "${pod}" -n mariadb-operator \
-        >"${LOGDIR}/mariadb-operator/${pod}.log" 2>&1
-done
+collect_from_ns() {
+    local ns="$1"
+    local dest="${LOGDIR}/${2:-"${ns}"}"
+    mkdir -p "${dest}/pod"
+
+    kubectl get all -n "${ns}" > "${dest}/all.txt"
+    kubectl get pod -o yaml -n "${ns}" > "${dest}/pods.yaml"
+    kubectl get deployment -o yaml -n "${ns}" > "${dest}/deployments.yaml"
+    kubectl get daemonset -o yaml -n "${ns}" > "${dest}/daemonsets.yaml"
+
+    for pod in $(kubectl get pod -o name -n "${ns}"); do
+        kubectl describe "${pod}" -n "${ns}" >"${dest}/${pod}.txt"
+        kubectl logs "${pod}" -n "${ns}" >"${dest}/${pod}.log" 2>&1
+    done
+}
+
+collect_from_ns ironic-standalone-operator-system controller
+collect_from_ns "${MARIADB_NAMESPACE}" ironic-database
+collect_from_ns mariadb-operator
+collect_from_ns kube-system
