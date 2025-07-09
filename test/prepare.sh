@@ -16,20 +16,11 @@ HELM_FILE="helm-v${HELM_VERSION}-linux-amd64.tar.gz"
 
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.17.1}"
 MARIADB_OPERATOR_VERSION="${MARIADB_OPERATOR_VERSION:-0.38.0}"
-CLUSTER_TYPE="${CLUSTER_TYPE:-kind}"
-
 
 . test/testing.env
+. test/utils.sh
 
 mkdir -p "${LOGDIR}"
-
-if [[ -z "${CONTAINER_RUNTIME}" ]]; then
-    if command -v podman &> /dev/null;  then
-        CONTAINER_RUNTIME=podman
-    else
-        CONTAINER_RUNTIME=docker
-    fi
-fi
 
 pushd /tmp
 curl -OL "https://get.helm.sh/${HELM_FILE}"
@@ -58,25 +49,8 @@ popd
 
 # Caching required images
 
-image_load() {
-    local image="$1"
-    local archive="$(mktemp --suffix=.tar)"
-    "${CONTAINER_RUNTIME}" save "${image}" > "${archive}"
-    if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
-        kind load image-archive -v 2 "${archive}"
-    else
-        minikube image load --logtostderr "${archive}"
-    fi
-    rm -f "${archive}"
-}
-
-for image in ironic mariadb ironic-ipa-downloader; do
-    if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
-        "${CONTAINER_RUNTIME}" pull "quay.io/metal3-io/${image}"
-        image_load "quay.io/metal3-io/${image}"
-    else
-        minikube image pull --logtostderr "quay.io/metal3-io/${image}"
-    fi
+for image in ironic ironic-ipa-downloader keepalived; do
+    image_pull "${image}"
 done
 
 # Building and installing the operator
