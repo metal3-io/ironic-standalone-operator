@@ -215,7 +215,9 @@ func WaitForIronic(name types.NamespacedName) *metal3api.Ironic {
 					Expect(ironic.Status.InstalledVersion).ToNot(BeEmpty())
 				}
 				logResources(ironic, "")
-				return true
+
+				// See https://github.com/metal3-io/ironic-standalone-operator/issues/304
+				return !podsAreBeingDeleted(ctx, name.Namespace, name.Name)
 			}
 		}
 
@@ -252,7 +254,9 @@ func WaitForUpgrade(name types.NamespacedName, toVersion string) *metal3api.Iron
 		if upgradeAcknowledged && cond.Status == metav1.ConditionTrue {
 			Expect(upgraded).To(BeTrue(), "the Ready condition set before InstalledVersion")
 			logResources(ironic, suffix)
-			return true
+
+			// See https://github.com/metal3-io/ironic-standalone-operator/issues/304
+			return !podsAreBeingDeleted(ctx, name.Namespace, name.Name)
 		} else {
 			Expect(upgraded).To(BeFalse(), "InstalledVersion set before the Ready condition")
 		}
@@ -346,20 +350,36 @@ func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assum
 	}
 }
 
-func getCurrentIronicIPs(ctx context.Context, namespace, name string) []string {
-	if clusterType == clusterTypeKind {
-		return ironicIPs
-	}
-
+func getIronicPods(ctx context.Context, namespace, name string) []corev1.Pod {
 	listOptions := metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s-service", metal3api.IronicAppLabel, name),
 	}
 	pods, err := clientset.CoreV1().Pods(namespace).List(ctx, listOptions)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(pods.Items).NotTo(BeEmpty())
+	return pods.Items
+}
 
-	addresses := make([]string, 0, len(pods.Items))
-	for _, pod := range pods.Items {
+func podsAreBeingDeleted(ctx context.Context, namespace, name string) (result bool) {
+	pods := getIronicPods(ctx, namespace, name)
+	for _, pod := range pods {
+		if pod.DeletionTimestamp != nil {
+			GinkgoWriter.Printf("Pod %s/%s is being deleted (possibly a quirk of minikube)\n", pod.Namespace, pod.Name)
+			result = true
+		}
+	}
+	return
+}
+
+func getCurrentIronicIPs(ctx context.Context, namespace, name string) []string {
+	if clusterType == clusterTypeKind {
+		return ironicIPs
+	}
+
+	pods := getIronicPods(ctx, namespace, name)
+	Expect(pods).NotTo(BeEmpty())
+
+	addresses := make([]string, 0, len(pods))
+	for _, pod := range pods {
 		// Only use one address per pod, no need for both IP families
 		if pod.Status.Phase == corev1.PodRunning {
 			addresses = append(addresses, pod.Status.HostIP)
