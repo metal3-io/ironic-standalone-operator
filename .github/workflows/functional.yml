@@ -14,10 +14,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: "upgrade"
-            label_filter: "upgrade"
           - name: "regular"
-            label_filter: "!upgrade"
+            label_filter: "!upgrade && !ha"
+            minikube_args: ""
+          - name: "upgrade"
+            label_filter: "upgrade && !ha"
+            minikube_args: ""
+          - name: "ha"
+            label_filter: "ha"
+            minikube_args: "--ha"
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - name: Calculate go version
@@ -30,7 +35,7 @@ jobs:
     - name: Setup a minikube cluster
       uses: medyagh/setup-minikube@cea33675329b799adccc9526aa5daccc26cd5052 # v0.0.19
       with:
-        start-args: "--ha"
+        start-args: "${{ matrix.minikube_args }}"
     - name: Prepare tests
       run: ./test/prepare.sh
     - name: Run tests
