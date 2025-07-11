@@ -24,5 +24,5 @@ Optional:
   by `collect-logs.sh`
 - `IRONIC_CUSTOM_IMAGE` - Ironic container image to use when testing
 - `IRONIC_CUSTOM_VERSION` - Ironic version to use when testing
-- `MARIADB_CUSTOM_IMAGE` - MariaDB container image to use with tests that
-  create a database
+- `IPA_DOWNLOADER_CUSTOM_IMAGE` - IPA downloader container image to use
+- `KEEPALIVED_CUSTOM_IMAGE` - Keepalived container image to use

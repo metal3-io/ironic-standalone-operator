@@ -16,17 +16,21 @@ import (
 )
 
 var (
-	customImage        string
-	customImageVersion string
+	customIronicImage        string
+	customImageVersion       string
+	customIPADownloaderImage string
+	customKeepalivedImage    string
 )
 
 func LoadCustomImages() {
-	customImage = os.Getenv("IRONIC_CUSTOM_IMAGE")
+	customIronicImage = os.Getenv("IRONIC_CUSTOM_IMAGE")
 	customImageVersion = os.Getenv("IRONIC_CUSTOM_VERSION")
+	customIPADownloaderImage = os.Getenv("IPA_DOWNLOADER_CUSTOM_IMAGE")
+	customKeepalivedImage = os.Getenv("KEEPALIVED_CUSTOM_IMAGE")
 }
 
 func UsesCustomImage() bool {
-	return customImage != "" || customImageVersion != ""
+	return customIronicImage != "" || customImageVersion != ""
 }
 
 func SkipIfCustomImage() {
@@ -79,11 +83,17 @@ func NewIronic(ctx context.Context, k8sClient client.Client, nname types.Namespa
 		Spec: spec,
 	}
 
-	if customImage != "" {
-		ironic.Spec.Images.Ironic = customImage
+	if customIronicImage != "" {
+		ironic.Spec.Images.Ironic = customIronicImage
 	}
 	if customImageVersion != "" {
 		ironic.Spec.Version = customImageVersion
+	}
+	if customIPADownloaderImage != "" {
+		ironic.Spec.Images.DeployRamdiskDownloader = customIPADownloaderImage
+	}
+	if customKeepalivedImage != "" {
+		ironic.Spec.Images.Keepalived = customKeepalivedImage
 	}
 
 	err := k8sClient.Create(ctx, ironic)
