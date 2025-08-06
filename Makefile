@@ -310,10 +310,27 @@ go-version: ## Print the go version we use to compile our binaries and images
 ## --------------------------------------
 RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
 RELEASE_NOTES_DIR := releasenotes
+RELEASE_DIR := out
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
 
 $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
 
+.PHONY: release-manifests
+release-manifests: $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
+	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/install.yaml
+
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 	cd hack/tools && $(GO) run release/notes.go  --releaseTag=$(RELEASE_TAG) > $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md
+
+.PHONY: release
+release:
+	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
+	@if ! [ -z "$$(git status --porcelain)" ]; then echo "You have uncommitted changes"; exit 1; fi
+	git checkout "${RELEASE_TAG}"
+	sed -i -e "/image/s/latest/$(RELEASE_TAG)/" ./config/default/manager_image_patch.yaml
+	$(MAKE) release-manifests
+	$(MAKE) release-notes
