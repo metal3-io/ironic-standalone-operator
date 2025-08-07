@@ -308,7 +308,8 @@ go-version: ## Print the go version we use to compile our binaries and images
 ## --------------------------------------
 ## Release
 ## --------------------------------------
-RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
+# IrSO tags on branches, so the simpler approach with git describe does not work
+RELEASE_TAG ?= $(shell git tag -l | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" | sort -Vr | head -n 1 2>/dev/null)
 RELEASE_NOTES_DIR := releasenotes
 RELEASE_DIR := out
 
