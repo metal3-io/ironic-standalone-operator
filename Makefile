@@ -331,6 +331,6 @@ release:
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
 	@if ! [ -z "$$(git status --porcelain)" ]; then echo "You have uncommitted changes"; exit 1; fi
 	git checkout "${RELEASE_TAG}"
-	sed -i -e "/image/s/latest/$(RELEASE_TAG)/" ./config/default/manager_image_patch.yaml
+	sed -i -Ee "/image/s/(latest|release-[0-9\\.]+)/$(RELEASE_TAG)/" ./config/default/manager_image_patch.yaml
 	$(MAKE) release-manifests
 	$(MAKE) release-notes
