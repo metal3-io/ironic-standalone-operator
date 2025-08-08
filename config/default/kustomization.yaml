@@ -12,8 +12,8 @@ resources:
 #- ../prometheus
 
 patches:
+- path: manager_image_patch.yaml
 - path: manager_webhook_patch.yaml
-# 'CERTMANAGER' needs to be enabled to use ca injection
 - path: webhookcainjection_patch.yaml
 
 # the following config is for teaching kustomize how to do var substitution

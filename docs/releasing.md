@@ -90,8 +90,8 @@ Create a development branch (e.g. `prepare-0.x`) from the newly created branch:
   branch of the Ironic image.
 
 - Change the branch of IrSO itself from `latest` to `release-0.x` in two
-  places: [IMG in Makefile][img-makefile] and
-  [Kustomize configuration][kustomize].
+  places: [IMG in Makefile][img-makefile] and in the file
+  `config/default/manager_image_patch.yaml`.
 
 - Commit your changes, push the new branch and create a pull request:
   - The commit and PR title should be
@@ -105,7 +105,6 @@ Wait for the pull request to be merged before proceeding.
 
 [default-version]: https://github.com/metal3-io/ironic-standalone-operator/blob/b630805cdd782a51845fc16086e5f64fa77e29af/pkg/ironic/version.go#L14-L15
 [img-makefile]: https://github.com/metal3-io/ironic-standalone-operator/blob/b630805cdd782a51845fc16086e5f64fa77e29af/Makefile#L74-L75
-[kustomize]: https://github.com/metal3-io/ironic-standalone-operator/blob/b630805cdd782a51845fc16086e5f64fa77e29af/config/manager/manager.yaml#L47
 
 ### Creating Release Notes
 

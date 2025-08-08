@@ -23,3 +23,6 @@ bin/
 # IDE files
 .idea
 .vscode/
+
+# Release artifacts
+out/
