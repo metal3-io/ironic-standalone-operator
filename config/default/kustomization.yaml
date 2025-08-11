@@ -12,7 +12,6 @@ resources:
 #- ../prometheus
 
 patches:
-- path: manager_image_patch.yaml
 - path: manager_webhook_patch.yaml
 - path: webhookcainjection_patch.yaml
 
