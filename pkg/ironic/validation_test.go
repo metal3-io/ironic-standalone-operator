@@ -216,7 +216,7 @@ func TestValidateIronic(t *testing.T) {
 			Ironic: metal3api.IronicSpec{
 				Version: "42.42",
 			},
-			ExpectedError: "version 42.42 is not supported, supported versions are 27.0, 28.0, 29.0, 30.0, latest",
+			ExpectedError: "version 42.42 is not supported, supported versions are 27.0, 28.0, 29.0, 30.0, 31.0, latest",
 		},
 	}
 

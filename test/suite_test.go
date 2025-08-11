@@ -60,11 +60,12 @@ import (
 // https://docs.openstack.org/ironic/latest/contributor/webapi-version-history.html
 const (
 	// NOTE(dtantsur): latest is now at least 1.99, so we can rely on this
-	// value to check that specifying Version: 30.0 actually installs 30.0.
+	// value to check that specifying Version: 31.0 actually installs 31.0.
 	apiVersionIn270 = "1.94"
 	apiVersionIn280 = "1.95"
 	apiVersionIn290 = "1.96"
 	apiVersionIn300 = "1.99"
+	apiVersionIn310 = "1.99"
 	// Update this periodically to make sure we're installing the latest version by default.
 	knownAPIMinorVersion = 99
 
@@ -923,8 +924,12 @@ var _ = Describe("Ironic object tests", func() {
 		testUpgrade("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
 	})
 
-	It("creates Ironic 30.0 and upgrades to latest", Label("v300-to-latest", "upgrade"), func() {
-		testUpgrade("30.0", "latest", apiVersionIn300, "", namespace)
+	It("creates Ironic 30.0 and upgrades to 31.0", Label("v300-to-310", "upgrade"), func() {
+		testUpgrade("30.0", "31.0", apiVersionIn300, apiVersionIn310, namespace)
+	})
+
+	It("creates Ironic 31.0 and upgrades to latest", Label("v310-to-latest", "upgrade"), func() {
+		testUpgrade("31.0", "latest", apiVersionIn310, "", namespace)
 	})
 
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
@@ -965,8 +970,12 @@ var _ = Describe("Ironic object tests", func() {
 		testUpgradeHA("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
 	})
 
-	It("creates Ironic 30.0 with HA and upgrades to latest", Label("ha-v300-to-latest", "ha", "upgrade"), func() {
-		testUpgradeHA("30.0", "latest", apiVersionIn300, "", namespace)
+	It("creates Ironic 30.0 with HA and upgrades to 31.0", Label("ha-v300-to-310", "ha", "upgrade"), func() {
+		testUpgradeHA("30.0", "31.0", apiVersionIn300, apiVersionIn310, namespace)
+	})
+
+	It("creates Ironic 31.0 with HA and upgrades to latest", Label("ha-v310-to-latest", "ha", "upgrade"), func() {
+		testUpgradeHA("31.0", "latest", apiVersionIn310, "", namespace)
 	})
 
 	It("creates Ironic with keepalived and DHCP", Label("keepalived-dnsmasq"), func() {
