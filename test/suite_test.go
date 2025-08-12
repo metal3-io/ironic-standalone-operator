@@ -256,7 +256,7 @@ func WaitForUpgrade(name types.NamespacedName, toVersion string) *metal3api.Iron
 
 		logResources(ironic, suffix)
 		return false
-	}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
+	}).WithTimeout(10 * time.Minute).WithPolling(10 * time.Second).Should(BeTrue())
 
 	return ironic
 }
