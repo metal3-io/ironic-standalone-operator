@@ -72,7 +72,8 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/metal3-io/ironic-standalone-operator:latest
+IMG_NO_TAG ?= quay.io/metal3-io/ironic-standalone-operator
+IMG ?= $(IMG_NO_TAG):latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -332,6 +333,6 @@ release:
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
 	@if ! [ -z "$$(git status --porcelain)" ]; then echo "You have uncommitted changes"; exit 1; fi
 	git checkout "${RELEASE_TAG}"
-	sed -i -Ee "/image/s/(latest|release-[0-9\\.]+)/$(RELEASE_TAG)/" ./config/default/manager_image_patch.yaml
+	cd config/manager && $(KUSTOMIZE) edit set image quay.io/metal3-io/ironic-standalone-operator="$(IMG_NO_TAG):${RELEASE_TAG}"
 	$(MAKE) release-manifests
 	$(MAKE) release-notes
