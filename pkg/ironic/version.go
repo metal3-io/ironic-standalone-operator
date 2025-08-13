@@ -12,7 +12,7 @@ const (
 
 var (
 	// NOTE(dtantsur): defaultVersion must be updated after branching.
-	defaultVersion                = metal3api.VersionLatest
+	defaultVersion                = metal3api.Version310
 	defaultMariaDBImage           = defaultRegistry + "/mariadb:latest"
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
