@@ -329,7 +329,7 @@ release-notes: $(RELEASE_NOTES_DIR) $(RELEASE_NOTES)
 	cd hack/tools && $(GO) run release/notes.go  --releaseTag=$(RELEASE_TAG) > $(realpath $(RELEASE_NOTES_DIR))/$(RELEASE_TAG).md
 
 .PHONY: release
-release:
+release: kustomize
 	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
 	@if ! [ -z "$$(git status --porcelain)" ]; then echo "You have uncommitted changes"; exit 1; fi
 	git checkout "${RELEASE_TAG}"
