@@ -243,8 +243,8 @@ $(GOLANGCI_LINT): $(LOCALBIN) ## Download golangci-lint locally if necessary. If
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) config verify
 	$(GOLANGCI_LINT) run -v ./... --timeout=10m
-	cd api; $(GOLANGCI_LINT) run -v ./... --timeout=10m
-	cd test; $(GOLANGCI_LINT) run -v ./... --timeout=10m
+	cd api; $(GOLANGCI_LINT) run -v --path-prefix=api ./... --timeout=10m
+	cd test; $(GOLANGCI_LINT) run -v --path-prefix=test ./... --timeout=10m
 
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
