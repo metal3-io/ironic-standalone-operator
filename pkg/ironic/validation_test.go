@@ -218,6 +218,116 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "version 42.42 is not supported, supported versions are 27.0, 28.0, 29.0, 30.0, 31.0, latest",
 		},
+		{
+			Scenario: "change existing database config",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "newtest",
+					Host:            "newexample.com",
+					Name:            "newironic",
+				},
+			},
+			OldIronic: &metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "oldtest",
+					Host:            "oldexample.com",
+					Name:            "oldironic",
+				},
+			},
+			ExpectedError: "cannot change to a new database",
+		},
+		{
+			Scenario: "incomplete database config",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+				},
+			},
+			ExpectedError: "credentialsName, host and name are required on database",
+		},
+		{
+			Scenario: "configure RPC when HA is disabled",
+			Ironic: metal3api.IronicSpec{
+				TLS: metal3api.TLS{
+					InsecureRPC: func() *bool { b := true; return &b }(),
+				},
+				HighAvailability: false,
+			},
+			ExpectedError: "insecureRPC makes no sense without highAvailability",
+		},
+		{
+			Scenario: "DHCP without networking identity",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+					},
+				},
+			},
+			ExpectedError: "networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used",
+		},
+		{
+			Scenario: "serveDNS and dnsAddress configured simultaneously",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						ServeDNS:    true,
+						DNSAddress:  "8.8.8.8",
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.dnsAddress cannot set together with serveDNS",
+		},
+		{
+			Scenario: "DHCP rangeBegin outside CDIR",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "192.168.1.100",
+					},
+				},
+			},
+			ExpectedError: "10.0.0.10 is not in networking.dhcp.networkCIDR",
+		},
+		{
+			Scenario: "Provisioning IP address not in the CIDR",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.10",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.networkCIDR must contain networking.ipAddress",
+		},
+		{
+			Scenario: "invalid IP provided for dnsAddress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						DNSAddress:  "not-an-ip",
+					},
+				},
+			},
+			ExpectedError: "not-an-ip is not a valid IP address",
+		},
 	}
 
 	for _, tc := range testCases {
