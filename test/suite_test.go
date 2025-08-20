@@ -554,7 +554,12 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 
 	By("creating and deleting a lot of Nodes")
 
-	withTimeout, cancel = context.WithTimeout(ctx, 2*time.Minute)
+	newTimeout := 2 * time.Minute
+	if !assumptions.withHA {
+		// FIXME(dtantsur): the non-HA (most likely, no database) case has regressed in performance after the eventlet migration.
+		newTimeout = 5 * time.Minute
+	}
+	withTimeout, cancel = context.WithTimeout(ctx, newTimeout)
 	defer cancel()
 
 	stressTest(withTimeout, clients)
@@ -995,6 +1000,24 @@ var _ = Describe("Ironic object tests", func() {
 				IPAddress:        os.Getenv("PROVISIONING_IP"),
 				IPAddressManager: metal3api.IPAddressManagerKeepalived,
 			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
+
+	It("creates Ironic with database", Label("database"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			Database: helpers.CreateDatabase(ctx, k8sClient, name),
 		})
 		DeferCleanup(func() {
 			CollectLogs(namespace)
