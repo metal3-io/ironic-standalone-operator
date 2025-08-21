@@ -30,6 +30,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+	ginkgotypes "github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 
 	"github.com/gophercloud/gophercloud/v2"
@@ -810,7 +811,9 @@ var _ = Describe("Ironic object tests", func() {
 		_, err := clientset.CoreV1().Namespaces().Create(ctx, nsSpec, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
-			saveEvents(namespace)
+			if !CurrentSpecReport().State.Is(ginkgotypes.SpecStateSkipped) {
+				saveEvents(namespace)
+			}
 			_ = clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
 			Eventually(func() bool {
 				_, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
