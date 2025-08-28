@@ -555,12 +555,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 
 	By("creating and deleting a lot of Nodes")
 
-	newTimeout := 2 * time.Minute
-	if !assumptions.withHA {
-		// FIXME(dtantsur): the non-HA (most likely, no database) case has regressed in performance after the eventlet migration.
-		newTimeout = 5 * time.Minute
-	}
-	withTimeout, cancel = context.WithTimeout(ctx, newTimeout)
+	withTimeout, cancel = context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	stressTest(withTimeout, clients)
