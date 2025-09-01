@@ -625,14 +625,14 @@ EXPERIMENTAL: requires feature gate Overrides.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Extra annotations to add to each container.<br/>
+          Extra annotations to add to each pod (including upgrade jobs).<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Extra labels to add to each container.<br/>
+          Extra labels to add to each pod (including upgrade jobs).<br/>
         </td>
         <td>false</td>
       </tr></tbody>

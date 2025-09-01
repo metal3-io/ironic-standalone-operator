@@ -261,11 +261,11 @@ type Database struct {
 }
 
 type Overrides struct {
-	// Extra annotations to add to each container.
+	// Extra annotations to add to each pod (including upgrade jobs).
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// Extra labels to add to each container.
+	// Extra labels to add to each pod (including upgrade jobs).
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 }

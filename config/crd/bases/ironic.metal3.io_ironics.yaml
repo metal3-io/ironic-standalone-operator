@@ -295,12 +295,14 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
-                    description: Extra annotations to add to each container.
+                    description: Extra annotations to add to each pod (including upgrade
+                      jobs).
                     type: object
                   labels:
                     additionalProperties:
                       type: string
-                    description: Extra labels to add to each container.
+                    description: Extra labels to add to each pod (including upgrade
+                      jobs).
                     type: object
                 type: object
               tls:
