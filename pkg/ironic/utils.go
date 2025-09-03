@@ -304,3 +304,26 @@ func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) 
 
 	return podTemplate
 }
+
+// Merge maps, keys from m1 have priority over ones from m2.
+func mergeMaps[M ~map[K]V, K, V comparable](m1 M, m2 M) M {
+	if m2 == nil {
+		return m1
+	}
+
+	result := maps.Clone(m2)
+	maps.Copy(result, m1)
+	return result
+}
+
+func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
+	if overrides == nil {
+		return podTemplate
+	}
+
+	// Always preserve built-in annotations and labels
+	podTemplate.Annotations = mergeMaps(podTemplate.Annotations, overrides.Annotations)
+	podTemplate.Labels = mergeMaps(podTemplate.Labels, overrides.Labels)
+
+	return podTemplate
+}
