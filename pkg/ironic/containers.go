@@ -214,7 +214,7 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		// to port 6189 chosen for Metal3.
 		{
 			Name:  "OS_JSON_RPC__PORT",
-			Value: "8089",
+			Value: strconv.Itoa(int(resources.Ironic.Spec.Networking.RPCPort)),
 		},
 	}...)
 

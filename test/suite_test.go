@@ -440,7 +440,7 @@ func verifyRPC(ctx context.Context, ironicIPs []string, withTLS bool) {
 		if withTLS {
 			proto = "https://"
 		}
-		testURL := proto + net.JoinHostPort(ironicIP, "8089")
+		testURL := proto + net.JoinHostPort(ironicIP, "6189")
 		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
 		Expect(statusCode).To(Equal(401))
 	}

@@ -164,6 +164,13 @@ type Networking struct {
 	// Only set if no other options can be used.
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
+
+	// RPCPort is the internal RPC port used for Ironic.
+	// Only change this if the default value causes a conflict on your deployment.
+	// +kubebuilder:default=6189
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	RPCPort int32 `json:"rpcPort,omitempty"`
 }
 
 // DeployRamdisk defines IPA ramdisk settings.
