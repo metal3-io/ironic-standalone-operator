@@ -40,3 +40,4 @@ collect_from_ns ironic-standalone-operator-system controller
 collect_from_ns "${MARIADB_NAMESPACE}" ironic-database
 collect_from_ns mariadb-operator
 collect_from_ns kube-system
+collect_from_ns cert-manager
