@@ -278,6 +278,14 @@ spec:
                     items:
                       type: string
                     type: array
+                  rpcPort:
+                    default: 6189
+                    description: |-
+                      RPCPort is the internal RPC port used for Ironic.
+                      Only change this if the default value causes a conflict on your deployment.
+                    format: int32
+                    minimum: 1
+                    type: integer
                 type: object
               nodeSelector:
                 additionalProperties:

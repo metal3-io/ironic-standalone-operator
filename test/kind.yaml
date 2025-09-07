@@ -12,6 +12,6 @@ nodes:
   - containerPort: 6385
     hostPort: 6385
     listenAddress: "127.0.0.1"
-  - containerPort: 8089
-    hostPort: 8089
+  - containerPort: 6189
+    hostPort: 6189
     listenAddress: "127.0.0.1"

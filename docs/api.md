@@ -516,6 +516,18 @@ Warning: keepalived is not compatible with the highly available architecture.<br
 Only set if no other options can be used.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>rpcPort</b></td>
+        <td>integer</td>
+        <td>
+          RPCPort is the internal RPC port used for Ironic.
+Only change this if the default value causes a conflict on your deployment.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 6189<br/>
+            <i>Minimum</i>: 1<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
