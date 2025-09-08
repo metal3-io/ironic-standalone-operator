@@ -2,4 +2,4 @@ resources:
 - ../default
 
 patches:
-- path: manager_feature_gates_patch.yaml
+- path: manager_irso_config_patch.yaml
