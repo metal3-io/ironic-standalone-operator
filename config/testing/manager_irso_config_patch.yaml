@@ -11,3 +11,5 @@ spec:
           env:
             - name: FEATURE_GATES
               value: HighAvailability=true
+            - name: IPA_BASEURI
+              value: https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib
