@@ -33,7 +33,7 @@ popd
 # Installing cert-manager
 
 "${HELM}" repo add jetstack https://charts.jetstack.io --force-update
-"${HELM}" install cert-manager jetstack/cert-manager \
+"${HELM}" install cert-manager jetstack/cert-manager --debug \
   --namespace cert-manager --create-namespace \
   --version "v${CERT_MANAGER_VERSION}" --set crds.enabled=true
 
@@ -41,11 +41,11 @@ popd
 
 "${HELM}" repo add mariadb-operator https://helm.mariadb.com/mariadb-operator
 "${HELM}" install mariadb-operator-crds mariadb-operator/mariadb-operator-crds \
-    --version "${MARIADB_OPERATOR_VERSION}"
+    --version "${MARIADB_OPERATOR_VERSION}" --debug
 "${HELM}" install mariadb-operator mariadb-operator/mariadb-operator \
     --namespace mariadb-operator --create-namespace \
     --set webhook.cert.certManager.enabled=true \
-    --version "${MARIADB_OPERATOR_VERSION}"
+    --version "${MARIADB_OPERATOR_VERSION}" --debug
 
 # Caching required images
 
