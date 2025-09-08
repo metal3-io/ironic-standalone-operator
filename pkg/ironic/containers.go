@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"net/netip"
+	"os"
 	"strconv"
 	"strings"
 
@@ -564,6 +565,8 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"IPA_BASEURI", os.Getenv("IPA_BASEURI"))
 
 	volumes, mounts := buildIronicVolumesAndMounts(cctx, resources)
 	sharedVolumeMount := mounts[0]
