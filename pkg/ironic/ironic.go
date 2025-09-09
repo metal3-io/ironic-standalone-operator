@@ -169,7 +169,8 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 	}
 
 	if resources.Ironic.Spec.Database != nil {
-		jobStatus, err := ensureIronicUpgradeJob(cctx, resources, preUpgrade)
+		var jobStatus Status
+		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, preUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
