@@ -126,7 +126,8 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if actuallyRequestedVersion != ironicConf.Status.InstalledVersion && actuallyRequestedVersion != ironicConf.Status.RequestedVersion {
 		// Ironic does not support downgrades when a real external database is used.
 		if ironicConf.Status.InstalledVersion != "" && ironicConf.Spec.Database != nil {
-			parsedVersion, err := metal3api.ParseVersion(ironicConf.Status.InstalledVersion)
+			var parsedVersion metal3api.Version
+			parsedVersion, err = metal3api.ParseVersion(ironicConf.Status.InstalledVersion)
 			if err != nil {
 				return false, err
 			}

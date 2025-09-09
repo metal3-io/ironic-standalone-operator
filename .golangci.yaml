@@ -114,6 +114,9 @@ linters-settings:
     case:
       rules:
         json: goCamel
+  govet:
+    enable:
+    - shadow
 issues:
   exclude-files:
   - "zz_generated.*\\.go$"
