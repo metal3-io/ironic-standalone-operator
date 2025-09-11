@@ -7,10 +7,10 @@ require (
 	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.39.0
-	k8s.io/api v0.32.8
-	k8s.io/apimachinery v0.32.8
-	k8s.io/client-go v0.32.8
-	k8s.io/component-base v0.32.8
+	k8s.io/api v0.32.9
+	k8s.io/apimachinery v0.32.9
+	k8s.io/client-go v0.32.9
+	k8s.io/component-base v0.32.9
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	sigs.k8s.io/controller-runtime v0.20.4
 )
