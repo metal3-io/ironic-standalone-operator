@@ -161,10 +161,19 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
+	var bmcSecret *corev1.Secret
+	if bmcSecretName := ironicConf.Spec.TLS.BMCCAName; bmcSecretName != "" {
+		bmcSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, bmcSecretName)
+		if requeue || err != nil {
+			return
+		}
+	}
+
 	resources := ironic.Resources{
-		Ironic:    ironicConf,
-		APISecret: apiSecret,
-		TLSSecret: tlsSecret,
+		Ironic:      ironicConf,
+		APISecret:   apiSecret,
+		TLSSecret:   tlsSecret,
+		BMCCASecret: bmcSecret,
 	}
 
 	status, err := ironic.EnsureIronic(cctx, resources)

@@ -26,10 +26,12 @@ const (
 	majorVersion29 = 29
 	majorVersion30 = 30
 	majorVersion31 = 31
+	majorVersion32 = 32
 )
 
 var (
 	VersionLatest = Version{}
+	Version320    = Version{Major: majorVersion32, Minor: 0}
 	Version310    = Version{Major: majorVersion31, Minor: 0}
 	Version300    = Version{Major: majorVersion30, Minor: 0}
 	Version290    = Version{Major: majorVersion29, Minor: 0}
@@ -192,7 +194,14 @@ type DeployRamdisk struct {
 
 // TLS defines the TLS settings.
 type TLS struct {
+	// BMCCAName is a reference to the secret with the CA certificate(s)
+	// to use when validating TLS connections to BMC's.
+	// Supported in Ironic 32.0 or newer.
+	// +optional
+	BMCCAName string `json:"bmcCAName,omitempty"`
+
 	// CertificateName is a reference to the secret with the TLS certificate.
+	// Must contains both the certificate and the private key parts.
 	// +optional
 	CertificateName string `json:"certificateName,omitempty"`
 

@@ -317,9 +317,16 @@ spec:
                 description: TLS defines TLS-related settings for various network
                   interactions.
                 properties:
+                  bmcCAName:
+                    description: |-
+                      BMCCAName is a reference to the secret with the CA certificate(s)
+                      to use when validating TLS connections to BMC's.
+                      Supported in Ironic 32.0 or newer.
+                    type: string
                   certificateName:
-                    description: CertificateName is a reference to the secret with
-                      the TLS certificate.
+                    description: |-
+                      CertificateName is a reference to the secret with the TLS certificate.
+                      Must contains both the certificate and the private key parts.
                     type: string
                   disableVirtualMediaTLS:
                     description: |-
