@@ -391,6 +391,27 @@ func buildIronicVolumesAndMounts(cctx ControllerContext, resources Resources) (v
 		}
 	}
 
+	if resources.BMCCASecret != nil {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "cert-bmc",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  resources.BMCCASecret.Name,
+						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
+					},
+				},
+			},
+		)
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "cert-bmc",
+				MountPath: certsDir + "/ca/bmc",
+				ReadOnly:  true,
+			},
+		)
+	}
+
 	if resources.Ironic.Spec.Database != nil {
 		dbVolumes, dbMounts := databaseClientMounts(cctx, resources.Ironic.Spec.Database)
 		volumes = append(volumes, dbVolumes...)

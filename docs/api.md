@@ -668,10 +668,20 @@ TLS defines TLS-related settings for various network interactions.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>bmcCAName</b></td>
+        <td>string</td>
+        <td>
+          BMCCAName is a reference to the secret with the CA certificate(s)
+to use when validating TLS connections to BMC's.
+Supported in Ironic 32.0 or newer.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>certificateName</b></td>
         <td>string</td>
         <td>
-          CertificateName is a reference to the secret with the TLS certificate.<br/>
+          CertificateName is a reference to the secret with the TLS certificate.
+Must contains both the certificate and the private key parts.<br/>
         </td>
         <td>false</td>
       </tr><tr>

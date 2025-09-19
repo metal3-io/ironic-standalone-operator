@@ -176,6 +176,12 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 		}
 	}
 
+	if resources.BMCCASecret != nil && cctx.VersionInfo.InstalledVersion.Compare(versionBMCCA) < 0 {
+		err = errors.New("using tls.bmcCAName is only possible for Ironic 32.0 or newer")
+		status = Status{Fatal: err}
+		return
+	}
+
 	if resources.Ironic.Spec.HighAvailability {
 		err = removeIronicDeployment(cctx, resources.Ironic)
 		if err != nil {

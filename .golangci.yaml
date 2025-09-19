@@ -142,3 +142,6 @@ issues:
   - linters:
     - tagliatelle
     text: "CIDR"
+  - linters:
+    - tagliatelle
+    text: "CA"
