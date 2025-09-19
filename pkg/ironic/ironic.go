@@ -162,12 +162,6 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 		return
 	}
 
-	if resources.Ironic.Spec.HighAvailability && cctx.VersionInfo.InstalledVersion.Compare(versionWithoutAuthConfig) < 0 {
-		err = errors.New("using HA is only possible for Ironic 28.0 or newer")
-		status = Status{Fatal: err}
-		return
-	}
-
 	if resources.Ironic.Spec.Database != nil {
 		var jobStatus Status
 		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, preUpgrade)

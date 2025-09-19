@@ -38,7 +38,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, phas
 	script := commandPerPhase[phase]
 	database := ironic.Spec.Database
 
-	volumes, mounts := databaseClientMounts(cctx, database)
+	volumes, mounts := databaseClientMounts(database)
 
 	// NOTE(dtantsur): these are not actually needed for upgrade scripts but are currently required by configure-ironic
 	volumes = append(volumes, corev1.Volume{
@@ -52,7 +52,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, phas
 		MountPath: sharedDir,
 	})
 
-	envVars := databaseClientEnvVars(cctx, database)
+	envVars := databaseClientEnvVars(database)
 	envVars = append(envVars, []corev1.EnvVar{
 		{
 			Name:  "IRONIC_USE_MARIADB",
@@ -84,11 +84,11 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, phas
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
-				ReadOnlyRootFilesystem: ptr.To(hasReadOnlyRootFilesystem(cctx)),
+				ReadOnlyRootFilesystem: ptr.To(true),
 			},
 		},
 	}
-	return applyOverridesToPod(ironic.Spec.Overrides, addDataVolumes(cctx, corev1.PodTemplateSpec{
+	return applyOverridesToPod(ironic.Spec.Overrides, addDataVolumes(corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicServiceLabel: ironic.Name,
@@ -114,12 +114,6 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 		fromVersion = "none"
 	}
 	toVersion := cctx.VersionInfo.InstalledVersion
-
-	// TODO(dtantsur): remove this when ironic-image < 29.0 is not supported
-	if toVersion.Compare(versionUpgradeScripts) < 0 {
-		cctx.Logger.Info("not running upgrade scripts: the new version does not support them", "From", fromVersion, "To", toVersion.String())
-		return ready()
-	}
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
