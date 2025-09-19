@@ -261,15 +261,7 @@ func appendListOfStringsEnv(envVars []corev1.EnvVar, name string, value []string
 	return envVars
 }
 
-func hasReadOnlyRootFilesystem(cctx ControllerContext) bool {
-	return cctx.VersionInfo.InstalledVersion.Compare(versionDataMounts) >= 0
-}
-
-func addDataVolumes(cctx ControllerContext, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
-	if !hasReadOnlyRootFilesystem(cctx) {
-		return podTemplate
-	}
-
+func addDataVolumes(podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
 	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, corev1.Volume{
 		Name: dataVolumeName,
 		VolumeSource: corev1.VolumeSource{

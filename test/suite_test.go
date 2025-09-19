@@ -62,9 +62,6 @@ import (
 const (
 	// NOTE(dtantsur): latest is now at least 1.99, so we can rely on this
 	// value to check that specifying Version: 31.0 actually installs 31.0.
-	apiVersionIn270 = "1.94"
-	apiVersionIn280 = "1.95"
-	apiVersionIn290 = "1.96"
 	apiVersionIn300 = "1.99"
 	apiVersionIn310 = "1.99"
 	// Update this periodically to make sure we're installing the latest version by default.
@@ -915,18 +912,6 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{withTLS: true})
 	})
 
-	It("creates Ironic 27.0 and upgrades to 28.0", Label("v270-to-280", "upgrade"), func() {
-		testUpgrade("27.0", "28.0", apiVersionIn270, apiVersionIn280, namespace)
-	})
-
-	It("creates Ironic 28.0 and upgrades to 29.0", Label("v280-to-290", "upgrade"), func() {
-		testUpgrade("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
-	})
-
-	It("creates Ironic 29.0 and upgrades to 30.0", Label("v290-to-300", "upgrade"), func() {
-		testUpgrade("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
-	})
-
 	It("creates Ironic 30.0 and upgrades to 31.0", Label("v300-to-310", "upgrade"), func() {
 		testUpgrade("30.0", "31.0", apiVersionIn300, apiVersionIn310, namespace)
 	})
@@ -945,7 +930,7 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			Database: helpers.CreateDatabase(ctx, k8sClient, name),
-			Version:  "28.0",
+			Version:  "31.0",
 		})
 		DeferCleanup(func() {
 			CollectLogs(namespace)
@@ -953,24 +938,16 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn280})
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn310})
 
-		By("downgrading to Ironic 27.0")
+		By("downgrading to Ironic 30.0")
 
 		patch := client.MergeFrom(ironic.DeepCopy())
-		ironic.Spec.Version = "27.0"
+		ironic.Spec.Version = "30.0"
 		err := k8sClient.Patch(ctx, ironic, patch)
 		Expect(err).NotTo(HaveOccurred())
 
 		WaitForIronicFailure(name, "Ironic does not support downgrades", true)
-	})
-
-	It("creates Ironic 28.0 with HA and upgrades to 29.0", Label("ha-v280-to-v290", "ha", "upgrade"), func() {
-		testUpgradeHA("28.0", "29.0", apiVersionIn280, apiVersionIn290, namespace)
-	})
-
-	It("creates Ironic 29.0 with HA and upgrades to 30.0", Label("ha-v290-to-300", "ha", "upgrade"), func() {
-		testUpgradeHA("29.0", "30.0", apiVersionIn290, apiVersionIn300, namespace)
 	})
 
 	It("creates Ironic 30.0 with HA and upgrades to 31.0", Label("ha-v300-to-310", "ha", "upgrade"), func() {

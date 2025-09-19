@@ -17,11 +17,7 @@ var (
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
 
-	versionWithoutAuthConfig   = metal3api.Version280
-	versionUpgradeScripts      = metal3api.Version290
-	versionMountDatabaseSecret = metal3api.Version290
-	versionDataMounts          = metal3api.Version290
-	versionBMCCA               = metal3api.Version320
+	versionBMCCA = metal3api.Version320
 )
 
 type VersionInfo struct {
