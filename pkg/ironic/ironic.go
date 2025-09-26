@@ -61,6 +61,23 @@ func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status,
 	return getDaemonSetStatus(cctx, deploy)
 }
 
+func populateIronicDeployment(cctx ControllerContext, resources Resources, deploy *appsv1.Deployment, template corev1.PodTemplateSpec) {
+	if deploy.Labels == nil {
+		deploy.Labels = make(map[string]string, 2)
+	}
+	deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
+	deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
+
+	matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(resources.Ironic)}
+	deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
+	deploy.Spec.Replicas = ptr.To(int32(1))
+	mergePodTemplates(&deploy.Spec.Template, template)
+	// We cannot run two copies of Ironic in parallel
+	deploy.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RecreateDeploymentStrategyType,
+	}
+}
+
 func ensureIronicDeployment(cctx ControllerContext, resources Resources) (Status, error) {
 	template, err := newIronicPodTemplate(cctx, resources)
 	if err != nil {
@@ -77,20 +94,7 @@ func ensureIronicDeployment(cctx ControllerContext, resources Resources) (Status
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
 		}
-		if deploy.Labels == nil {
-			deploy.Labels = make(map[string]string, 2)
-		}
-		deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
-		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
-
-		matchLabels := map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(resources.Ironic)}
-		deploy.Spec.Selector = &metav1.LabelSelector{MatchLabels: matchLabels}
-		deploy.Spec.Replicas = ptr.To(int32(1))
-		mergePodTemplates(&deploy.Spec.Template, template)
-		// We cannot run two copies of Ironic in parallel
-		deploy.Spec.Strategy = appsv1.DeploymentStrategy{
-			Type: appsv1.RecreateDeploymentStrategyType,
-		}
+		populateIronicDeployment(cctx, resources, deploy, template)
 		return controllerutil.SetControllerReference(resources.Ironic, deploy, cctx.Scheme)
 	})
 	if err != nil {

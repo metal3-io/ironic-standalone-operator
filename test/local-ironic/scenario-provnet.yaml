@@ -1,0 +1,17 @@
+---
+apiVersion: ironic.metal3.io/v1alpha1
+kind: Ironic
+metadata:
+  name: ironic-provnet
+  namespace: default
+spec:
+  deployRamdisk:
+    disableDownloader: true
+  networking:
+    dhcp:
+      networkCIDR: 192.168.42.0/24
+      rangeBegin: 192.168.42.10
+      rangeEnd: 192.168.42.100
+    interface: ironic
+    ipAddress: 192.168.42.2
+    ipAddressManager: keepalived
