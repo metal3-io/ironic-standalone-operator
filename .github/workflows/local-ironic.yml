@@ -13,6 +13,7 @@ jobs:
       matrix:
         scenario:
         - empty
+        - provnet
     steps:
     - name: Create logs directory
       run: mkdir -p /tmp/logs

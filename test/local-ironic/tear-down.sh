@@ -16,5 +16,5 @@ fi
 
 mkdir -p "${LOGDIR}"
 make build-run-local-ironic
-./bin/run-local-ironic --down --input "${IRONIC}" \
+sudo ./bin/run-local-ironic --down --input "${IRONIC}" \
     --output "${LOGDIR}/generated-${SCENARIO}.yaml" --verbose

@@ -2,6 +2,6 @@
 apiVersion: ironic.metal3.io/v1alpha1
 kind: Ironic
 metadata:
-  name: ironic-test
+  name: ironic-empty
   namespace: default
 spec: {}
