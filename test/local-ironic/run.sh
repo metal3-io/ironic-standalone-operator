@@ -39,12 +39,11 @@ sudo ./bin/run-local-ironic --input "${IRONIC}" \
 # podman returns before containers fully start, so give it a graceful period
 ATTEMPT=0
 SUCCESS=
-while [[ $ATTEMPT -ne 30 ]]
-do
+while [[ "${ATTEMPT}" -ne 30 ]]; do
     sleep 2
-    ATTEMPT=$(($ATTEMPT + 1))
+    ATTEMPT=$((ATTEMPT + 1))
 
-    echo "Checking Ironic: attempt $ATTEMPT / 30"
+    echo "Checking Ironic: attempt ${ATTEMPT} / 30"
     if curl -vfL "http://${IRONIC_IP}:6385/v1"; then
         SUCCESS=true
         break
@@ -52,6 +51,6 @@ do
 done
 
 if [[ "${SUCCESS}" != true ]]; then
-    echo "FATAL: All ATTEMPTs failed!"
+    echo "FATAL: All attempts failed!"
     exit 2
 fi
