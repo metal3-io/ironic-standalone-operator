@@ -34,6 +34,7 @@ var (
 // expectations.
 var SupportedVersions = map[Version]string{
 	VersionLatest: "latest",
+	Version320:    "release-32.0",
 	Version310:    "release-31.0",
 	Version300:    "release-30.0",
 }
