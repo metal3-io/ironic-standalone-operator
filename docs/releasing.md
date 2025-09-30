@@ -87,11 +87,10 @@ If (and only if) you're creating a release `v0.x.0` (i.e. a minor release):
 Create a development branch (e.g. `prepare-0.x`) from the newly created branch:
 
 - Change [the default Ironic version][default-version] to the most recent
-  branch of the Ironic image.
-
-- Change the branch of IrSO itself from `latest` to `release-0.x` in two
-  places: [IMG in Makefile][img-makefile] and
+  branch of the Ironic image, and the branch of IrSO itself from `latest` to
+  `release-0.x` in two places: [IMG in Makefile][img-makefile] and
   [Kustomize configuration][kustomize].
+  [Prior art](https://github.com/metal3-io/ironic-standalone-operator/pull/388).
 
 - Commit your changes, push the new branch and create a pull request:
   - The commit and PR title should be
