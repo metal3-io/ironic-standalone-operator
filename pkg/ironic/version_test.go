@@ -62,13 +62,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "31.0",
+					Version: "32.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version310,
-				IronicImage:            "quay.io/metal3-io/ironic:release-31.0",
+				InstalledVersion:       metal3api.Version320,
+				IronicImage:            "quay.io/metal3-io/ironic:release-32.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
@@ -79,13 +79,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "30.0",
+					Version: "31.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version300,
-				IronicImage:            "quay.io/metal3-io/ironic:release-30.0",
+				InstalledVersion:       metal3api.Version310,
+				IronicImage:            "quay.io/metal3-io/ironic:release-31.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
