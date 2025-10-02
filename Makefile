@@ -158,6 +158,10 @@ run: manifests generate fmt vet ## Run a controller from your host.
 docker-build: test ## Build docker image with the manager.
 	docker build -t ${IMG} .
 
+.PHONY: docker-build-debug
+docker-build-debug: test ## Build docker image with the manager with debug info.
+	docker build --build-arg LDFLAGS="-extldflags=-static" -t ${IMG} .
+
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}

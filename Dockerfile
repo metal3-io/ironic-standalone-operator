@@ -6,6 +6,7 @@ ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:9ecc53c269509f63c69a26616
 FROM $BUILD_IMAGE AS builder
 
 WORKDIR /workspace
+ARG LDFLAGS=-s -w -extldflags=-static
 # Copy the Go Modules manifests
 COPY go.mod go.sum ./
 COPY api/go.mod api/go.sum api/
@@ -20,7 +21,8 @@ COPY internal/ internal/
 COPY pkg/ pkg/
 
 # Build
-RUN CGO_ENABLED=0 go build -a -o manager cmd/main.go
+RUN CGO_ENABLED=0 go build -a -ldflags "${LDFLAGS}" \
+    -o manager cmd/main.go
 
 # Use distroless as minimal base image to package the manager binary
 FROM $BASE_IMAGE
