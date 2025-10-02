@@ -144,8 +144,15 @@ test: manifests generate fmt vet ## Run tests.
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: build-manager build-run-local-ironic ## Build all binaries.
+
+.PHONY: build-manager
+build-manager: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
+
+.PHONY: build-run-local-ironic
+build-run-local-ironic: manifests generate fmt vet ## Build run-local-ironic binary.
+	go build -o bin/run-local-ironic cmd/run-local-ironic/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
