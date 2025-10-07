@@ -226,9 +226,13 @@ type Images struct {
 	Keepalived string `json:"keepalived,omitempty"`
 }
 
-// ExtraConfig defines environment variables to override Ironic configuration
-// More info at the end of description section
-// https://github.com/metal3-io/ironic-image
+// ExtraConfig allows overriding any Ironic configuration options.
+// See the entire listing of available options in the Ironic documentation:
+// https://docs.openstack.org/ironic/latest/configuration/config.html
+// (note that some options may not be available in earlier releases).
+//
+// Warning: modifying arbitrary options may cause your Ironic installation to
+// fail or misbehave. Do not modify anything you don't understand well.
 type ExtraConfig struct {
 
 	// The group that config belongs to.
@@ -289,7 +293,7 @@ type IronicSpec struct {
 	// +optional
 	DeployRamdisk DeployRamdisk `json:"deployRamdisk,omitempty"`
 
-	// ExtraConfig defines extra options for Ironic configuration.
+	// ExtraConfig allows overriding any Ironic configuration options.
 	// +optional
 	ExtraConfig []ExtraConfig `json:"extraConfig,omitempty"`
 
