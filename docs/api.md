@@ -111,7 +111,7 @@ If missing, a local SQLite database will be used, and the Ironic state will be r
         <td><b><a href="#ironicspecextraconfigindex">extraConfig</a></b></td>
         <td>[]object</td>
         <td>
-          ExtraConfig defines extra options for Ironic configuration.<br/>
+          ExtraConfig allows overriding any Ironic configuration options.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -282,9 +282,13 @@ Will not take effect if the host uses a pre-built ISO (either through its Prepro
 
 
 
-ExtraConfig defines environment variables to override Ironic configuration
-More info at the end of description section
-https://github.com/metal3-io/ironic-image
+ExtraConfig allows overriding any Ironic configuration options.
+See the entire listing of available options in the Ironic documentation:
+https://docs.openstack.org/ironic/latest/configuration/config.html
+(note that some options may not be available in earlier releases).
+
+Warning: modifying arbitrary options may cause your Ironic installation to
+fail or misbehave. Do not modify anything you don't understand well.
 
 <table>
     <thead>
