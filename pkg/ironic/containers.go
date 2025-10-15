@@ -667,9 +667,10 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			InitContainers: initContainers,
 			Volumes:        volumes,
 			// Ironic needs to be accessed by external machines
-			HostNetwork:  true,
-			DNSPolicy:    corev1.DNSClusterFirstWithHostNet,
-			NodeSelector: resources.Ironic.Spec.NodeSelector,
+			HostNetwork:                  true,
+			DNSPolicy:                    corev1.DNSClusterFirstWithHostNet,
+			NodeSelector:                 resources.Ironic.Spec.NodeSelector,
+			AutomountServiceAccountToken: ptr.To(false),
 		},
 	}), nil
 }
