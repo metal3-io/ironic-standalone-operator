@@ -4,6 +4,10 @@ kind: Kustomization
 resources:
 - manager.yaml
 
+# Make the name of this configmap predictable so users can reference it.
+generatorOptions:
+  disableNameSuffixHash: true
+
 configMapGenerator:
 - envs:
   - manager.env
