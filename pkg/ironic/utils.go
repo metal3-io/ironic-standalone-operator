@@ -309,6 +309,42 @@ func mergeMaps[M ~map[K]V, K, V comparable](m1 M, m2 M) M {
 	return result
 }
 
+// applyContainerOverrides merges override containers into existing containers.
+// If an override container has the same name as an existing container, it replaces the existing one.
+// Otherwise, the override container is appended to the list.
+func applyContainerOverrides(existing []corev1.Container, overrides []corev1.Container) []corev1.Container {
+	if len(overrides) == 0 {
+		return existing
+	}
+
+	result := make([]corev1.Container, 0, len(existing)+len(overrides))
+
+	// Build a map of override containers by name
+	overrideMap := make(map[string]corev1.Container, len(overrides))
+	for _, container := range overrides {
+		overrideMap[container.Name] = container
+	}
+
+	// First, add existing containers, replacing with overrides where names match
+	for _, container := range existing {
+		if override, found := overrideMap[container.Name]; found {
+			result = append(result, override)
+			delete(overrideMap, container.Name)
+		} else {
+			result = append(result, container)
+		}
+	}
+
+	// Then, append any remaining override containers that didn't match existing names
+	for _, container := range overrides {
+		if _, stillInMap := overrideMap[container.Name]; stillInMap {
+			result = append(result, container)
+		}
+	}
+
+	return result
+}
+
 func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
 	if overrides == nil {
 		return podTemplate
@@ -317,6 +353,12 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 	// Always preserve built-in annotations and labels
 	podTemplate.Annotations = mergeMaps(podTemplate.Annotations, overrides.Annotations)
 	podTemplate.Labels = mergeMaps(podTemplate.Labels, overrides.Labels)
+
+	// Merge containers: replace if name matches, otherwise append
+	podTemplate.Spec.Containers = applyContainerOverrides(podTemplate.Spec.Containers, overrides.Containers)
+
+	// Merge init containers: replace if name matches, otherwise append
+	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers)
 
 	return podTemplate
 }
