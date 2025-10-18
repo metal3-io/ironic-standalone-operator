@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -270,6 +271,16 @@ type Overrides struct {
 	// Extra annotations to add to each pod (including upgrade jobs).
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Containers to append to the main Ironic pod.
+	// If a container name matches an existing container, the existing container is replaced.
+	// +optional
+	Containers []corev1.Container `json:"containers,omitempty"`
+
+	// InitContainers to append to the main Ironic pod.
+	// If a container name matches an existing init container, the existing init container is replaced.
+	// +optional
+	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 
 	// Extra labels to add to each pod (including upgrade jobs).
 	// +optional

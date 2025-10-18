@@ -65,6 +65,142 @@ func TestBuildEndpoints(t *testing.T) {
 	}
 }
 
+func TestApplyContainerOverrides(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		Existing  []corev1.Container
+		Overrides []corev1.Container
+
+		ExpectedNames []string
+		Expected      []corev1.Container
+	}{
+		{
+			Scenario: "No overrides",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+			},
+			Overrides: nil,
+
+			ExpectedNames: []string{"c1", "c2"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+			},
+		},
+		{
+			Scenario: "Empty overrides",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+			},
+			Overrides: []corev1.Container{},
+
+			ExpectedNames: []string{"c1"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+			},
+		},
+		{
+			Scenario: "Replace existing container",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+			},
+			Overrides: []corev1.Container{
+				{Name: "c2", Image: "new-image2"},
+			},
+
+			ExpectedNames: []string{"c1", "c2"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "new-image2"},
+			},
+		},
+		{
+			Scenario: "Append new container",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+			},
+			Overrides: []corev1.Container{
+				{Name: "c3", Image: "image3"},
+			},
+
+			ExpectedNames: []string{"c1", "c3"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c3", Image: "image3"},
+			},
+		},
+		{
+			Scenario: "Replace and append",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+			},
+			Overrides: []corev1.Container{
+				{Name: "c1", Image: "new-image1"},
+				{Name: "c3", Image: "image3"},
+			},
+
+			ExpectedNames: []string{"c1", "c2", "c3"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "new-image1"},
+				{Name: "c2", Image: "image2"},
+				{Name: "c3", Image: "image3"},
+			},
+		},
+		{
+			Scenario: "Replace all containers",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+			},
+			Overrides: []corev1.Container{
+				{Name: "c1", Image: "new-image1"},
+				{Name: "c2", Image: "new-image2"},
+			},
+
+			ExpectedNames: []string{"c1", "c2"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "new-image1"},
+				{Name: "c2", Image: "new-image2"},
+			},
+		},
+		{
+			Scenario: "Multiple new containers",
+			Existing: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+			},
+			Overrides: []corev1.Container{
+				{Name: "c2", Image: "image2"},
+				{Name: "c3", Image: "image3"},
+			},
+
+			ExpectedNames: []string{"c1", "c2", "c3"},
+			Expected: []corev1.Container{
+				{Name: "c1", Image: "image1"},
+				{Name: "c2", Image: "image2"},
+				{Name: "c3", Image: "image3"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result := applyContainerOverrides(tc.Existing, tc.Overrides)
+
+			var names []string
+			for _, cont := range result {
+				names = append(names, cont.Name)
+			}
+
+			assert.Equal(t, tc.ExpectedNames, names)
+			assert.Equal(t, tc.Expected, result)
+		})
+	}
+}
+
 func TestApplyOverridesToPod(t *testing.T) {
 	initial := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,6 +218,9 @@ func TestApplyOverridesToPod(t *testing.T) {
 					},
 				},
 				{Name: "c2"},
+			},
+			InitContainers: []corev1.Container{
+				{Name: "init1", Image: "init-image1"},
 			},
 		},
 	}
@@ -101,19 +240,28 @@ func TestApplyOverridesToPod(t *testing.T) {
 
 		Overrides *metal3api.Overrides
 
-		ExpectedAnnotations map[string]string
-		ExpectedLabels      map[string]string
+		ExpectedAnnotations    map[string]string
+		ExpectedLabels         map[string]string
+		ExpectedContainers     []string
+		ExpectedInitContainers []string
+		ExpectedEnvs           map[string][]corev1.EnvVar
 	}{
 		{
 			Scenario: "No overrides",
 
-			ExpectedLabels: map[string]string{"key1": "value1"},
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs:           initialEnvs,
 		},
 		{
 			Scenario:  "Empty overrides",
 			Overrides: &metal3api.Overrides{},
 
-			ExpectedLabels: map[string]string{"key1": "value1"},
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs:           initialEnvs,
 		},
 		{
 			Scenario: "Keep builtin labels",
@@ -121,7 +269,10 @@ func TestApplyOverridesToPod(t *testing.T) {
 				Labels: map[string]string{"key1": "no value"},
 			},
 
-			ExpectedLabels: map[string]string{"key1": "value1"},
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs:           initialEnvs,
 		},
 		{
 			Scenario: "New labels and annotations",
@@ -130,8 +281,112 @@ func TestApplyOverridesToPod(t *testing.T) {
 				Labels:      map[string]string{"key3": "value3"},
 			},
 
-			ExpectedAnnotations: map[string]string{"key2": "value2"},
-			ExpectedLabels:      map[string]string{"key1": "value1", "key3": "value3"},
+			ExpectedAnnotations:    map[string]string{"key2": "value2"},
+			ExpectedLabels:         map[string]string{"key1": "value1", "key3": "value3"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs:           initialEnvs,
+		},
+		{
+			Scenario: "Replace container",
+			Overrides: &metal3api.Overrides{
+				Containers: []corev1.Container{
+					{
+						Name: "c2",
+						Env: []corev1.EnvVar{
+							{Name: "new-env", Value: "new-value"},
+						},
+					},
+				},
+			},
+
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs: map[string][]corev1.EnvVar{
+				"c1": {
+					{
+						Name:  "env1",
+						Value: "value1",
+					},
+				},
+				"c2": {
+					{Name: "new-env", Value: "new-value"},
+				},
+			},
+		},
+		{
+			Scenario: "Add new container",
+			Overrides: &metal3api.Overrides{
+				Containers: []corev1.Container{
+					{Name: "c3", Image: "image3"},
+				},
+			},
+
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2", "c3"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs: map[string][]corev1.EnvVar{
+				"c1": {
+					{
+						Name:  "env1",
+						Value: "value1",
+					},
+				},
+				"c2": nil,
+				"c3": nil,
+			},
+		},
+		{
+			Scenario: "Replace init container",
+			Overrides: &metal3api.Overrides{
+				InitContainers: []corev1.Container{
+					{Name: "init1", Image: "new-init-image1"},
+				},
+			},
+
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1"},
+			ExpectedEnvs:           initialEnvs,
+		},
+		{
+			Scenario: "Add new init container",
+			Overrides: &metal3api.Overrides{
+				InitContainers: []corev1.Container{
+					{Name: "init2", Image: "init-image2"},
+				},
+			},
+
+			ExpectedLabels:         map[string]string{"key1": "value1"},
+			ExpectedContainers:     []string{"c1", "c2"},
+			ExpectedInitContainers: []string{"init1", "init2"},
+			ExpectedEnvs:           initialEnvs,
+		},
+		{
+			Scenario: "Full override with containers and init containers",
+			Overrides: &metal3api.Overrides{
+				Annotations: map[string]string{"anno1": "val1"},
+				Labels:      map[string]string{"label1": "val1"},
+				Containers: []corev1.Container{
+					{Name: "c1", Image: "new-c1"},
+					{Name: "c3", Image: "c3"},
+				},
+				InitContainers: []corev1.Container{
+					{Name: "init1", Image: "new-init1"},
+					{Name: "init2", Image: "init2"},
+				},
+			},
+
+			ExpectedAnnotations:    map[string]string{"anno1": "val1"},
+			ExpectedLabels:         map[string]string{"key1": "value1", "label1": "val1"},
+			ExpectedContainers:     []string{"c1", "c2", "c3"},
+			ExpectedInitContainers: []string{"init1", "init2"},
+			ExpectedEnvs: map[string][]corev1.EnvVar{
+				"c1": nil,
+				"c2": nil,
+				"c3": nil,
+			},
 		},
 	}
 
@@ -147,14 +402,16 @@ func TestApplyOverridesToPod(t *testing.T) {
 				envs[cont.Name] = cont.Env
 			}
 
-			// Will be test case specific in the future
-			expectedContainerNames := []string{"c1", "c2"}
-			expectedEnvs := initialEnvs
+			var initContainerNames []string
+			for _, cont := range result.Spec.InitContainers {
+				initContainerNames = append(initContainerNames, cont.Name)
+			}
 
-			assert.Equal(t, expectedContainerNames, containerNames)
+			assert.Equal(t, tc.ExpectedContainers, containerNames)
+			assert.Equal(t, tc.ExpectedInitContainers, initContainerNames)
 			assert.Equal(t, tc.ExpectedAnnotations, result.Annotations)
 			assert.Equal(t, tc.ExpectedLabels, result.Labels)
-			assert.Equal(t, expectedEnvs, envs)
+			assert.Equal(t, tc.ExpectedEnvs, envs)
 		})
 	}
 }
