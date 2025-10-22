@@ -80,6 +80,22 @@ func NewAuthSecret(ctx context.Context, k8sClient client.Client, namespace, name
 	return secret
 }
 
+func NewSwitchConfigSecret(ctx context.Context, k8sClient client.Client, namespace, name string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"switch-configs.conf": []byte("[switch.example]\nip=192.168.1.1\nusername=admin\npassword=secret\n"),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+	err := k8sClient.Create(ctx, secret)
+	Expect(err).NotTo(HaveOccurred())
+	return secret
+}
+
 func NewIronic(ctx context.Context, k8sClient client.Client, nname types.NamespacedName, spec metal3api.IronicSpec) *metal3api.Ironic {
 	ironic := &metal3api.Ironic{
 		ObjectMeta: metav1.ObjectMeta{

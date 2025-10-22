@@ -300,6 +300,85 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+              networkingService:
+                description: NetworkingService provides configuration for the Ironic
+                  Networking Service
+                properties:
+                  enabled:
+                    default: false
+                    description: Enabled enables the Ironic Networking Service integration
+                    type: boolean
+                  providerNetworks:
+                    description: ProviderNetworks defines the provider network configurations
+                      for Ironic
+                    items:
+                      description: ProviderNetworkConfig defines the network configuration
+                        for Ironic service operations.
+                      properties:
+                        allowedVLANs:
+                          description: |-
+                            AllowedVLANs specifies the list of allowed VLANs for trunk/hybrid modes.
+                            Each entry can be a single VLAN ID (e.g., "100") or a range (e.g., "100-200").
+                          items:
+                            type: string
+                          type: array
+                        mode:
+                          default: access
+                          description: Mode specifies the switch port mode for service
+                            operations
+                          enum:
+                          - access
+                          - trunk
+                          - hybrid
+                          type: string
+                        mtu:
+                          description: MTU defines the MTU to be applied to the switch
+                            port configuration.
+                          format: int32
+                          maximum: 9216
+                          minimum: 1280
+                          type: integer
+                        nativeVLAN:
+                          description: NativeVLAN specifies the native VLAN ID for
+                            service operations
+                          format: int32
+                          maximum: 4094
+                          minimum: 1
+                          type: integer
+                        type:
+                          description: Type specifies which provider network this
+                            configuration applies to.
+                          enum:
+                          - idle
+                          - inspection
+                          - cleaning
+                          - rescuing
+                          - servicing
+                          - provisioning
+                          type: string
+                      required:
+                      - mode
+                      - nativeVLAN
+                      - type
+                      type: object
+                    type: array
+                  switchConfigSecretName:
+                    description: |-
+                      SwitchConfigSecretName optionally specifies the name of the secret containing
+                      switch configuration. If not specified, defaults to "<ironic-name>-switch-config".
+                      The secret must have the environment label to be used by the operator.
+                      This secret is automatically generated from BareMetalSwitch CRDs in the namespace.
+                    type: string
+                  switchCredentialsSecretName:
+                    description: |-
+                      SwitchCredentialsSecretName optionally specifies the name of the secret containing
+                      additional switch credentials (e.g., SSH private keys for switches using publickey
+                      authentication). If not specified, defaults to "<ironic-name>-switch-credentials".
+                      The secret must have the environment label to be used by the operator.
+                      The operator creates an empty secret if it does not exist, and the Baremetal
+                      Operator populates it from BareMetalSwitch CRDs.
+                    type: string
+                type: object
               nodeSelector:
                 additionalProperties:
                   type: string

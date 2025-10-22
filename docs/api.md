@@ -146,6 +146,13 @@ Requires the HighAvailability feature gate to be set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecnetworkingservice">networkingService</a></b></td>
+        <td>object</td>
+        <td>
+          NetworkingService provides configuration for the Ironic Networking Service<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>nodeSelector</b></td>
         <td>map[string]string</td>
         <td>
@@ -635,6 +642,133 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networkingService
+<sup><sup>[↩ Parent](#ironicspec)</sup></sup>
+
+
+
+NetworkingService provides configuration for the Ironic Networking Service
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled enables the Ironic Networking Service integration<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingserviceprovidernetworksindex">providerNetworks</a></b></td>
+        <td>[]object</td>
+        <td>
+          ProviderNetworks defines the provider network configurations for Ironic<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>switchConfigSecretName</b></td>
+        <td>string</td>
+        <td>
+          SwitchConfigSecretName optionally specifies the name of the secret containing
+switch configuration. If not specified, defaults to "<ironic-name>-switch-config".
+The secret must have the environment label to be used by the operator.
+This secret is automatically generated from BareMetalSwitch CRDs in the namespace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>switchCredentialsSecretName</b></td>
+        <td>string</td>
+        <td>
+          SwitchCredentialsSecretName optionally specifies the name of the secret containing
+additional switch credentials (e.g., SSH private keys for switches using publickey
+authentication). If not specified, defaults to "<ironic-name>-switch-credentials".
+The secret must have the environment label to be used by the operator.
+The operator creates an empty secret if it does not exist, and the Baremetal
+Operator populates it from BareMetalSwitch CRDs.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networkingService.providerNetworks[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingservice)</sup></sup>
+
+
+
+ProviderNetworkConfig defines the network configuration for Ironic service operations.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>mode</b></td>
+        <td>enum</td>
+        <td>
+          Mode specifies the switch port mode for service operations<br/>
+          <br/>
+            <i>Enum</i>: access, trunk, hybrid<br/>
+            <i>Default</i>: access<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>nativeVLAN</b></td>
+        <td>integer</td>
+        <td>
+          NativeVLAN specifies the native VLAN ID for service operations<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
+            <i>Maximum</i>: 4094<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>enum</td>
+        <td>
+          Type specifies which provider network this configuration applies to.<br/>
+          <br/>
+            <i>Enum</i>: idle, inspection, cleaning, rescuing, servicing, provisioning<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>allowedVLANs</b></td>
+        <td>[]string</td>
+        <td>
+          AllowedVLANs specifies the list of allowed VLANs for trunk/hybrid modes.
+Each entry can be a single VLAN ID (e.g., "100") or a range (e.g., "100-200").<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mtu</b></td>
+        <td>integer</td>
+        <td>
+          MTU defines the MTU to be applied to the switch port configuration.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1280<br/>
+            <i>Maximum</i>: 9216<br/>
         </td>
         <td>false</td>
       </tr></tbody>
