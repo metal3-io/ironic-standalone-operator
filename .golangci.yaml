@@ -134,6 +134,9 @@ linters:
     - linters:
       - tagliatelle
       text: CA
+    - linters:
+      - tagliatelle
+      text: VLAN
     paths:
     - zz_generated.*\.go$
     - .*conversion.*\.go$

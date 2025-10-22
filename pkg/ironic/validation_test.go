@@ -343,6 +343,123 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "ServiceMonitor support is currently incompatible with the highly available architecture",
 		},
+		{
+			Scenario: "networking service with access mode provider network",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "idle", Mode: metal3api.SwitchportModeAccess, NativeVLAN: 100},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "networking service with trunk mode provider network",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "inspection", Mode: metal3api.SwitchportModeTrunk, NativeVLAN: 100, AllowedVLANs: []string{"100", "200", "300"}},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "networking service with trunk mode and VLAN ranges",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "inspection", Mode: metal3api.SwitchportModeTrunk, NativeVLAN: 100, AllowedVLANs: []string{"200-210", "300", "400-500"}},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "networking service with hybrid mode provider network",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "cleaning", Mode: metal3api.SwitchportModeHybrid, NativeVLAN: 100, AllowedVLANs: []string{"100", "200"}},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "networking service access mode with allowedVLANs",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "idle", Mode: metal3api.SwitchportModeAccess, NativeVLAN: 100, AllowedVLANs: []string{"100"}},
+					},
+				},
+			},
+			ExpectedError: "allowedVLANs cannot be set in access mode",
+		},
+		{
+			Scenario: "networking service with invalid VLAN range",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "inspection", Mode: metal3api.SwitchportModeTrunk, NativeVLAN: 100, AllowedVLANs: []string{"500-200"}},
+					},
+				},
+			},
+			ExpectedError: "start (500) must be less than end (200)",
+		},
+		{
+			Scenario: "networking service with out of range VLAN",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "inspection", Mode: metal3api.SwitchportModeTrunk, NativeVLAN: 100, AllowedVLANs: []string{"5000"}},
+					},
+				},
+			},
+			ExpectedError: "VLAN ID 5000 is out of range",
+		},
+		{
+			Scenario: "networking service trunk mode without allowedVLANs",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "inspection", Mode: metal3api.SwitchportModeTrunk, NativeVLAN: 100},
+					},
+				},
+			},
+			ExpectedError: "allowedVLANs required for trunk mode",
+		},
+		{
+			Scenario: "networking service hybrid mode without allowedVLANs",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "cleaning", Mode: metal3api.SwitchportModeHybrid, NativeVLAN: 100},
+					},
+				},
+			},
+			ExpectedError: "allowedVLANs required for hybrid mode",
+		},
+		{
+			Scenario: "networking service with duplicate provider network types",
+			Ironic: metal3api.IronicSpec{
+				NetworkingService: &metal3api.NetworkingService{
+					Enabled: true,
+					ProviderNetworks: []metal3api.ProviderNetworkConfig{
+						{Type: "idle", Mode: metal3api.SwitchportModeAccess, NativeVLAN: 100},
+						{Type: "idle", Mode: metal3api.SwitchportModeAccess, NativeVLAN: 200},
+					},
+				},
+			},
+			ExpectedError: "duplicate provider network type",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -352,6 +469,118 @@ func TestValidateIronic(t *testing.T) {
 			}
 
 			err := ValidateIronic(&tc.Ironic, tc.OldIronic)
+			if tc.ExpectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.ExpectedError)
+			}
+		})
+	}
+}
+
+func TestValidateProviderNetwork(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Config        *metal3api.ProviderNetworkConfig
+		ExpectedError string
+	}{
+		{
+			Scenario: "access mode without allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 100,
+			},
+		},
+		{
+			Scenario: "access mode with allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeAccess,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"100"},
+			},
+			ExpectedError: "allowedVLANs cannot be set in access mode",
+		},
+		{
+			Scenario: "trunk mode with allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"100", "200"},
+			},
+		},
+		{
+			Scenario: "trunk mode with VLAN ranges",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"200-210", "300", "400-500"},
+			},
+		},
+		{
+			Scenario: "trunk mode without allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeTrunk,
+				NativeVLAN: 100,
+			},
+			ExpectedError: "allowedVLANs required for trunk mode",
+		},
+		{
+			Scenario: "hybrid mode with allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeHybrid,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"100", "200", "300"},
+			},
+		},
+		{
+			Scenario: "hybrid mode without allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeHybrid,
+				NativeVLAN: 100,
+			},
+			ExpectedError: "allowedVLANs required for hybrid mode",
+		},
+		{
+			Scenario: "invalid VLAN ID",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"abc"},
+			},
+			ExpectedError: "is not a valid VLAN ID",
+		},
+		{
+			Scenario: "VLAN ID out of range",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"5000"},
+			},
+			ExpectedError: "VLAN ID 5000 is out of range",
+		},
+		{
+			Scenario: "VLAN range reversed",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"500-200"},
+			},
+			ExpectedError: "start (500) must be less than end (200)",
+		},
+		{
+			Scenario: "VLAN range with invalid end",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"100-9999"},
+			},
+			ExpectedError: "VLAN ID 9999 is out of range",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			err := validateProviderNetwork(tc.Config)
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 			} else {
