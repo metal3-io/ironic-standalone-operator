@@ -1,0 +1,29 @@
+apiVersion: ironic.metal3.io/v1alpha1
+kind: Ironic
+metadata:
+  name: ironic-with-networking
+spec:
+  # Enable networking service for ToR switch integration
+  # The operator deploys the networking service in a separate Deployment
+  # for better isolation and independent restart behavior
+  networkingService:
+    enabled: true
+
+    # Optional: Provider network configurations
+    # Each entry maps to IRONIC_NETWORKING_<TYPE>_NETWORK env var
+    # Supported types: idle, inspection, cleaning, rescuing, servicing, provisioning
+    providerNetworks:
+    - type: "idle"
+      mode: "access"
+      nativeVLAN: 313
+
+    - type: "inspection"
+      mode: "access"
+      nativeVLAN: 313
+
+    # Example: trunk mode with allowed VLANs and MTU (supports individual IDs and ranges)
+    # - type: "cleaning"
+    #   mode: "trunk"
+    #   nativeVLAN: 313
+    #   allowedVLANs: ["313", "400-500"]
+    #   mtu: 9000
