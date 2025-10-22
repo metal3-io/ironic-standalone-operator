@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	ironicPortName    = "ironic-api"
-	imagesPortName    = "image-svc"
-	imagesTLSPortName = "image-svc-tls"
-	metricsPortName   = "metrics"
+	ironicPortName              = "ironic-api"
+	imagesPortName              = "image-svc"
+	imagesTLSPortName           = "image-svc-tls"
+	metricsPortName             = "metrics"
+	ironicNetworkingPortName    = "networking-rpc"
+	defaultNetworkInterfaceName = "ironic-networking"
 
 	ironicUser      int64 = 997
 	ironicGroup     int64 = 994
@@ -271,6 +273,43 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		)
 	}
 
+	// Add networking service integration if enabled
+	if resources.Ironic.IsNetworkingServiceEnabled() {
+		result = append(result, []corev1.EnvVar{
+			{
+				Name:  "IRONIC_NETWORKING_ENABLED",
+				Value: "true",
+			},
+			{
+				Name:  "IRONIC_NETWORKING_JSON_RPC_HOST",
+				Value: resources.NetworkingServiceEndpoint,
+			},
+			{
+				Name:  "IRONIC_NETWORKING_JSON_RPC_PORT",
+				Value: strconv.Itoa(int(resources.Ironic.Spec.NetworkingService.RPCPort)),
+			},
+		}...)
+
+		// Set provider network configuration
+		for _, pn := range resources.Ironic.Spec.NetworkingService.ProviderNetworks {
+			envName := fmt.Sprintf("IRONIC_NETWORKING_%s_NETWORK", strings.ToUpper(string(pn.Type)))
+			result = append(result, corev1.EnvVar{
+				Name:  envName,
+				Value: formatProviderNetwork(&pn),
+			})
+		}
+
+		// Set default network driver
+		driver := resources.Ironic.Spec.NetworkingService.NetworkDriver
+		if driver == "" {
+			driver = defaultNetworkInterfaceName
+		}
+		result = append(result, corev1.EnvVar{
+			Name:  "IRONIC_DEFAULT_NETWORK_INTERFACE",
+			Value: driver,
+		})
+	}
+
 	if resources.TrustedCAConfigMap != nil {
 		result = append(result, buildTrustedCAEnvVars(cctx, resources.TrustedCAConfigMap)...)
 	}
@@ -298,6 +337,16 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	}
 
 	return result
+}
+
+// formatProviderNetwork formats a provider network config for Ironic.
+// Format is "mode/native_vlan=VALUE[/allowed_vlans=VLAN_LIST]".
+func formatProviderNetwork(pn *metal3api.ProviderNetworkConfig) string {
+	val := fmt.Sprintf("%s/native_vlan=%d", pn.Mode, pn.NativeVLAN)
+	if (pn.Mode == metal3api.SwitchportModeTrunk || pn.Mode == metal3api.SwitchportModeHybrid) && len(pn.AllowedVLANs) > 0 {
+		val += "/allowed_vlans=" + strings.Join(pn.AllowedVLANs, ",")
+	}
+	return val
 }
 
 func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
@@ -357,6 +406,13 @@ func databaseClientMounts(db *metal3api.Database) (volumes []corev1.Volume, moun
 	return volumes, mounts
 }
 
+// isAuthVolumeRequired returns true when the ironic-rpc auth mount is needed.
+// HA requires it for inter-conductor RPC; networking service requires it for
+// authenticated JSON-RPC between Ironic and the networking service.
+func isAuthVolumeRequired(resources Resources) bool {
+	return resources.Ironic.Spec.HighAvailability || resources.Ironic.IsNetworkingServiceEnabled()
+}
+
 func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
 	volumes = []corev1.Volume{
 		{
@@ -381,7 +437,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 			MountPath: sharedDir,
 		},
 	}
-	if resources.Ironic.Spec.HighAvailability {
+	if isAuthVolumeRequired(resources) {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "ironic-auth",
 			MountPath: authDir + "/ironic-rpc",
@@ -779,6 +835,8 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	if resources.TLSSecret != nil {
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
+	// NOTE: switch-config secret is not watched here anymore since the networking
+	// service runs in a separate pod. That pod has its own annotations for restart.
 
 	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{

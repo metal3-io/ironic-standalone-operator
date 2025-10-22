@@ -819,6 +819,125 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew, withHA: true})
 }
 
+func verifyNetworkingDeploymentExists(namespace, ironicName string) {
+	GinkgoHelper()
+	By("verifying networking deployment exists")
+
+	deployName := ironicName + "-networking"
+	deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Check labels
+	Expect(deploy.Labels["app"]).To(Equal("ironic-networking"))
+	Expect(deploy.Labels["ironic.metal3.io/instance"]).To(Equal(ironicName))
+
+	// Check replicas
+	Expect(deploy.Spec.Replicas).NotTo(BeNil())
+	Expect(*deploy.Spec.Replicas).To(Equal(int32(1)))
+
+	// Check container
+	Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(1))
+	container := deploy.Spec.Template.Spec.Containers[0]
+	Expect(container.Name).To(Equal("ironic-networking"))
+	Expect(container.Command).To(Equal([]string{"/bin/runironic-networking"}))
+	Expect(container.Ports).To(HaveLen(1))
+	Expect(container.Ports[0].Name).To(Equal("networking-rpc"))
+
+	// hostNetwork should be false
+	Expect(deploy.Spec.Template.Spec.HostNetwork).To(BeFalse())
+}
+
+func verifyNetworkingServiceExists(namespace, ironicName string) {
+	GinkgoHelper()
+	By("verifying networking service exists")
+
+	svcName := ironicName + "-networking-service"
+	svc, err := clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(svc.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+	Expect(svc.Spec.Ports).To(HaveLen(1))
+	Expect(svc.Spec.Ports[0].Port).To(Equal(int32(6190)))
+}
+
+func verifySwitchConfigSecretExists(namespace, ironicName string) {
+	GinkgoHelper()
+	By("verifying switch config secret exists")
+
+	secretName := ironicName + "-switch-config"
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	Expect(secret.Labels["ironic.metal3.io/managed"]).To(Equal("true"))
+	Expect(secret.Data).To(HaveKey("switch-configs.conf"))
+}
+
+func verifyNetworkingEnvVarsOnIronic(namespace, ironicName string) {
+	GinkgoHelper()
+	By("verifying networking env vars on ironic container")
+
+	deployName := ironicName + "-service"
+	deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	var ironicContainer *corev1.Container
+	for i := range deploy.Spec.Template.Spec.Containers {
+		if deploy.Spec.Template.Spec.Containers[i].Name == "ironic" {
+			ironicContainer = &deploy.Spec.Template.Spec.Containers[i]
+			break
+		}
+	}
+	Expect(ironicContainer).NotTo(BeNil(), "ironic container not found")
+
+	envMap := make(map[string]string)
+	for _, env := range ironicContainer.Env {
+		envMap[env.Name] = env.Value
+	}
+
+	Expect(envMap).To(HaveKeyWithValue("IRONIC_NETWORKING_ENABLED", "true"))
+	Expect(envMap).To(HaveKey("IRONIC_NETWORKING_JSON_RPC_HOST"))
+	Expect(envMap).To(HaveKeyWithValue("IRONIC_DEFAULT_NETWORK_INTERFACE", "ironic-networking"))
+}
+
+func verifyNetworkingResourcesGone(namespace, ironicName string) {
+	GinkgoHelper()
+	By("verifying networking resources are cleaned up")
+
+	deployName := ironicName + "-networking"
+	svcName := ironicName + "-networking-service"
+
+	Eventually(func() bool {
+		_, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+		if err != nil && k8serrors.IsNotFound(err) {
+			_, svcErr := clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
+			return svcErr != nil && k8serrors.IsNotFound(svcErr)
+		}
+		return false
+	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(BeTrue())
+}
+
+func getNetworkingPodAnnotation(namespace, ironicName, key string) string {
+	GinkgoHelper()
+	deployName := ironicName + "-networking"
+	deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	return deploy.Spec.Template.Annotations[key]
+}
+
+func verifyNetworkingDeploymentNotExists(namespace, ironicName string) {
+	GinkgoHelper()
+	deployName := ironicName + "-networking"
+	_, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+	Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "expected networking deployment to not exist")
+}
+
+func verifyNetworkingServiceNotExists(namespace, ironicName string) {
+	GinkgoHelper()
+	svcName := ironicName + "-networking-service"
+	_, err := clientset.CoreV1().Services(namespace).Get(ctx, svcName, metav1.GetOptions{})
+	Expect(k8serrors.IsNotFound(err)).To(BeTrue(), "expected networking service to not exist")
+}
+
 var _ = Describe("Ironic object tests", func() {
 	var namespace string
 
@@ -1193,6 +1312,217 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true})
+	})
+
+	It("creates Ironic with networking service", Label("networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+				RPCPort: 6190,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+
+		verifyNetworkingDeploymentExists(namespace, name.Name)
+		verifyNetworkingServiceExists(namespace, name.Name)
+		verifySwitchConfigSecretExists(namespace, name.Name)
+		verifyNetworkingEnvVarsOnIronic(namespace, name.Name)
+	})
+
+	It("networking service handles missing switch credentials secret", Label("networking-creds", "networking"), func() {
+		By("creating a failing Ironic with non-existent switch credentials")
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled:                    true,
+				RPCPort:                    6190,
+				SwitchCredentialsSecretName: "banana",
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+
+		By("creating the secret and recovering Ironic")
+
+		helpers.NewSwitchCredentialsSecret(ctx, k8sClient, namespace, "banana")
+
+		// Re-read and patch to trigger reconciliation
+		err := k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		patch := client.MergeFrom(ironic.DeepCopy())
+		if ironic.Annotations == nil {
+			ironic.Annotations = make(map[string]string)
+		}
+		ironic.Annotations["test-trigger"] = "reconcile"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+
+		// Verify credentials volume mount on networking deployment
+		deployName := name.Name + "-networking"
+		deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		var foundCredsMount bool
+		for _, mount := range deploy.Spec.Template.Spec.Containers[0].VolumeMounts {
+			if mount.Name == "switch-credentials" && mount.MountPath == "/etc/ironic/networking/credentials" {
+				foundCredsMount = true
+				break
+			}
+		}
+		Expect(foundCredsMount).To(BeTrue(), "Expected switch-credentials volume mount on networking pod")
+	})
+
+	It("networking service can be enabled and disabled", Label("networking-lifecycle", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating Ironic without networking")
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		verifyNetworkingDeploymentNotExists(namespace, name.Name)
+		verifyNetworkingServiceNotExists(namespace, name.Name)
+
+		By("enabling networking")
+		err := k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.NetworkingService = &metal3api.NetworkingService{
+			Enabled: true,
+			RPCPort: 6190,
+		}
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		verifyNetworkingDeploymentExists(namespace, name.Name)
+		verifyNetworkingServiceExists(namespace, name.Name)
+
+		By("disabling networking")
+		err = k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		patch = client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.NetworkingService.Enabled = false
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		verifyNetworkingResourcesGone(namespace, name.Name)
+	})
+
+	It("networking service with external endpoint", Label("networking-external", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled:  true,
+				RPCPort:  6190,
+				Endpoint: "external.example.com",
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		// No networking deployment or service should exist when using external endpoint
+		verifyNetworkingDeploymentNotExists(namespace, name.Name)
+		verifyNetworkingServiceNotExists(namespace, name.Name)
+
+		// Verify ironic container has the external endpoint
+		deployName := name.Name + "-service"
+		deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		var ironicContainer *corev1.Container
+		for i := range deploy.Spec.Template.Spec.Containers {
+			if deploy.Spec.Template.Spec.Containers[i].Name == "ironic" {
+				ironicContainer = &deploy.Spec.Template.Spec.Containers[i]
+				break
+			}
+		}
+		Expect(ironicContainer).NotTo(BeNil())
+
+		envMap := make(map[string]string)
+		for _, env := range ironicContainer.Env {
+			envMap[env.Name] = env.Value
+		}
+		Expect(envMap).To(HaveKeyWithValue("IRONIC_NETWORKING_JSON_RPC_HOST", "external.example.com"))
+	})
+
+	It("networking service restarts on switch config change", Label("networking-restart", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+				RPCPort: 6190,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		By("recording initial switch config annotation")
+		initialAnnotation := getNetworkingPodAnnotation(namespace, name.Name, "ironic.metal3.io/switch-config-version")
+		Expect(initialAnnotation).NotTo(BeEmpty())
+
+		By("updating switch config secret")
+		secretName := name.Name + "-switch-config"
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		secret.Data["switch-configs.conf"] = []byte("[switch.new]\nip=10.0.0.1\n")
+		_, err = clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for annotation to change")
+		Eventually(func() string {
+			return getNetworkingPodAnnotation(namespace, name.Name, "ironic.metal3.io/switch-config-version")
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).ShouldNot(Equal(initialAnnotation))
+
+		By("verifying Ironic is still healthy")
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
 	})
 })
 
