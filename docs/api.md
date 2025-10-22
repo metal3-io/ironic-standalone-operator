@@ -146,6 +146,13 @@ Requires the HighAvailability feature gate to be set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecnetworkingservice">networkingService</a></b></td>
+        <td>object</td>
+        <td>
+          NetworkingService provides configuration for the Ironic Networking Service<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>nodeSelector</b></td>
         <td>map[string]string</td>
         <td>
@@ -635,6 +642,159 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networkingService
+<sup><sup>[↩ Parent](#ironicspec)</sup></sup>
+
+
+
+NetworkingService provides configuration for the Ironic Networking Service
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled enables the Ironic Networking Service integration<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>endpoint</b></td>
+        <td>string</td>
+        <td>
+          Endpoint optionally specifies an external networking service hostname or IP address.
+The port is determined by the RPCPort field. If not specified and Enabled is true,
+the operator creates a separate Deployment for the networking service.
+Format: "hostname" or "ip-address"<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>networkDriver</b></td>
+        <td>string</td>
+        <td>
+          NetworkDriver sets the default network interface driver for nodes.
+Defaults to "ironic-networking" when networking service is enabled.<br/>
+          <br/>
+            <i>Default</i>: ironic-networking<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingserviceprovidernetworksindex">providerNetworks</a></b></td>
+        <td>[]object</td>
+        <td>
+          ProviderNetworks defines the provider network configurations for Ironic<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>rpcPort</b></td>
+        <td>integer</td>
+        <td>
+          RPCPort is the internal RPC port used for Ironic Networking
+Only change this if the default value causes a conflict on your deployment.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 6190<br/>
+            <i>Minimum</i>: 1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>switchConfigSecretName</b></td>
+        <td>string</td>
+        <td>
+          SwitchConfigSecretName optionally specifies the name of the secret containing
+switch configuration. If not specified, defaults to "<ironic-name>-switch-config".
+This secret is automatically generated from IronicSwitch CRDs in the namespace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>switchCredentialsSecretName</b></td>
+        <td>string</td>
+        <td>
+          SwitchCredentialsSecretName optionally specifies the name of the secret containing
+additional switch credentials. If specified, the secret will be mounted to the
+networking service pod. If not specified, no credentials secret is mounted.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>switchDrivers</b></td>
+        <td>[]string</td>
+        <td>
+          SwitchDrivers sets the supported switch drivers for the service.<br/>
+          <br/>
+            <i>Default</i>: [generic-switch]<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networkingService.providerNetworks[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingservice)</sup></sup>
+
+
+
+ProviderNetworkConfig defines the network configuration for Ironic service operations.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>mode</b></td>
+        <td>enum</td>
+        <td>
+          Mode specifies the switch port mode for service operations<br/>
+          <br/>
+            <i>Enum</i>: access, trunk, hybrid<br/>
+            <i>Default</i>: access<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>nativeVLAN</b></td>
+        <td>integer</td>
+        <td>
+          NativeVLAN specifies the native VLAN ID for service operations<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 1<br/>
+            <i>Maximum</i>: 4094<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>enum</td>
+        <td>
+          Type specifies which provider network this configuration applies to.<br/>
+          <br/>
+            <i>Enum</i>: idle, inspection, cleaning, rescuing, servicing, provisioning<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>allowedVLANs</b></td>
+        <td>[]string</td>
+        <td>
+          AllowedVLANs specifies the list of allowed VLANs for trunk/hybrid modes.
+Each entry can be a single VLAN ID (e.g., "100") or a range (e.g., "100-200").<br/>
         </td>
         <td>false</td>
       </tr></tbody>
