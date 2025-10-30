@@ -192,6 +192,14 @@ type TLS struct {
 	// +optional
 	CertificateName string `json:"certificateName,omitempty"`
 
+	// TrustedCAName is a reference to the configmap with the CA certificate(s)
+	// to use when validating TLS connections to image servers and other services.
+	// The configmap should contain one or more CA certificates in PEM format.
+	// If the configmap contains multiple keys, only the first key will be used and
+	// a warning will be logged.
+	// +optional
+	TrustedCAName string `json:"trustedCAName,omitempty"`
+
 	// DisableVirtualMediaTLS turns off TLS on the virtual media server,
 	// which may be required for hardware that cannot accept HTTPS links.
 	// +optional

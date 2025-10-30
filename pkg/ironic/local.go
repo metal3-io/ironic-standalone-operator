@@ -34,6 +34,7 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 
 	ironics := make([]*metal3api.Ironic, 0, 1)
 	var secrets []*corev1.Secret
+	var configMaps []*corev1.ConfigMap
 
 	for i, doc := range docs {
 		obj, gvk, err := decoder.Decode(doc, nil, nil)
@@ -53,6 +54,12 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 				secrets = append(secrets, secretObj)
 			} else {
 				return nil, fmt.Errorf("document %d: expected Secret object", i)
+			}
+		case "ConfigMap":
+			if configMapObj, ok := obj.(*corev1.ConfigMap); ok {
+				configMaps = append(configMaps, configMapObj)
+			} else {
+				return nil, fmt.Errorf("document %d: expected ConfigMap object", i)
 			}
 		default:
 			return nil, fmt.Errorf("object of unexpected kind %s", gvk.Kind)
@@ -78,6 +85,16 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 			resources.BMCCASecret = secretObj
 		default:
 			return nil, fmt.Errorf("secret %s does not belong to the Ironic resource", secretObj.Name)
+		}
+	}
+
+	for _, configMapObj := range configMaps {
+		// Determine configmap type based on name patterns or labels
+		switch {
+		case configMapObj.Name == resources.Ironic.Spec.TLS.TrustedCAName:
+			resources.TrustedCAConfigMap = configMapObj
+		default:
+			return nil, fmt.Errorf("configmap %s does not belong to the Ironic resource", configMapObj.Name)
 		}
 	}
 
@@ -160,6 +177,9 @@ func GenerateLocalManifests(cctx ControllerContext, resources *Resources) ([]run
 	}
 	if resources.BMCCASecret != nil {
 		manifests = append(manifests, resources.BMCCASecret)
+	}
+	if resources.TrustedCAConfigMap != nil {
+		manifests = append(manifests, resources.TrustedCAConfigMap)
 	}
 
 	deployment := &appsv1.Deployment{

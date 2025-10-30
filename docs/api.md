@@ -6523,6 +6523,17 @@ Has no effect when HighAvailability is false and requires the
 HighAvailability feature gate to be set.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>trustedCAName</b></td>
+        <td>string</td>
+        <td>
+          TrustedCAName is a reference to the configmap with the CA certificate(s)
+to use when validating TLS connections to image servers and other services.
+The configmap should contain one or more CA certificates in PEM format.
+If the configmap contains multiple keys, only the first key will be used and
+a warning will be logged.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
