@@ -464,6 +464,8 @@ func verifyConductorList(ctx context.Context, cli *gophercloud.ServiceClient, as
 }
 
 func stressTest(ctx context.Context, clients []*gophercloud.ServiceClient) {
+	group := rand.Intn(1000)
+
 	drivers := []string{"ipmi", "redfish"}
 	nodeUUIDs := make([]string, 0, numberOfNodes)
 	for idx := range numberOfNodes {
@@ -472,13 +474,16 @@ func stressTest(ctx context.Context, clients []*gophercloud.ServiceClient) {
 
 		node, err := nodes.Create(ctx, cli, nodes.CreateOpts{
 			Driver: drivers[rand.Intn(len(drivers))],
-			Name:   fmt.Sprintf("node-%d", idx),
+			Name:   fmt.Sprintf("node-%d-%d", group, idx),
 		}).Extract()
 		Expect(err).NotTo(HaveOccurred())
 		nodeUUIDs = append(nodeUUIDs, node.UUID)
 	}
 
-	for _, nodeUUID := range nodeUUIDs {
+	// NOTE(dtantsur): it's useful to leave some nodes in place to check upgrades
+	numberToDelete := numberOfNodes * 9 / 10
+	for i := range numberToDelete {
+		nodeUUID := nodeUUIDs[i]
 		cli := clients[rand.Intn(len(clients))]
 		err := nodes.Delete(ctx, cli, nodeUUID).ExtractErr()
 		Expect(err).NotTo(HaveOccurred())
@@ -923,6 +928,47 @@ var _ = Describe("Ironic object tests", func() {
 
 	It("creates Ironic 32.0 and upgrades to latest", Label("v320-to-latest", "upgrade"), func() {
 		testUpgrade("32.0", "latest", apiVersionIn320, "", namespace)
+	})
+
+	It("creates Ironic 30.0 with database, then upgrades it to 31.0, then 32.0", Label("db-v300-to-310-to-320", "upgrade"), func() {
+		helpers.SkipIfCustomImage()
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			Database: helpers.CreateDatabase(ctx, k8sClient, name),
+			Version:  "30.0",
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn300})
+
+		By("upgrading to Ironic 31.0")
+
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "31.0"
+		err := k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "31.0")
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn310})
+
+		By("upgrading to Ironic 32.0")
+
+		patch = client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.Version = "32.0"
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForUpgrade(name, "32.0")
+		VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionIn320})
 	})
 
 	It("refuses to downgrade Ironic with a database", Label("no-db-downgrade", "upgrade"), func() {
