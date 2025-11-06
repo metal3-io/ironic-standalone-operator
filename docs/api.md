@@ -163,6 +163,15 @@ EXPERIMENTAL: requires feature gate Overrides.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecprometheusexporter">prometheusExporter</a></b></td>
+        <td>object</td>
+        <td>
+          PrometheusExporter configures sensor data collection and Prometheus metrics export.
+When enabled, this configures Ironic to collect sensor data and deploys the
+ironic-prometheus-exporter container.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#ironicspectls">tls</a></b></td>
         <td>object</td>
         <td>
@@ -518,6 +527,18 @@ Warning: keepalived is not compatible with the highly available architecture.<br
         <td>
           MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 Only set if no other options can be used.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>prometheusExporterPort</b></td>
+        <td>integer</td>
+        <td>
+          PrometheusExporterPort is the port used for the Ironic Prometheus Exporter metrics endpoint.
+Only used when spec.prometheusExporter.enabled is true.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 9608<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6791,6 +6812,48 @@ Defaults to "" (volume's root).<br/>
 Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 Defaults to "" (volume's root).
 SubPathExpr and SubPath are mutually exclusive.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.prometheusExporter
+<sup><sup>[↩ Parent](#ironicspec)</sup></sup>
+
+
+
+PrometheusExporter configures sensor data collection and Prometheus metrics export.
+When enabled, this configures Ironic to collect sensor data and deploys the
+ironic-prometheus-exporter container.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled controls whether sensor data collection and metrics export is active.
+When true, configures Ironic to collect sensor data and deploys the
+ironic-prometheus-exporter container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>sensorCollectionInterval</b></td>
+        <td>integer</td>
+        <td>
+          SensorCollectionInterval defines how often (in seconds) sensor data
+is collected from BMCs using Ironic. Must be at least 60 seconds.<br/>
+          <br/>
+            <i>Default</i>: 60<br/>
+            <i>Minimum</i>: 60<br/>
         </td>
         <td>false</td>
       </tr></tbody>
