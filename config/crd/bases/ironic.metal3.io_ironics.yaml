@@ -3396,6 +3396,12 @@ spec:
                   When enabled, this configures Ironic to collect sensor data and deploys the
                   ironic-prometheus-exporter container.
                 properties:
+                  disableServiceMonitor:
+                    description: |-
+                      DisableServiceMonitor controls whether a ServiceMonitor resource is created.
+                      Set to true if your cluster does not have prometheus-operator installed,
+                      or when you want to run the exporter but manage Prometheus configuration manually.
+                    type: boolean
                   enabled:
                     description: |-
                       Enabled controls whether sensor data collection and metrics export is active.

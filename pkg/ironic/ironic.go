@@ -230,10 +230,17 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 	}
 
 	if resources.Ironic.Spec.Database != nil {
-		jobStatus, err := ensureIronicUpgradeJob(cctx, resources, postUpgrade)
+		var jobStatus Status
+		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, postUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
+	}
+
+	// Ensure ServiceMonitor is created or removed based on PrometheusExporter configuration
+	smStatus, err := ensureServiceMonitor(cctx, resources.Ironic)
+	if err != nil || !smStatus.IsReady() {
+		return smStatus, err
 	}
 
 	return

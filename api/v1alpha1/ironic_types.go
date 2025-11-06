@@ -304,6 +304,12 @@ type Overrides struct {
 
 // PrometheusExporter defines configuration for Prometheus metrics export.
 type PrometheusExporter struct {
+	// DisableServiceMonitor controls whether a ServiceMonitor resource is created.
+	// Set to true if your cluster does not have prometheus-operator installed,
+	// or when you want to run the exporter but manage Prometheus configuration manually.
+	// +optional
+	DisableServiceMonitor bool `json:"disableServiceMonitor,omitempty"`
+
 	// Enabled controls whether sensor data collection and metrics export is active.
 	// When true, configures Ironic to collect sensor data and deploys the
 	// ironic-prometheus-exporter container.

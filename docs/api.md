@@ -6846,6 +6846,15 @@ ironic-prometheus-exporter container.<br/>
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>disableServiceMonitor</b></td>
+        <td>boolean</td>
+        <td>
+          DisableServiceMonitor controls whether a ServiceMonitor resource is created.
+Set to true if your cluster does not have prometheus-operator installed,
+or when you want to run the exporter but manage Prometheus configuration manually.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>sensorCollectionInterval</b></td>
         <td>integer</td>
         <td>
