@@ -21,6 +21,9 @@ APIS_DIR := api
 TEST_DIR := test
 BIN_DIR := bin
 
+# CONTAINER_RUNTIME defines the container tool to be used for building images.
+CONTAINER_RUNTIME ?= docker
+
 # Active module mode, as we use go modules to manage dependencies
 export GO111MODULE=on
 # VERSION defines the project version for the bundle.
@@ -163,15 +166,15 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	$(CONTAINER_RUNTIME) build -t ${IMG} .
 
 .PHONY: docker-build-debug
 docker-build-debug: test ## Build docker image with the manager with debug info.
-	docker build --build-arg LDFLAGS="-extldflags=-static" -t ${IMG} .
+	$(CONTAINER_RUNTIME) build --build-arg LDFLAGS="-extldflags=-static" -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	docker push ${IMG}
+	$(CONTAINER_RUNTIME) push ${IMG}
 
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -184,10 +187,10 @@ PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 docker-buildx: test ## Build and push docker image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- docker buildx create --name project-v3-builder
-	docker buildx use project-v3-builder
-	- docker buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
-	- docker buildx rm project-v3-builder
+	- $(CONTAINER_RUNTIME) buildx create --name project-v3-builder
+	$(CONTAINER_RUNTIME) buildx use project-v3-builder
+	- $(CONTAINER_RUNTIME) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross .
+	- $(CONTAINER_RUNTIME) buildx rm project-v3-builder
 	rm Dockerfile.cross
 
 ##@ Deployment
@@ -266,7 +269,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_RUNTIME) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
