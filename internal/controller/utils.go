@@ -8,8 +8,11 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -128,4 +131,18 @@ func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status
 	}
 
 	setCondition(conditions, generation, true, metal3api.IronicReasonAvailable, message)
+}
+
+func clusterHasCRD(mgr ctrl.Manager, obj runtime.Object) (bool, error) {
+	gvk, err := apiutil.GVKForObject(obj, mgr.GetScheme())
+	if err != nil {
+		return false, err
+	}
+
+	_, err = mgr.GetRESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil && !meta.IsNoMatchError(err) {
+		return false, err
+	}
+
+	return err == nil, nil
 }
