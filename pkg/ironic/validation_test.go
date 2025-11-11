@@ -328,6 +328,21 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "not-an-ip is not a valid IP address",
 		},
+		{
+			Scenario: "HA incompatible with ServiceMonitor",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
+				HighAvailability: true,
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled: true,
+				},
+			},
+			ExpectedError: "ServiceMonitor support is currently incompatible with the highly available architecture",
+		},
 	}
 
 	for _, tc := range testCases {

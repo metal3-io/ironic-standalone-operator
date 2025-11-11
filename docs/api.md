@@ -6851,7 +6851,10 @@ ironic-prometheus-exporter container.<br/>
         <td>
           DisableServiceMonitor controls whether a ServiceMonitor resource is created.
 Set to true if your cluster does not have prometheus-operator installed,
-or when you want to run the exporter but manage Prometheus configuration manually.<br/>
+or when you want to run the exporter but manage Prometheus configuration manually.
+
+Must be set to true for a highly available deployment. In this case, every replica
+provides different metrics, which must be aggregated on the consumer side.<br/>
         </td>
         <td>false</td>
       </tr><tr>
