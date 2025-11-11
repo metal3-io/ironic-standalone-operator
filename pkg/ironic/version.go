@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"errors"
 	"fmt"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -110,4 +111,17 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 	}
 
 	return versionInfo, nil
+}
+
+func checkVersion(resources Resources, version metal3api.Version) error {
+	if resources.BMCCASecret != nil && version.Compare(versionBMCCA) < 0 {
+		return errors.New("using tls.bmcCAName is only possible for Ironic 32.0 or newer")
+	}
+
+	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled &&
+		version.Compare(versionPrometheusExporter) < 0 {
+		return errors.New("using prometheusExporter is only possible for Ironic 31.0 or newer")
+	}
+
+	return nil
 }

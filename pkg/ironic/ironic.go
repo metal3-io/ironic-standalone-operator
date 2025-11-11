@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"context"
-	"errors"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -183,25 +182,17 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 		return
 	}
 
+	if validationErr := checkVersion(resources, cctx.VersionInfo.InstalledVersion); validationErr != nil {
+		status = Status{Fatal: validationErr}
+		return
+	}
+
 	if resources.Ironic.Spec.Database != nil {
 		var jobStatus Status
 		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, preUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
-	}
-
-	if resources.BMCCASecret != nil && cctx.VersionInfo.InstalledVersion.Compare(versionBMCCA) < 0 {
-		err = errors.New("using tls.bmcCAName is only possible for Ironic 32.0 or newer")
-		status = Status{Fatal: err}
-		return
-	}
-
-	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled &&
-		cctx.VersionInfo.InstalledVersion.Compare(versionPrometheusExporter) < 0 {
-		err = errors.New("using prometheusExporter is only possible for Ironic 31.0 or newer")
-		status = Status{Fatal: err}
-		return
 	}
 
 	if resources.Ironic.Spec.HighAvailability {
