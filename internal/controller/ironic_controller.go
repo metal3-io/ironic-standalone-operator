@@ -57,6 +57,7 @@ type IronicReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -169,11 +170,20 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
+	var trustedCAConfigMap *corev1.ConfigMap
+	if trustedCAConfigMapName := ironicConf.Spec.TLS.TrustedCAName; trustedCAConfigMapName != "" {
+		trustedCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, trustedCAConfigMapName)
+		if requeue || err != nil {
+			return
+		}
+	}
+
 	resources := ironic.Resources{
-		Ironic:      ironicConf,
-		APISecret:   apiSecret,
-		TLSSecret:   tlsSecret,
-		BMCCASecret: bmcSecret,
+		Ironic:             ironicConf,
+		APISecret:          apiSecret,
+		TLSSecret:          tlsSecret,
+		BMCCASecret:        bmcSecret,
+		TrustedCAConfigMap: trustedCAConfigMap,
 	}
 
 	status, err := ironic.EnsureIronic(cctx, resources)
@@ -222,6 +232,28 @@ func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, iro
 	}
 
 	return secret, false, nil
+}
+
+// Get a user-provided configmap.
+// Only returns a valid pointer if requeue is false and err is nil.
+func (r *IronicReconciler) getConfigMap(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, configMapName string) (configMap *corev1.ConfigMap, requeue bool, err error) {
+	namespacedName := types.NamespacedName{
+		Namespace: ironicConf.Namespace,
+		Name:      configMapName,
+	}
+	configMap = &corev1.ConfigMap{}
+	err = cctx.Client.Get(cctx.Context, namespacedName, configMap)
+	if err != nil {
+		// NotFound requires a user's intervention, so reporting it in the conditions.
+		// Everything else is reported up for a retry.
+		if k8serrors.IsNotFound(err) {
+			message := fmt.Sprintf("configmap %s/%s not found", ironicConf.Namespace, configMapName)
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
+		}
+		return nil, true, fmt.Errorf("cannot load configmap %s/%s: %w", ironicConf.Namespace, configMapName, err)
+	}
+
+	return configMap, false, nil
 }
 
 func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (apiSecret *corev1.Secret, requeue bool, err error) {

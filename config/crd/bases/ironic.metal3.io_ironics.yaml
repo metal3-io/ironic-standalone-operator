@@ -3410,6 +3410,14 @@ spec:
                       Has no effect when HighAvailability is false and requires the
                       HighAvailability feature gate to be set.
                     type: boolean
+                  trustedCAName:
+                    description: |-
+                      TrustedCAName is a reference to the configmap with the CA certificate(s)
+                      to use when validating TLS connections to image servers and other services.
+                      The configmap should contain one or more CA certificates in PEM format.
+                      If the configmap contains multiple keys, only the first key will be used and
+                      a warning will be logged.
+                    type: string
                 type: object
               version:
                 description: |-

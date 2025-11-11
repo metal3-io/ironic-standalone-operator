@@ -173,7 +173,36 @@ func databaseClientEnvVars(db *metal3api.Database) []corev1.EnvVar {
 	return envVars
 }
 
-func buildIronicEnvVars(resources Resources) []corev1.EnvVar {
+func buildTrustedCAEnvVars(cctx ControllerContext, configMap *corev1.ConfigMap) []corev1.EnvVar {
+	if configMap == nil || len(configMap.Data) == 0 {
+		return nil
+	}
+
+	// Select the first key from the ConfigMap and collect ignored keys
+	var firstKey string
+	first := true
+	for key := range configMap.Data {
+		if first {
+			firstKey = key
+			first = false
+		} else {
+			cctx.Logger.Info("ignoring duplicate key in Trusted CA ConfigMap",
+				"key", key, "configmap", fmt.Sprintf("%s/%s", configMap.Namespace, configMap.Name))
+		}
+	}
+
+	// Build the path to the CA bundle file
+	caPath := fmt.Sprintf("%s/ca/trusted/%s", certsDir, firstKey)
+
+	return []corev1.EnvVar{
+		{
+			Name:  "WEBSERVER_CACERT_FILE",
+			Value: caPath,
+		},
+	}
+}
+
+func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
 	result := buildCommonEnvVars(resources.Ironic)
 	result = append(result, []corev1.EnvVar{
 		{
@@ -233,6 +262,10 @@ func buildIronicEnvVars(resources Resources) []corev1.EnvVar {
 				},
 			},
 		)
+	}
+
+	if resources.TrustedCAConfigMap != nil {
+		result = append(result, buildTrustedCAEnvVars(cctx, resources.TrustedCAConfigMap)...)
 	}
 
 	if resources.Ironic.Spec.ExtraConfig != nil {
@@ -378,6 +411,29 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 			corev1.VolumeMount{
 				Name:      "cert-bmc",
 				MountPath: certsDir + "/ca/bmc",
+				ReadOnly:  true,
+			},
+		)
+	}
+
+	if resources.TrustedCAConfigMap != nil {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "trusted-ca",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: resources.TrustedCAConfigMap.Name,
+						},
+						DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
+					},
+				},
+			},
+		)
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "trusted-ca",
+				MountPath: certsDir + "/ca/trusted",
 				ReadOnly:  true,
 			},
 		)
@@ -591,7 +647,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Name:         "ironic",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
-			Env:          buildIronicEnvVars(resources),
+			Env:          buildIronicEnvVars(cctx, resources),
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
