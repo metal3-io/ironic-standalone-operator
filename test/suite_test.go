@@ -331,6 +331,9 @@ type TestAssumptions struct {
 
 	// Assume that HA is used
 	withHA bool
+
+	// Assume presence of ironic-prometheus-exporter
+	withPrometheusExporter bool
 }
 
 func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
@@ -463,6 +466,19 @@ func verifyConductorList(ctx context.Context, cli *gophercloud.ServiceClient, as
 	}
 }
 
+func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string) {
+	By("checking ironic-prometheus-exporter")
+
+	httpClient := helpers.NewHTTPClient()
+
+	// NOTE(dtantsur): each Ironic replica has its own exporter, so verify them all independently
+	for _, ironicIP := range currentIronicIPs {
+		testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(ironicIP, "9608"))
+		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
+		Expect(statusCode).To(Equal(200))
+	}
+}
+
 func stressTest(ctx context.Context, clients []*gophercloud.ServiceClient) {
 	group := rand.Intn(1000)
 
@@ -538,6 +554,10 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 
 	if assumptions.withHA {
 		verifyRPC(withTimeout, currentIronicIPs, assumptions.withTLS)
+	}
+
+	if assumptions.withPrometheusExporter {
+		verifyPrometheusExporter(withTimeout, currentIronicIPs)
 	}
 
 	clients := make([]*gophercloud.ServiceClient, 0, len(ironicURLs))
@@ -1151,6 +1171,31 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{disableDownloader: true})
+	})
+
+	It("creates Ironic with prometheus exporter", Label("prometheus-exporter"), func() {
+		if helpers.CustomImageVersion == "30.0" {
+			Skip("ironic-prometheus-exporter not available on 30.0")
+		}
+
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			PrometheusExporter: &metal3api.PrometheusExporter{
+				DisableServiceMonitor: os.Getenv("HAS_SERVICE_MONITOR") != "true",
+				Enabled:               true,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true})
 	})
 })
 
