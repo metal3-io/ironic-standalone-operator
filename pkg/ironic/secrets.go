@@ -2,8 +2,12 @@ package ironic
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"hash/fnv"
+	"maps"
 	"math/big"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -151,7 +155,20 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*c
 }
 
 func secretVersionAnnotations(secretType string, secret *corev1.Secret) map[string]string {
+	// Hash all data fields to detect changes
+	h := fnv.New64a()
+
+	// Sort keys for consistent hash ordering
+	keys := slices.Sorted(maps.Keys(secret.Data))
+
+	for _, k := range keys {
+		h.Write([]byte(k))
+		h.Write(secret.Data[k])
+	}
+
+	hash := hex.EncodeToString(h.Sum(nil))
+
 	return map[string]string{
-		fmt.Sprintf("ironic.metal3.io/%s-version", secretType): fmt.Sprintf("%s/%s", secret.UID, secret.ResourceVersion),
+		fmt.Sprintf("ironic.metal3.io/%s-version", secretType): hash,
 	}
 }
