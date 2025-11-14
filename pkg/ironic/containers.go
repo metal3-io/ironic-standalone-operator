@@ -20,6 +20,7 @@ const (
 	ironicPortName    = "ironic-api"
 	imagesPortName    = "image-svc"
 	imagesTLSPortName = "image-svc-tls"
+	metricsPortName   = "metrics"
 
 	ironicUser      int64 = 997
 	ironicGroup     int64 = 994
@@ -29,6 +30,8 @@ const (
 	authDir   = "/auth"
 	certsDir  = "/certs"
 	sharedDir = "/shared"
+
+	metricsPort = 9608
 
 	knownExistingPath = "/images/ironic-python-agent.kernel"
 )
@@ -273,6 +276,22 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	}
 
 	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
+
+	// Add sensor data environment variables when PrometheusExporter is enabled
+	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled {
+		result = append(result, corev1.EnvVar{
+			Name:  "SEND_SENSOR_DATA",
+			Value: "true",
+		})
+		sensorInterval := resources.Ironic.Spec.PrometheusExporter.SensorCollectionInterval
+		if sensorInterval == 0 {
+			sensorInterval = 60 // default
+		}
+		result = append(result, corev1.EnvVar{
+			Name:  "OS_SENSOR_DATA__INTERVAL",
+			Value: strconv.Itoa(sensorInterval),
+		})
+	}
 
 	return result
 }
@@ -605,6 +624,40 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 	}
 }
 
+func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.Ironic, volumeMount corev1.VolumeMount) corev1.Container {
+	port := int32(metricsPort)
+	if ironic.Spec.Networking.PrometheusExporterPort != 0 {
+		port = ironic.Spec.Networking.PrometheusExporterPort
+	}
+
+	return corev1.Container{
+		Name:    "ironic-prometheus-exporter",
+		Image:   versionInfo.IronicImage,
+		Command: []string{"/bin/runironic-exporter"},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "FLASK_RUN_PORT",
+				Value: strconv.Itoa(int(port)),
+			},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          metricsPortName,
+				Protocol:      corev1.ProtocolTCP,
+				ContainerPort: port,
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{volumeMount},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  ptr.To(ironicUser),
+			RunAsGroup: ptr.To(ironicGroup),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+		},
+	}
+}
+
 func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.PodTemplateSpec, error) {
 	if len(resources.APISecret.Data[htpasswdKey]) == 0 {
 		return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
@@ -701,6 +754,10 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 
 	if resources.Ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
 		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, resources.Ironic))
+	}
+
+	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled {
+		containers = append(containers, newPrometheusExporterContainer(cctx.VersionInfo, resources.Ironic, sharedVolumeMount))
 	}
 
 	// Make sure the pod is restarted when secrets change.

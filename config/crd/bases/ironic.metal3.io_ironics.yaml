@@ -283,6 +283,14 @@ spec:
                     items:
                       type: string
                     type: array
+                  prometheusExporterPort:
+                    default: 9608
+                    description: |-
+                      PrometheusExporterPort is the port used for the Ironic Prometheus Exporter metrics endpoint.
+                      Only used when spec.prometheusExporter.enabled is true.
+                    format: int32
+                    minimum: 1
+                    type: integer
                   rpcPort:
                     default: 6189
                     description: |-
@@ -3381,6 +3389,37 @@ spec:
                     description: Extra labels to add to each pod (including upgrade
                       jobs).
                     type: object
+                type: object
+              prometheusExporter:
+                description: |-
+                  PrometheusExporter configures sensor data collection and Prometheus metrics export.
+                  When enabled, this configures Ironic to collect sensor data and deploys the
+                  ironic-prometheus-exporter container.
+                properties:
+                  disableServiceMonitor:
+                    description: |-
+                      DisableServiceMonitor controls whether a ServiceMonitor resource is created.
+                      Set to true if your cluster does not have prometheus-operator installed,
+                      or when you want to run the exporter but manage Prometheus configuration manually.
+
+                      Must be set to true for a highly available deployment. In this case, every replica
+                      provides different metrics, which must be aggregated on the consumer side.
+                    type: boolean
+                  enabled:
+                    description: |-
+                      Enabled controls whether sensor data collection and metrics export is active.
+                      When true, configures Ironic to collect sensor data and deploys the
+                      ironic-prometheus-exporter container.
+                    type: boolean
+                  sensorCollectionInterval:
+                    default: 60
+                    description: |-
+                      SensorCollectionInterval defines how often (in seconds) sensor data
+                      is collected from BMCs using Ironic. Must be at least 60 seconds.
+                    minimum: 60
+                    type: integer
+                required:
+                - enabled
                 type: object
               tls:
                 description: TLS defines TLS-related settings for various network

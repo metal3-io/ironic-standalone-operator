@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"context"
-	"errors"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -125,13 +124,30 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 		service.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		service.Spec.Selector = map[string]string{metal3api.IronicAppLabel: ironicDeploymentName(ironic)}
-		service.Spec.Ports = []corev1.ServicePort{
+		ports := []corev1.ServicePort{
 			{
+				Name:       ironicPortName,
 				Protocol:   corev1.ProtocolTCP,
 				Port:       exposedPort,
 				TargetPort: intstr.FromString(ironicPortName),
 			},
 		}
+
+		// Add metrics port when PrometheusExporter is enabled
+		if ironic.Spec.PrometheusExporter != nil && ironic.Spec.PrometheusExporter.Enabled {
+			metricsPortValue := int32(metricsPort)
+			if ironic.Spec.Networking.PrometheusExporterPort != 0 {
+				metricsPortValue = ironic.Spec.Networking.PrometheusExporterPort
+			}
+			ports = append(ports, corev1.ServicePort{
+				Name:       metricsPortName,
+				Protocol:   corev1.ProtocolTCP,
+				Port:       metricsPortValue,
+				TargetPort: intstr.FromString(metricsPortName),
+			})
+		}
+
+		service.Spec.Ports = ports
 		service.Spec.Type = corev1.ServiceTypeClusterIP
 
 		return controllerutil.SetControllerReference(ironic, service, cctx.Scheme)
@@ -166,18 +182,17 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 		return
 	}
 
+	if validationErr := checkVersion(resources, cctx.VersionInfo.InstalledVersion); validationErr != nil {
+		status = Status{Fatal: validationErr}
+		return
+	}
+
 	if resources.Ironic.Spec.Database != nil {
 		var jobStatus Status
 		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, preUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
-	}
-
-	if resources.BMCCASecret != nil && cctx.VersionInfo.InstalledVersion.Compare(versionBMCCA) < 0 {
-		err = errors.New("using tls.bmcCAName is only possible for Ironic 32.0 or newer")
-		status = Status{Fatal: err}
-		return
 	}
 
 	if resources.Ironic.Spec.HighAvailability {
@@ -206,10 +221,17 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 	}
 
 	if resources.Ironic.Spec.Database != nil {
-		jobStatus, err := ensureIronicUpgradeJob(cctx, resources, postUpgrade)
+		var jobStatus Status
+		jobStatus, err = ensureIronicUpgradeJob(cctx, resources, postUpgrade)
 		if err != nil || !jobStatus.IsReady() {
 			return jobStatus, err
 		}
+	}
+
+	// Ensure ServiceMonitor is created or removed based on PrometheusExporter configuration
+	smStatus, err := ensureServiceMonitor(cctx, resources.Ironic)
+	if err != nil || !smStatus.IsReady() {
+		return smStatus, err
 	}
 
 	return

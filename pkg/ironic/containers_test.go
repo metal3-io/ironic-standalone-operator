@@ -66,6 +66,27 @@ func TestExpectedContainers(t *testing.T) {
 			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs"},
 			ExpectedInitContainerNames: []string{},
 		},
+		{
+			Scenario: "PrometheusExporter enabled",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:                  true,
+					SensorCollectionInterval: 60,
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "ironic-prometheus-exporter", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
+		{
+			Scenario: "PrometheusExporter disabled",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled: false,
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -397,6 +418,109 @@ func TestTrustedCAConfigMap(t *testing.T) {
 					assert.Contains(t, webserverCACertValue, "/certs/ca/trusted/", "WEBSERVER_CACERT_FILE should contain /certs/ca/trusted/")
 				}
 			}
+		})
+	}
+}
+
+func TestPrometheusExporterEnvVars(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		prometheusExporter     *metal3api.PrometheusExporter
+		expectedSendSensorData string
+		expectedSensorInterval string
+	}{
+		{
+			name: "PrometheusExporter enabled with default interval",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled:                  true,
+				SensorCollectionInterval: 0, // Should default to 60
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "60",
+		},
+		{
+			name: "PrometheusExporter enabled with custom interval",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled:                  true,
+				SensorCollectionInterval: 120,
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "120",
+		},
+		{
+			name: "PrometheusExporter disabled",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled: false,
+			},
+		},
+		{
+			name:               "PrometheusExporter nil",
+			prometheusExporter: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					PrometheusExporter: tc.prometheusExporter,
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			expectExporter := tc.expectedSendSensorData == "true"
+
+			var ironicContainer *corev1.Container
+			var exporterContainer *corev1.Container
+			for _, cont := range podTemplate.Spec.Containers {
+				contCopy := cont
+				if cont.Name == "ironic" {
+					ironicContainer = &contCopy
+				}
+				if cont.Name == "ironic-prometheus-exporter" {
+					exporterContainer = &contCopy
+				}
+			}
+			require.NotNil(t, ironicContainer, "ironic container not found")
+			if expectExporter {
+				require.NotNil(t, exporterContainer, "ironic-prometheus-exporter container not found")
+				assert.Len(t, exporterContainer.Env, 1)
+				assert.Equal(t, "FLASK_RUN_PORT", exporterContainer.Env[0].Name)
+				assert.Equal(t, "9608", exporterContainer.Env[0].Value)
+				assert.Len(t, exporterContainer.Ports, 1)
+				assert.Equal(t, int32(9608), exporterContainer.Ports[0].ContainerPort)
+			}
+
+			// Check for SEND_SENSOR_DATA env var
+			var foundSendSensorData, foundSensorInterval bool
+			for _, env := range ironicContainer.Env {
+				if env.Name == "SEND_SENSOR_DATA" {
+					foundSendSensorData = true
+					assert.Equal(t, tc.expectedSendSensorData, env.Value)
+				}
+				if env.Name == "OS_SENSOR_DATA__INTERVAL" {
+					foundSensorInterval = true
+					assert.Equal(t, tc.expectedSensorInterval, env.Value)
+				}
+			}
+
+			assert.Equal(t, expectExporter, foundSendSensorData,
+				"SEND_SENSOR_DATA env var presence mismatch")
+			assert.Equal(t, expectExporter, foundSensorInterval,
+				"OS_SENSOR_DATA__INTERVAL env var presence mismatch")
 		})
 	}
 }

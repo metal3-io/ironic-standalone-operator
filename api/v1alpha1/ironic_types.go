@@ -154,6 +154,13 @@ type Networking struct {
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
 
+	// PrometheusExporterPort is the port used for the Ironic Prometheus Exporter metrics endpoint.
+	// Only used when spec.prometheusExporter.enabled is true.
+	// +kubebuilder:default=9608
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	PrometheusExporterPort int32 `json:"prometheusExporterPort,omitempty"`
+
 	// RPCPort is the internal RPC port used for Ironic.
 	// Only change this if the default value causes a conflict on your deployment.
 	// +kubebuilder:default=6189
@@ -295,6 +302,30 @@ type Overrides struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
+// PrometheusExporter defines configuration for Prometheus metrics export.
+type PrometheusExporter struct {
+	// DisableServiceMonitor controls whether a ServiceMonitor resource is created.
+	// Set to true if your cluster does not have prometheus-operator installed,
+	// or when you want to run the exporter but manage Prometheus configuration manually.
+	//
+	// Must be set to true for a highly available deployment. In this case, every replica
+	// provides different metrics, which must be aggregated on the consumer side.
+	// +optional
+	DisableServiceMonitor bool `json:"disableServiceMonitor,omitempty"`
+
+	// Enabled controls whether sensor data collection and metrics export is active.
+	// When true, configures Ironic to collect sensor data and deploys the
+	// ironic-prometheus-exporter container.
+	Enabled bool `json:"enabled"`
+
+	// SensorCollectionInterval defines how often (in seconds) sensor data
+	// is collected from BMCs using Ironic. Must be at least 60 seconds.
+	// +kubebuilder:default=60
+	// +kubebuilder:validation:Minimum=60
+	// +optional
+	SensorCollectionInterval int `json:"sensorCollectionInterval,omitempty"`
+}
+
 // IronicSpec defines the desired state of Ironic.
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
@@ -345,6 +376,12 @@ type IronicSpec struct {
 	// EXPERIMENTAL: requires feature gate Overrides.
 	// +optional
 	Overrides *Overrides `json:"overrides,omitempty"`
+
+	// PrometheusExporter configures sensor data collection and Prometheus metrics export.
+	// When enabled, this configures Ironic to collect sensor data and deploys the
+	// ironic-prometheus-exporter container.
+	// +optional
+	PrometheusExporter *PrometheusExporter `json:"prometheusExporter,omitempty"`
 
 	// TLS defines TLS-related settings for various network interactions.
 	// +optional

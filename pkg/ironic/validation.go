@@ -135,6 +135,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
+	if ironic.HighAvailability && ironic.PrometheusExporter != nil && !ironic.PrometheusExporter.DisableServiceMonitor {
+		return errors.New("ServiceMonitor support is currently incompatible with the highly available architecture")
+	}
+
 	if ironic.HighAvailability && !metal3api.CurrentFeatureGate.Enabled(metal3api.FeatureHighAvailability) {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
