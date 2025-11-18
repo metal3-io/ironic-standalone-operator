@@ -183,3 +183,90 @@ func TestGenerateSecret(t *testing.T) {
 		})
 	}
 }
+
+func TestSecretVersionAnnotations(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		SecretType string
+		SecretData map[string][]byte
+
+		ExpectedAnnotationKey string
+		ExpectedHashValue     string
+	}{
+		{
+			Scenario:   "simple-secret",
+			SecretType: "api-secret",
+			SecretData: map[string][]byte{
+				"username": []byte("admin"),
+				"password": []byte("secret123"),
+			},
+			ExpectedAnnotationKey: "ironic.metal3.io/api-secret-version",
+			ExpectedHashValue:     "cf08d4bc4bc1d3f3",
+		},
+		{
+			Scenario:   "tls-secret",
+			SecretType: "tls-secret",
+			SecretData: map[string][]byte{
+				"tls.crt": []byte("certificate-data"),
+				"tls.key": []byte("key-data"),
+			},
+			ExpectedAnnotationKey: "ironic.metal3.io/tls-secret-version",
+			ExpectedHashValue:     "7d8157e8f00016ad",
+		},
+		{
+			Scenario:   "single-field-secret",
+			SecretType: "database",
+			SecretData: map[string][]byte{
+				"password": []byte("dbpassword"),
+			},
+			ExpectedAnnotationKey: "ironic.metal3.io/database-version",
+			ExpectedHashValue:     "febbbb8e799c80ef",
+		},
+		{
+			Scenario:              "empty-secret",
+			SecretType:            "empty",
+			SecretData:            map[string][]byte{},
+			ExpectedAnnotationKey: "ironic.metal3.io/empty-version",
+			ExpectedHashValue:     "cbf29ce484222325",
+		},
+		{
+			Scenario:   "multi-field-secret",
+			SecretType: "complex",
+			SecretData: map[string][]byte{
+				"field1": []byte("value1"),
+				"field2": []byte("value2"),
+				"field3": []byte("value3"),
+			},
+			ExpectedAnnotationKey: "ironic.metal3.io/complex-version",
+			ExpectedHashValue:     "6f31daf5e0e1cffe",
+		},
+		{
+			Scenario:   "binary-data",
+			SecretType: "binary",
+			SecretData: map[string][]byte{
+				"cert": {0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd},
+			},
+			ExpectedAnnotationKey: "ironic.metal3.io/binary-version",
+			ExpectedHashValue:     "544d65200b58101e",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			secret := &corev1.Secret{
+				Data: tc.SecretData,
+			}
+			annotations := secretVersionAnnotations(tc.SecretType, secret)
+			assert.Len(t, annotations, 1)
+			assert.Equal(t, tc.ExpectedHashValue, annotations[tc.ExpectedAnnotationKey])
+
+			// Consistency check: the same call results in the same results
+			secret = &corev1.Secret{
+				Data: tc.SecretData,
+			}
+			annotations = secretVersionAnnotations(tc.SecretType, secret)
+			assert.Equal(t, tc.ExpectedHashValue, annotations[tc.ExpectedAnnotationKey])
+		})
+	}
+}
