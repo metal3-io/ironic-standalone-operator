@@ -7,6 +7,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -40,7 +41,7 @@ func ensureServiceMonitor(cctx ControllerContext, ironic *metal3api.Ironic) (Sta
 			{
 				Port: metricsPortName,
 				// TODO(dtantsur): TLS support?
-				Scheme: "http",
+				Scheme: ptr.To(monitoringv1.SchemeHTTP),
 				Path:   "/metrics",
 			},
 		}
