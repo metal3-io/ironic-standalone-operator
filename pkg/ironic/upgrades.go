@@ -125,12 +125,12 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 	template := newMigrationTemplate(cctx, resources.Ironic, phase)
 
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
-		if job.ObjectMeta.Labels == nil {
+		if job.Labels == nil {
 			cctx.Logger.Info("creating a new upgrade job", "Phase", phase, "From", fromVersion, "To", toVersion.String())
-			job.ObjectMeta.Labels = make(map[string]string, 2)
+			job.Labels = make(map[string]string, 2)
 		}
-		job.ObjectMeta.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
-		job.ObjectMeta.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
+		job.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
+		job.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
 		mergePodTemplates(&job.Spec.Template, template)

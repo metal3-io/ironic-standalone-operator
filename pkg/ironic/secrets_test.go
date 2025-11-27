@@ -57,26 +57,26 @@ func TestGenerateHtpasswd(t *testing.T) {
 		Scenario string
 
 		User     string
-		Password string
+		password string
 	}{
 		{
 			User:     "admin",
-			Password: "pa$$w0rd",
+			password: "pa$$w0rd",
 		},
 		{
 			User:     "admin\n",
-			Password: "pa$$w0rd\n",
+			password: "pa$$w0rd\n",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			result, err := generateHtpasswd([]byte(tc.User), []byte(tc.Password))
+			result, err := generateHtpasswd([]byte(tc.User), []byte(tc.password))
 			require.NoError(t, err)
 			user, password, ok := strings.Cut(result, ":")
 			assert.Truef(t, ok, "%s is not separated with a colon", result)
 			assert.Equal(t, strings.Trim(tc.User, "\n"), user)
-			assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(password), []byte(strings.Trim(tc.Password, "\n"))))
+			assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(password), []byte(strings.Trim(tc.password, "\n"))))
 		})
 	}
 }
@@ -86,7 +86,7 @@ func TestSecretNeedsUpdating(t *testing.T) {
 		Scenario string
 
 		User            string
-		Password        string
+		password        string
 		CurrentHtpasswd string
 
 		ExpectedChanged bool
@@ -95,28 +95,28 @@ func TestSecretNeedsUpdating(t *testing.T) {
 			Scenario: "nothing-changed",
 
 			User:            "admin",
-			Password:        "password",
+			password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 		},
 		{
 			Scenario: "newlines",
 
 			User:            "admin\n",
-			Password:        "password\n",
+			password:        "password\n",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 		},
 		{
 			Scenario: "new-value",
 
 			User:            "admin",
-			Password:        "password",
+			password:        "password",
 			ExpectedChanged: true,
 		},
 		{
 			Scenario: "user-changed",
 
 			User:            "admin2",
-			Password:        "password",
+			password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 			ExpectedChanged: true,
 		},
@@ -124,14 +124,14 @@ func TestSecretNeedsUpdating(t *testing.T) {
 			Scenario: "password-changed",
 
 			User:            "admin",
-			Password:        "password2",
+			password:        "password2",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 			ExpectedChanged: true,
 		},
 		{
 			Scenario: "missing-user",
 
-			Password:        "password",
+			password:        "password",
 			CurrentHtpasswd: "admin:$2y$05$CJozjmp4SHJjNWcJn1vVsOx4OEBQTDTVTdNFc0I.CVt5xpEZMK4pW",
 			ExpectedChanged: true,
 		},
@@ -149,7 +149,7 @@ func TestSecretNeedsUpdating(t *testing.T) {
 			secret := &corev1.Secret{
 				Data: map[string][]byte{
 					"username": []byte(tc.User),
-					"password": []byte(tc.Password),
+					"password": []byte(tc.password),
 				},
 			}
 			if tc.CurrentHtpasswd != "" {
