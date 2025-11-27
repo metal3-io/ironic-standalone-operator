@@ -1,7 +1,8 @@
+version: "2"
 run:
   go: "1.24"
 linters:
-  disable-all: true
+  default: none
   enable:
   - asasalint
   - asciicheck
@@ -30,11 +31,8 @@ linters:
   - goconst
   - gocritic
   - godot
-  - gofmt
-  - goimports
   - goprintffuncname
   - gosec
-  - gosimple
   - gosmopolitan
   - govet
   - iface
@@ -60,88 +58,101 @@ linters:
   #- revive
   - rowserrcheck
   - staticcheck
-  - stylecheck
   - tagliatelle
   - testifylint
   - thelper
   - tparallel
-  - typecheck
   - unconvert
   - unparam
   - unused
   - usestdlibvars
   - usetesting
   - whitespace
-  # Run with --fast=false for more extensive checks
-  fast: true
-linters-settings:
-  gosec:
-    severity: medium
-    confidence: medium
-    concurrency: 8
-    # (NOTE)elfosardo: we should try removing this exclude once we bump golangci-lint to 1.61
-    excludes:
-    - G115
-  importas:
-    no-unaliased: true
-    alias:
-    # Kubernetes
-    - pkg: k8s.io/api/core/v1
-      alias: corev1
-    - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-      alias: apiextensionsv1
-    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-      alias: metav1
-    - pkg: k8s.io/apimachinery/pkg/api/errors
-      alias: k8serrors
-    - pkg: k8s.io/apimachinery/pkg/util/errors
-      alias: kerrors
-    - pkg: k8s.io/component-base/logs/api/v1
-      alias: logsv1
-    # Controller Runtime
-    - pkg: sigs.k8s.io/controller-runtime
-      alias: ctrl
-    # IrSO
-    - pkg: github.com/metal3-io/ironic-standalone-operator/api/v1alpha1
-      alias: metal3api
-  nolintlint:
-    allow-unused: false
-    require-specific: true
-  gocritic:
-    enabled-tags:
-    - experimental
-  tagliatelle:
-    case:
-      rules:
-        json: goCamel
-  govet:
-    enable:
-    - shadow
+  settings:
+    gocritic:
+      enabled-tags:
+      - experimental
+    gosec:
+      # (NOTE)elfosardo: we should try removing this exclude once we bump golangci-lint to 1.61
+      excludes:
+      - G115
+      severity: medium
+      confidence: medium
+      concurrency: 8
+    govet:
+      enable:
+      - shadow
+    importas:
+      alias:
+      # Kubernetes
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+        alias: apiextensionsv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: k8serrors
+      - pkg: k8s.io/apimachinery/pkg/util/errors
+        alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
+      # Controller Runtime
+      - pkg: sigs.k8s.io/controller-runtime
+        alias: ctrl
+      # IrSO
+      - pkg: github.com/metal3-io/ironic-standalone-operator/api/v1alpha1
+        alias: metal3api
+      no-unaliased: true
+    nolintlint:
+      require-specific: true
+      allow-unused: false
+    tagliatelle:
+      case:
+        rules:
+          json: goCamel
+  exclusions:
+    generated: lax
+    presets:
+    - comments
+    - common-false-positives
+    - legacy
+    - std-error-handling
+    rules:
+    - path: test/.*.go
+      text: should not use dot imports
+    - linters:
+      - importas
+      path: cmd/main.go
+      text: metal3iov1alpha1
+    - linters:
+      - gosec
+      path: suite_test.go
+      text: 'G404: Use of weak random number generator .*'
+    - linters:
+      - tagliatelle
+      text: CIDR
+    - linters:
+      - tagliatelle
+      text: CA
+    paths:
+    - zz_generated.*\.go$
+    - .*conversion.*\.go$
+    - third_party$
+    - builtin$
+    - examples$
 issues:
-  exclude-files:
-  - "zz_generated.*\\.go$"
-  - ".*conversion.*\\.go$"
-  include:
-  - EXC0002 # include "missing comments" issues from golangci-lint
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-  # Dot imports for gomega or ginkgo are allowed
-  # within test files.
-  - path: test/.*.go
-    text: should not use dot imports
-  # NOTE(dtantsur): Kubebuilder insists on a specific way to call imports
-  - linters:
-    - importas
-    path: cmd/main.go
-    text: metal3iov1alpha1
-  - linters:
-    - gosec
-    path: suite_test.go
-    text: "G404: Use of weak random number generator .*"
-  - linters:
-    - tagliatelle
-    text: "CIDR"
-  - linters:
-    - tagliatelle
-    text: "CA"
+formatters:
+  enable:
+  - gofmt
+  - goimports
+  exclusions:
+    generated: lax
+    paths:
+    - zz_generated.*\.go$
+    - .*conversion.*\.go$
+    - third_party$
+    - builtin$
+    - examples$
