@@ -276,7 +276,7 @@ func TestAnnotationLabelOverrides(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "my-annotation", podTemplate.Annotations["annotation.example.com"])
-	assert.NotEqual(t, "", podTemplate.Annotations["ironic.metal3.io/api-secret-version"])
+	assert.NotEmpty(t, podTemplate.Annotations["ironic.metal3.io/api-secret-version"])
 	assert.Equal(t, "my-label", podTemplate.Labels["label.example.com"])
 	assert.Equal(t, "test", podTemplate.Labels[metal3api.IronicServiceLabel])
 }

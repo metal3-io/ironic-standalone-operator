@@ -32,8 +32,8 @@ func ensureServiceMonitor(cctx ControllerContext, ironic *metal3api.Ironic) (Sta
 	}
 
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, sm, func() error {
-		if sm.ObjectMeta.Labels == nil {
-			sm.ObjectMeta.Labels = make(map[string]string, 1)
+		if sm.Labels == nil {
+			sm.Labels = make(map[string]string, 1)
 		}
 		sm.Labels[metal3api.IronicServiceLabel] = ironic.Name
 

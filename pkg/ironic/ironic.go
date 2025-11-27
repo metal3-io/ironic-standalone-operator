@@ -35,7 +35,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status,
 		},
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
-		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
+		if deploy.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic daemon set")
 		}
 		if deploy.Labels == nil {
@@ -90,7 +90,7 @@ func ensureIronicDeployment(cctx ControllerContext, resources Resources) (Status
 		},
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, deploy, func() error {
-		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
+		if deploy.CreationTimestamp.IsZero() {
 			cctx.Logger.Info("creating a new ironic deployment")
 		}
 		populateIronicDeployment(cctx, resources, deploy, template)
@@ -116,9 +116,9 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 		exposedPort = httpsExposedPort
 	}
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
-		if service.ObjectMeta.Labels == nil {
+		if service.Labels == nil {
 			cctx.Logger.Info("creating a new ironic service")
-			service.ObjectMeta.Labels = make(map[string]string, 2)
+			service.Labels = make(map[string]string, 2)
 		}
 		service.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		service.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
