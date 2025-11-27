@@ -2,7 +2,7 @@ name: Functional Tests
 
 on:
   pull_request:
-    types: [opened, edited, reopened, synchronize, ready_for_review]
+    types: [ opened, edited, reopened, synchronize, ready_for_review ]
 
 jobs:
   test:
@@ -14,15 +14,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: "regular"
-            label_filter: "!upgrade && !ha"
-            minikube_args: ""
-          - name: "upgrade"
-            label_filter: "upgrade && !ha"
-            minikube_args: ""
-          - name: "ha"
-            label_filter: "ha"
-            minikube_args: "--ha"
+        - name: "regular"
+          label_filter: "!upgrade && !ha"
+          minikube_args: ""
+        - name: "upgrade"
+          label_filter: "upgrade && !ha"
+          minikube_args: ""
+        - name: "ha"
+          label_filter: "ha"
+          minikube_args: "--ha"
     steps:
     - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
     - name: Calculate go version

@@ -81,7 +81,7 @@ linters-settings:
     concurrency: 8
     # (NOTE)elfosardo: we should try removing this exclude once we bump golangci-lint to 1.61
     excludes:
-      - G115
+    - G115
   importas:
     no-unaliased: true
     alias:
