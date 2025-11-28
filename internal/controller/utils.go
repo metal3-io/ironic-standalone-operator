@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +16,7 @@ import (
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
+	"github.com/metal3-io/ironic-standalone-operator/pkg/secretutils"
 )
 
 const IronicFinalizer = "ironic.metal3.io"
@@ -84,6 +84,9 @@ func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *me
 		return
 	}
 
+	// Add the environment label so the secret is included in the filtered cache
+	metav1.SetMetaDataLabel(&secret.ObjectMeta, secretutils.LabelEnvironmentName, secretutils.LabelEnvironmentValue)
+
 	err = controllerutil.SetOwnerReference(owner, secret, cctx.Scheme)
 	if err != nil {
 		return
@@ -96,23 +99,6 @@ func generateSecret(cctx ironic.ControllerContext, owner metav1.Object, meta *me
 	}
 
 	return
-}
-
-func updateSecretOwners(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, secret *corev1.Secret) (requeue bool, err error) {
-	oldReferences := secret.GetOwnerReferences()
-
-	err = controllerutil.SetOwnerReference(ironicConf, secret, cctx.Scheme)
-	if err != nil {
-		return true, err
-	}
-
-	if !reflect.DeepEqual(oldReferences, secret.GetOwnerReferences()) {
-		cctx.Logger.Info("updating owner reference", "Secret", secret.Name)
-		err = cctx.Client.Update(cctx.Context, secret)
-		return true, err
-	}
-
-	return false, nil
 }
 
 func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status, conditions *[]metav1.Condition, generation int64, resource string) {
