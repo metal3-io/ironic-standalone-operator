@@ -50,7 +50,7 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - "ALL"
+            - "ALL"
           privileged: false
           runAsUser: 65532
           runAsGroup: 65532
