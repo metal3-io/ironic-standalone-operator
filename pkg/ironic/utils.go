@@ -87,8 +87,8 @@ func mergeContainers(target, source []corev1.Container) []corev1.Container {
 // mergePodTemplates updates an existing pod template, taking care to avoid
 // overriding defaulted values.
 func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplateSpec) {
-	if target.ObjectMeta.Labels == nil {
-		target.ObjectMeta.Labels = make(map[string]string, len(source.ObjectMeta.Labels))
+	if target.Labels == nil {
+		target.Labels = make(map[string]string, len(source.Labels))
 	}
 	maps.Copy(target.Labels, source.Labels)
 	if source.Annotations != nil {

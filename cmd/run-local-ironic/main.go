@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -183,9 +184,9 @@ func writeManifestsToYAML(manifests []runtime.Object, filename string, scheme *r
 func runPodmanKubePlay(manifestFile string, tearDown bool) error {
 	var cmd *exec.Cmd
 	if tearDown {
-		cmd = exec.Command("podman", "kube", "play", "--down", manifestFile)
+		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--down", manifestFile)
 	} else {
-		cmd = exec.Command("podman", "kube", "play", "--network=host", manifestFile)
+		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--network=host", manifestFile)
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

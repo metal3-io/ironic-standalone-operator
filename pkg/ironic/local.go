@@ -76,12 +76,12 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 
 	for _, secretObj := range secrets {
 		// Determine secret type based on name patterns or labels
-		switch {
-		case secretObj.Name == resources.Ironic.Spec.APICredentialsName:
+		switch secretObj.Name {
+		case resources.Ironic.Spec.APICredentialsName:
 			resources.APISecret = secretObj
-		case secretObj.Name == resources.Ironic.Spec.TLS.CertificateName:
+		case resources.Ironic.Spec.TLS.CertificateName:
 			resources.TLSSecret = secretObj
-		case secretObj.Name == resources.Ironic.Spec.TLS.BMCCAName:
+		case resources.Ironic.Spec.TLS.BMCCAName:
 			resources.BMCCASecret = secretObj
 		default:
 			return nil, fmt.Errorf("secret %s does not belong to the Ironic resource", secretObj.Name)
@@ -90,8 +90,8 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 
 	for _, configMapObj := range configMaps {
 		// Determine configmap type based on name patterns or labels
-		switch {
-		case configMapObj.Name == resources.Ironic.Spec.TLS.TrustedCAName:
+		switch configMapObj.Name {
+		case resources.Ironic.Spec.TLS.TrustedCAName:
 			resources.TrustedCAConfigMap = configMapObj
 		default:
 			return nil, fmt.Errorf("configmap %s does not belong to the Ironic resource", configMapObj.Name)
@@ -123,9 +123,10 @@ func checkAndUpdateIronicForLocal(ironicSpec *metal3api.IronicSpec) error {
 
 	// It's not possible to use hostIP on podman, but localhost is a reasonable default for this case
 	if net.IPAddress == "" && net.MACAddresses == nil {
-		if net.Interface == "lo" {
+		switch net.Interface {
+		case "lo":
 			return errors.New("setting interface to lo does not work")
-		} else if net.Interface == "" {
+		case "":
 			net.IPAddress = "127.0.0.1"
 		}
 	}
