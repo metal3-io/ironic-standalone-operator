@@ -310,6 +310,10 @@ go-version: ## Print the go version we use to compile our binaries and images
 ## --------------------------------------
 RELEASE_TAG ?= $(shell git describe --abbrev=0 2>/dev/null)
 RELEASE_NOTES_DIR := releasenotes
+RELEASE_DIR := out
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
 
 $(RELEASE_NOTES_DIR):
 	mkdir -p $(RELEASE_NOTES_DIR)/
