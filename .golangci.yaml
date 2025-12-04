@@ -73,9 +73,6 @@ linters:
       enabled-tags:
       - experimental
     gosec:
-      # (NOTE)elfosardo: we should try removing this exclude once we bump golangci-lint to 1.61
-      excludes:
-      - G115
       severity: medium
       confidence: medium
       concurrency: 8
