@@ -46,6 +46,7 @@ import (
 	"github.com/metal3-io/ironic-standalone-operator/internal/controller"
 	webhookv1alpha1 "github.com/metal3-io/ironic-standalone-operator/internal/webhook/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
+	"github.com/metal3-io/ironic-standalone-operator/pkg/secretutils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -191,6 +192,7 @@ func main() {
 		LeaderElectionNamespace: watchNamespace,
 		Cache: cache.Options{
 			DefaultNamespaces: watchNamespaces,
+			ByObject:          secretutils.AddSecretSelector(nil),
 		},
 	}
 
@@ -203,6 +205,7 @@ func main() {
 	if err = (&controller.IronicReconciler{
 		Client:      mgr.GetClient(),
 		KubeClient:  kubeClient,
+		APIReader:   mgr.GetAPIReader(),
 		Scheme:      mgr.GetScheme(),
 		Log:         ctrl.Log.WithName("controllers").WithName("Ironic"),
 		Domain:      clusterDomain,

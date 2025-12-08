@@ -37,12 +37,14 @@ import (
 	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
+	"github.com/metal3-io/ironic-standalone-operator/pkg/secretutils"
 )
 
 // IronicReconciler reconciles a Ironic object.
 type IronicReconciler struct {
 	client.Client
 	KubeClient  kubernetes.Interface
+	APIReader   client.Reader
 	Scheme      *runtime.Scheme
 	Log         logr.Logger
 	Domain      string
@@ -209,15 +211,17 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	return
 }
 
-// Get a secret and update its owner references.
+// Get a secret and update its owner references using SecretManager.
+// This ensures the secret is labeled for cache filtering and has owner references set.
 // Only returns a valid pointer if requeue is false and err is nil.
 func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, secretName string) (secret *corev1.Secret, requeue bool, err error) {
 	namespacedName := types.NamespacedName{
 		Namespace: ironicConf.Namespace,
 		Name:      secretName,
 	}
-	secret = &corev1.Secret{}
-	err = cctx.Client.Get(cctx.Context, namespacedName, secret)
+
+	secretManager := secretutils.NewSecretManager(cctx.Context, cctx.Logger, cctx.Client, r.APIReader)
+	secret, err = secretManager.AcquireSecret(namespacedName, ironicConf, cctx.Scheme)
 	if err != nil {
 		// NotFound requires a user's intervention, so reporting it in the conditions.
 		// Everything else is reported up for a retry.
@@ -226,11 +230,6 @@ func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, iro
 			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
 		}
 		return nil, true, fmt.Errorf("cannot load secret %s/%s: %w", ironicConf.Namespace, secretName, err)
-	}
-
-	requeue, err = updateSecretOwners(cctx, ironicConf, secret)
-	if requeue || err != nil {
-		return nil, requeue, err
 	}
 
 	return secret, false, nil
