@@ -4,11 +4,13 @@
 set -ux
 
 REPO_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
+# shellcheck disable=SC2164
 cd "${REPO_ROOT}"
 
 LOGDIR="${LOGDIR:-/tmp/logs}"
 CLUSTER_TYPE="${CLUSTER_TYPE:-kind}"
 
+# shellcheck disable=SC1091
 . test/testing.env
 
 if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then

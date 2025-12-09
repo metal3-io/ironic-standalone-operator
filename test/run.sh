@@ -9,6 +9,7 @@ LOGDIR="${LOGDIR:-/tmp/logs}"
 JUNIT_OUTPUT="${JUNIT_OUTPUT:-${LOGDIR}/report.xml}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-90m}"
 
+# shellcheck disable=SC1091
 . testing.env
 
 mkdir -p "${LOGDIR}"

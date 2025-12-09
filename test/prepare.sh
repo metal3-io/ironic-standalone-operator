@@ -17,6 +17,7 @@ HELM_FILE="helm-v${HELM_VERSION}-linux-amd64.tar.gz"
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.18.2}"
 MARIADB_OPERATOR_VERSION="${MARIADB_OPERATOR_VERSION:-25.8.3}"
 
+# shellcheck disable=SC1091
 . test/testing.env
 . test/utils.sh
 
