@@ -16,7 +16,8 @@ IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-quay.io/metal3-io}"
 
 image_load() {
     local image="$1"
-    local archive="$(mktemp --suffix=.tar)"
+    local archive
+    archive="$(mktemp --suffix=.tar)"
     "${CONTAINER_RUNTIME}" save "${image}" > "${archive}"
     if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
         kind load image-archive -v 2 "${archive}"

@@ -5,9 +5,9 @@ set -ux
 
 LOGDIR="${LOGDIR:-/tmp/logs}"
 
-sudo podman ps --all > "${LOGDIR}/containers.txt"
+sudo podman ps --all | tee "${LOGDIR}/containers.txt" > /dev/null
 for cid in $(sudo podman ps --quiet); do
-    sudo podman inspect "${cid}" > "${LOGDIR}/${cid}.txt"
-    sudo podman logs "${cid}" > "${LOGDIR}/${cid}.log" 2>&1
+    sudo podman inspect "${cid}" | tee "${LOGDIR}/${cid}.txt" > /dev/null
+    sudo podman logs "${cid}" 2>&1 | tee "${LOGDIR}/${cid}.log" > /dev/null
 done
 sudo chown -R "${USER}" "${LOGDIR}"
