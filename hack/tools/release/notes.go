@@ -237,12 +237,7 @@ func run() int {
 	}
 
 	fmt.Println("<!-- markdownlint-disable no-inline-html line-length -->")
-	if isBeta(latestTag) {
-		fmt.Printf(warningTemplate, "BETA RELEASE")
-	}
-	if isRC(latestTag) {
-		fmt.Printf(warningTemplate, "RELEASE CANDIDATE")
-	}
+
 	// TODO Turn this into a link (requires knowing the project name + organization)
 	fmt.Printf("# Changes since %v\n\n", lastTag)
 
@@ -259,6 +254,12 @@ func run() int {
 
 		// if we're doing beta/rc, print breaking changes and hide the rest of the changes
 		if key == warning {
+			if isBeta(latestTag) {
+				fmt.Printf(warningTemplate, "BETA RELEASE")
+			}
+			if isRC(latestTag) {
+				fmt.Printf(warningTemplate, "RELEASE CANDIDATE")
+			}
 			if isBeta(latestTag) || isRC(latestTag) {
 				fmt.Printf("<details>\n")
 				fmt.Printf("<summary>More details about the release</summary>\n\n")
