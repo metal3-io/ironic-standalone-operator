@@ -15,10 +15,14 @@ jobs:
   build_controller:
     name: Build Ironic-standalone-operator container image
     if: github.repository == 'metal3-io/ironic-standalone-operator'
+    permissions:
+      contents: read
+      id-token: write
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main
     with:
       image-name: 'ironic-standalone-operator'
       pushImage: true
+      generate-sbom: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
