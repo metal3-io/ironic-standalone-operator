@@ -141,27 +141,15 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 			expectedError: "",
 		},
 		{
+			name:          "PrometheusExporter with version 33.0",
+			version:       metal3api.Version330,
+			enabled:       true,
+			expectedError: "",
+		},
+		{
 			name:          "PrometheusExporter with latest version",
 			version:       metal3api.VersionLatest,
 			enabled:       true,
-			expectedError: "",
-		},
-		{
-			name:          "PrometheusExporter with version 30.0 (too old)",
-			version:       metal3api.Version300,
-			enabled:       true,
-			expectedError: "using prometheusExporter is only possible for Ironic 31.0 or newer",
-		},
-		{
-			name:          "PrometheusExporter disabled with version 30.0",
-			version:       metal3api.Version300,
-			enabled:       false,
-			expectedError: "",
-		},
-		{
-			name:          "PrometheusExporter not configured with version 30.0",
-			version:       metal3api.Version300,
-			enabled:       false,
 			expectedError: "",
 		},
 	}
@@ -207,6 +195,11 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		expectedError string
 	}{
 		{
+			name:          "BMCCA with version 33.0",
+			version:       metal3api.Version330,
+			expectedError: "",
+		},
+		{
 			name:          "BMCCA with version 32.0",
 			version:       metal3api.Version320,
 			expectedError: "",
@@ -219,11 +212,6 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		{
 			name:          "BMCCA with version 31.0 (too old)",
 			version:       metal3api.Version310,
-			expectedError: "using tls.bmcCAName is only possible for Ironic 32.0 or newer",
-		},
-		{
-			name:          "BMCCA with version 30.0 (too old)",
-			version:       metal3api.Version300,
 			expectedError: "using tls.bmcCAName is only possible for Ironic 32.0 or newer",
 		},
 	}
