@@ -123,6 +123,7 @@ jobs:
   build_irso:
     permissions:
       contents: read
+      id-token: write
     needs: push_release_tags
     name: Build IrSO container image
     if: github.repository == 'metal3-io/ironic-standalone-operator'
@@ -131,6 +132,7 @@ jobs:
       image-name: 'ironic-standalone-operator'
       pushImage: true
       ref: ${{ needs.push_release_tags.outputs.release_tag }}
+      generate-sbom: true
     secrets:
       QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
       QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
