@@ -27,3 +27,6 @@ bin/
 
 # Release artifacts
 out/
+
+# ai stuff
+.claude
