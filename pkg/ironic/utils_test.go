@@ -3,10 +3,11 @@ package ironic
 import (
 	"testing"
 
-	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 func TestBuildEndpoints(t *testing.T) {

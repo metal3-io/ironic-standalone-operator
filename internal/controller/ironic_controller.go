@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -34,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-logr/logr"
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/secretutils"

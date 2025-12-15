@@ -24,7 +24,6 @@ linters:
   - fatcontext
   - forbidigo
   - forcetypeassert
-  #- gci
   - ginkgolinter
   - gocheckcompilerdirectives
   - gochecksumtype
@@ -117,6 +116,9 @@ linters:
     - std-error-handling
     rules:
     - path: test/.*.go
+      linters:
+      - gci
+    - path: test/.*.go
       text: should not use dot imports
     - linters:
       - importas
@@ -143,8 +145,15 @@ issues:
   max-same-issues: 0
 formatters:
   enable:
+  - gci
   - gofmt
   - goimports
+  settings:
+    gci:
+      sections:
+      - standard # Standard library packages
+      - default # Everything else (third-party packages)
+      - localmodule # Local module packages (will be last)
   exclusions:
     generated: lax
     paths:
