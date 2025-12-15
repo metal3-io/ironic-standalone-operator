@@ -16,6 +16,9 @@ import (
 const (
 	defaultExposedPort = 80
 	httpsExposedPort   = 443
+
+	// initialLabelMapCapacity is the initial capacity for label maps.
+	initialLabelMapCapacity = 2
 )
 
 func ironicDeploymentName(ironic *metal3api.Ironic) string {
@@ -39,7 +42,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status,
 			cctx.Logger.Info("creating a new ironic daemon set")
 		}
 		if deploy.Labels == nil {
-			deploy.Labels = make(map[string]string, 2)
+			deploy.Labels = make(map[string]string, initialLabelMapCapacity)
 		}
 		deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
@@ -62,7 +65,7 @@ func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status,
 
 func populateIronicDeployment(cctx ControllerContext, resources Resources, deploy *appsv1.Deployment, template corev1.PodTemplateSpec) {
 	if deploy.Labels == nil {
-		deploy.Labels = make(map[string]string, 2)
+		deploy.Labels = make(map[string]string, initialLabelMapCapacity)
 	}
 	deploy.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 	deploy.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
@@ -118,7 +121,7 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, service, func() error {
 		if service.Labels == nil {
 			cctx.Logger.Info("creating a new ironic service")
-			service.Labels = make(map[string]string, 2)
+			service.Labels = make(map[string]string, initialLabelMapCapacity)
 		}
 		service.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		service.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()

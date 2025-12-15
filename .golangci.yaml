@@ -43,7 +43,7 @@ linters:
   - makezero
   - mirror
   - misspell
-  #- mnd
+  - mnd
   #- nakedret
   #- nilerr
   - nilnesserr

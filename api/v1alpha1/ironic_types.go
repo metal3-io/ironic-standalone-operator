@@ -21,11 +21,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ironicMajorVersion33 = 33
+	ironicMajorVersion32 = 32
+	ironicMajorVersion31 = 31
+	ironicMinorVersion0  = 0
+)
+
 var (
 	VersionLatest = Version{}
-	Version330    = Version{Major: 33, Minor: 0}
-	Version320    = Version{Major: 32, Minor: 0}
-	Version310    = Version{Major: 31, Minor: 0}
+	Version330    = Version{Major: ironicMajorVersion33, Minor: ironicMinorVersion0}
+	Version320    = Version{Major: ironicMajorVersion32, Minor: ironicMinorVersion0}
+	Version310    = Version{Major: ironicMajorVersion31, Minor: ironicMinorVersion0}
 )
 
 // SupportedVersions is a mapping of supported versions to container image tags.

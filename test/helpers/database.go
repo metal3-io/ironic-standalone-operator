@@ -17,6 +17,11 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
+const (
+	// maxUserConnections is the maximum number of connections allowed for a database user.
+	maxUserConnections = 100
+)
+
 var (
 	mariadbName      string
 	mariadbNamespace string
@@ -86,7 +91,7 @@ func CreateDatabase(ctx context.Context, k8sClient client.Client, name types.Nam
 			SQLTemplate: mariadbapi.SQLTemplate{
 				CleanupPolicy: ptr.To(mariadbapi.CleanupPolicyDelete),
 			},
-			MaxUserConnections: 100,
+			MaxUserConnections: maxUserConnections,
 		},
 	}
 	err = k8sClient.Create(ctx, user)

@@ -26,6 +26,9 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("run-local-ironic")
+
+	// Directory permissions for output directory.
+	outputDirPerm os.FileMode = 0o755
 )
 
 func init() {
@@ -106,7 +109,7 @@ func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo
 	}
 
 	outputDir := filepath.Dir(outputFile)
-	if err = os.MkdirAll(outputDir, 0o755); err != nil {
+	if err = os.MkdirAll(outputDir, outputDirPerm); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 

@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	versionLatestString = "latest"
+	versionLatestString       = "latest"
+	versionComponentCount     = 2 // Expected number of version components (MAJOR.MINOR)
+	versionComponentSeparator = "."
 )
 
 type Version struct {
@@ -48,8 +50,8 @@ func ParseVersion(version string) (Version, error) {
 		return Version{}, nil
 	}
 
-	versionSplit := strings.SplitN(version, ".", 2)
-	if len(versionSplit) != 2 {
+	versionSplit := strings.SplitN(version, versionComponentSeparator, versionComponentCount)
+	if len(versionSplit) != versionComponentCount {
 		return Version{}, fmt.Errorf("invalid version %s, expected MAJOR.MINOR", version)
 	}
 

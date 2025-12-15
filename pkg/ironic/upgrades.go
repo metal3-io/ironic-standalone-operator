@@ -127,7 +127,7 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
 		if job.Labels == nil {
 			cctx.Logger.Info("creating a new upgrade job", "Phase", phase, "From", fromVersion, "To", toVersion.String())
-			job.Labels = make(map[string]string, 2)
+			job.Labels = make(map[string]string, initialLabelMapCapacity)
 		}
 		job.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		job.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
