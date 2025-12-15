@@ -70,7 +70,7 @@ func getIronic(cctx ironic.ControllerContext, name types.NamespacedName) (*metal
 	err := cctx.Client.Get(cctx.Context, name, ironicConf)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, nil
+			return nil, nil //nolint:nilnil // not found is not an error in this context
 		}
 		return nil, fmt.Errorf("could not load ironic configuration %s: %w", name, err)
 	}
