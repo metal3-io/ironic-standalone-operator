@@ -31,6 +31,7 @@ const (
 	tmpVolumeName  = "ironic-tmp"
 )
 
+//nolint:containedctx // Context is intentionally stored for use throughout the controller lifecycle
 type ControllerContext struct {
 	Context     context.Context
 	Client      client.Client
