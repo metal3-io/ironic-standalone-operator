@@ -45,7 +45,7 @@ linters:
   - misspell
   #- mnd
   #- nakedret
-  #- nilerr
+  - nilerr
   - nilnesserr
   #- nilnil
   - noctx
