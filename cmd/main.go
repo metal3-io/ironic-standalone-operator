@@ -23,12 +23,11 @@ import (
 	"os"
 	"strings"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme" //nolint:goimports // blank import with comment causes formatter conflict
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -47,6 +46,7 @@ import (
 	webhookv1alpha1 "github.com/metal3-io/ironic-standalone-operator/internal/webhook/v1alpha1"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/ironic"
 	"github.com/metal3-io/ironic-standalone-operator/pkg/secretutils"
+	//nolint:gci // kubebuilder scaffold comment must be preserved
 	//+kubebuilder:scaffold:imports
 )
 
