@@ -350,7 +350,7 @@ func databaseClientMounts(db *metal3api.Database) (volumes []corev1.Volume, moun
 		})
 	}
 
-	return
+	return volumes, mounts
 }
 
 func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
@@ -464,7 +464,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 		mounts = append(mounts, dbMounts...)
 	}
 
-	return
+	return volumes, mounts
 }
 
 func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.ContainerPort, httpdPorts []corev1.ContainerPort) {
@@ -498,7 +498,7 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 		}
 	}
 
-	return
+	return ironicPorts, httpdPorts
 }
 
 func buildDHCPRange(dhcp *metal3api.DHCP) string {

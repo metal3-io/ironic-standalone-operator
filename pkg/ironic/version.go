@@ -71,7 +71,7 @@ func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databas
 		result.MariaDBImage = defaultMariaDBImage
 	}
 
-	return
+	return result, nil
 }
 
 // Takes VersionInfo with defaults from the configuration and applies any overrides from the Ironic object.
