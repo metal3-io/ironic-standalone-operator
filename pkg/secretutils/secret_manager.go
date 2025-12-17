@@ -17,6 +17,8 @@ import (
 // SecretManager is a type for fetching Secrets whether or not they are in the
 // client cache, labelling so that they will be included in the client cache,
 // and optionally setting an owner reference.
+//
+//nolint:containedctx // Context is intentionally stored for use throughout the manager lifecycle
 type SecretManager struct {
 	ctx       context.Context
 	log       logr.Logger

@@ -8,7 +8,7 @@ linters:
   - asciicheck
   - bidichk
   - bodyclose
-  #- containedctx
+  - containedctx
   - copyloopvar
   - decorder
   - dogsled
