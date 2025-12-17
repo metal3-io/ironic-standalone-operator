@@ -180,12 +180,12 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, err error) {
 	if validationErr := ValidateIronic(&resources.Ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
-		return
+		return //nolint:nilerr // validation errors are reported in status, not as return error
 	}
 
 	if validationErr := checkVersion(resources, cctx.VersionInfo.InstalledVersion); validationErr != nil {
 		status = Status{Fatal: validationErr}
-		return
+		return //nolint:nilerr // validation errors are reported in status, not as return error
 	}
 
 	if resources.Ironic.Spec.Database != nil {
