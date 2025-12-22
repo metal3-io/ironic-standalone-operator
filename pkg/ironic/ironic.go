@@ -180,12 +180,12 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, err error) {
 	if validationErr := ValidateIronic(&resources.Ironic.Spec, nil); validationErr != nil {
 		status = Status{Fatal: validationErr}
-		return //nolint:nilerr // validation errors are reported in status, not as return error
+		return status, nil //nolint:nilerr // validation errors are reported in status, not as return error
 	}
 
 	if validationErr := checkVersion(resources, cctx.VersionInfo.InstalledVersion); validationErr != nil {
 		status = Status{Fatal: validationErr}
-		return //nolint:nilerr // validation errors are reported in status, not as return error
+		return status, nil //nolint:nilerr // validation errors are reported in status, not as return error
 	}
 
 	if resources.Ironic.Spec.Database != nil {
@@ -199,19 +199,19 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 	if resources.Ironic.Spec.HighAvailability {
 		err = removeIronicDeployment(cctx, resources.Ironic)
 		if err != nil {
-			return
+			return status, err
 		}
 		status, err = ensureIronicDaemonSet(cctx, resources)
 	} else {
 		err = removeIronicDaemonSet(cctx, resources.Ironic)
 		if err != nil {
-			return
+			return status, err
 		}
 		status, err = ensureIronicDeployment(cctx, resources)
 	}
 
 	if err != nil || status.IsError() {
-		return
+		return status, err
 	}
 
 	// Let the service be created while Ironic is being deployed, but do
@@ -235,7 +235,7 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 		return smStatus, err
 	}
 
-	return
+	return status, err
 }
 
 // RemoveIronic removes all bits of the Ironic deployment.

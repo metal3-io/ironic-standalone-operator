@@ -113,7 +113,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if ironicConf.DeletionTimestamp.IsZero() {
 		requeue, err = ensureFinalizer(cctx, ironicConf)
 		if requeue || err != nil {
-			return
+			return requeue, err
 		}
 	} else {
 		return r.cleanUp(cctx, ironicConf)
@@ -149,20 +149,20 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		ironicConf.Status.RequestedVersion = actuallyRequestedVersion
 		err = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonInProgress, "new version requested")
 		if err != nil {
-			return
+			return requeue, err
 		}
 	}
 
 	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicConf)
 	if requeue || err != nil {
-		return
+		return requeue, err
 	}
 
 	var tlsSecret *corev1.Secret
 	if tlsSecretName := ironicConf.Spec.TLS.CertificateName; tlsSecretName != "" {
 		tlsSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, tlsSecretName)
 		if requeue || err != nil {
-			return
+			return requeue, err
 		}
 	}
 
@@ -170,7 +170,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if bmcSecretName := ironicConf.Spec.TLS.BMCCAName; bmcSecretName != "" {
 		bmcSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, bmcSecretName)
 		if requeue || err != nil {
-			return
+			return requeue, err
 		}
 	}
 
@@ -178,7 +178,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if trustedCAConfigMapName := ironicConf.Spec.TLS.TrustedCAName; trustedCAConfigMapName != "" {
 		trustedCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, trustedCAConfigMapName)
 		if requeue || err != nil {
-			return
+			return requeue, err
 		}
 	}
 
@@ -193,7 +193,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	status, err := ironic.EnsureIronic(cctx, resources)
 	if err != nil {
 		cctx.Logger.Error(err, "potentially transient error, will retry")
-		return
+		return requeue, err
 	}
 
 	newStatus := ironicConf.Status.DeepCopy()
@@ -208,7 +208,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		ironicConf.Status = *newStatus
 		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 	}
-	return
+	return requeue, err
 }
 
 // Get a secret and update its owner references using SecretManager.
@@ -274,7 +274,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 		}
 
 		requeue = true
-		return
+		return apiSecret, requeue, err
 	}
 
 	apiSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, ironicConf.Spec.APICredentialsName)
@@ -292,7 +292,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 		err = cctx.Client.Update(cctx.Context, apiSecret)
 	}
 
-	return
+	return apiSecret, requeue, err
 }
 
 func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) (bool, error) {
