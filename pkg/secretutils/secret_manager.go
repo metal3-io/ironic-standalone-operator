@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,39 +35,52 @@ func NewSecretManager(ctx context.Context, log logr.Logger, cacheClient client.C
 	}
 }
 
-// findSecret retrieves a Secret from the cache if it is available, and from the
-// k8s API if not.
-func (sm *SecretManager) findSecret(key types.NamespacedName) (secret *corev1.Secret, err error) {
-	secret = &corev1.Secret{}
-
-	// Look for secret in the filtered cache
-	err = sm.client.Get(sm.ctx, key, secret)
-	if err == nil {
-		return secret, nil
-	}
-	if !k8serrors.IsNotFound(err) {
-		return nil, err
+func objectType(object client.Object) string {
+	switch object.(type) {
+	case *corev1.Secret:
+		return "secret"
+	case *corev1.ConfigMap:
+		return "config map"
 	}
 
-	// Secret not in cache; check API directly for unlabelled Secret
-	err = sm.apiReader.Get(sm.ctx, key, secret)
-	if err != nil {
-		return nil, err
-	}
-
-	return secret, nil
+	return "unknown object"
 }
 
-// claimSecret ensures that the Secret has a label that will ensure it is
+// findObject retrieves an object from the cache if it is available, and from the k8s API if not.
+func (sm *SecretManager) findObject(key types.NamespacedName, object client.Object) error {
+	// Look for object in the filtered cache
+	err := sm.client.Get(sm.ctx, key, object)
+	if err == nil {
+		return nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	// Object not in cache; check API directly for unlabelled object
+	err = sm.apiReader.Get(sm.ctx, key, object)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// claimObject ensures that the object has a label that will ensure it is
 // present in the cache (and that we can watch for changes), and optionally
 // that it has a particular owner reference.
-func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object, scheme *runtime.Scheme) error {
-	log := sm.log.WithValues("secret", secret.Name, "secretNamespace", secret.Namespace)
+func (sm *SecretManager) claimObject(object client.Object, owner client.Object, scheme *runtime.Scheme) error {
+	log := sm.log.WithValues(objectType(object), object.GetName(), "namespace", object.GetNamespace())
 	needsUpdate := false
 
-	if !metav1.HasLabel(secret.ObjectMeta, LabelEnvironmentName) {
-		log.Info("setting secret environment label")
-		metav1.SetMetaDataLabel(&secret.ObjectMeta, LabelEnvironmentName, LabelEnvironmentValue)
+	currentLabels := object.GetLabels()
+	if _, found := currentLabels[LabelEnvironmentName]; !found {
+		log.Info("setting environment label")
+		if currentLabels == nil {
+			currentLabels = make(map[string]string, 1)
+		}
+		currentLabels[LabelEnvironmentName] = LabelEnvironmentValue
+		object.SetLabels(currentLabels)
 		needsUpdate = true
 	}
 
@@ -80,24 +92,24 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 
 		alreadyOwned := false
 		ownerUID := owner.GetUID()
-		for _, ref := range secret.GetOwnerReferences() {
+		for _, ref := range object.GetOwnerReferences() {
 			if ref.UID == ownerUID {
 				alreadyOwned = true
 				break
 			}
 		}
 		if !alreadyOwned {
-			ownerLog.Info("setting secret owner reference")
-			if err := controllerutil.SetOwnerReference(owner, secret, scheme); err != nil {
-				return fmt.Errorf("failed to set secret owner reference: %w", err)
+			ownerLog.Info("setting owner reference")
+			if err := controllerutil.SetOwnerReference(owner, object, scheme); err != nil {
+				return fmt.Errorf("failed to set %s owner reference: %w", objectType(object), err)
 			}
 			needsUpdate = true
 		}
 	}
 
 	if needsUpdate {
-		if err := sm.client.Update(sm.ctx, secret); err != nil {
-			return fmt.Errorf("failed to update secret %s in namespace %s: %w", secret.Name, secret.Namespace, err)
+		if err := sm.client.Update(sm.ctx, object); err != nil {
+			return fmt.Errorf("failed to update %s %s/%s: %w", objectType(object), object.GetNamespace(), object.GetName(), err)
 		}
 	}
 
@@ -108,11 +120,12 @@ func (sm *SecretManager) claimSecret(secret *corev1.Secret, owner client.Object,
 // ensure it is present in the cache (and that we can watch for changes), and
 // that it has a particular owner reference.
 func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, scheme *runtime.Scheme) (*corev1.Secret, error) {
-	secret, err := sm.findSecret(key)
+	secret := &corev1.Secret{}
+	err := sm.findObject(key, secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secret %s in namespace %s: %w", key.Name, key.Namespace, err)
 	}
-	err = sm.claimSecret(secret, owner, scheme)
+	err = sm.claimObject(secret, owner, scheme)
 	return secret, err
 }
 
@@ -121,4 +134,24 @@ func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Ob
 // This version does not set owner references.
 func (sm *SecretManager) ObtainSecret(key types.NamespacedName) (*corev1.Secret, error) {
 	return sm.AcquireSecret(key, nil, nil)
+}
+
+// AcquireConfigMap retrieves a ConfigMap and ensures that it has a label that will
+// ensure it is present in the cache (and that we can watch for changes), and
+// that it has a particular owner reference.
+func (sm *SecretManager) AcquireConfigMap(key types.NamespacedName, owner client.Object, scheme *runtime.Scheme) (*corev1.ConfigMap, error) {
+	configMap := &corev1.ConfigMap{}
+	err := sm.findObject(key, configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch config map %s in namespace %s: %w", key.Name, key.Namespace, err)
+	}
+	err = sm.claimObject(configMap, owner, scheme)
+	return configMap, err
+}
+
+// ObtainConfigMap retrieves a ConfigMap and ensures that it has a label that will
+// ensure it is present in the cache (and that we can watch for changes).
+// This version does not set owner references.
+func (sm *SecretManager) ObtainConfigMap(key types.NamespacedName) (*corev1.ConfigMap, error) {
+	return sm.AcquireConfigMap(key, nil, nil)
 }

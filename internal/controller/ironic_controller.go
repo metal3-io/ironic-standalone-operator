@@ -60,7 +60,7 @@ type IronicReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
@@ -242,8 +242,9 @@ func (r *IronicReconciler) getConfigMap(cctx ironic.ControllerContext, ironicCon
 		Namespace: ironicConf.Namespace,
 		Name:      configMapName,
 	}
-	configMap = &corev1.ConfigMap{}
-	err = cctx.Client.Get(cctx.Context, namespacedName, configMap)
+
+	secretManager := secretutils.NewSecretManager(cctx.Context, cctx.Logger, cctx.Client, r.APIReader)
+	configMap, err = secretManager.ObtainConfigMap(namespacedName)
 	if err != nil {
 		// NotFound requires a user's intervention, so reporting it in the conditions.
 		// Everything else is reported up for a retry.
