@@ -668,6 +668,12 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		"IPA_BRANCH", cctx.VersionInfo.AgentBranch)
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"IPA_BASEURI", os.Getenv("IPA_BASEURI"))
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"HTTPS_PROXY", os.Getenv("IPA_HTTPS_PROXY"))
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"HTTP_PROXY", os.Getenv("IPA_HTTP_PROXY"))
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"NO_PROXY", os.Getenv("IPA_NO_PROXY"))
 
 	volumes, mounts := buildIronicVolumesAndMounts(resources)
 	sharedVolumeMount := mounts[0]
