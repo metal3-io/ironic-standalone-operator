@@ -1,39 +1,64 @@
-# How to Contribute
+# How to Contribute to Ironic Standalone Operator
 
-Metal3 projects are [Apache 2.0 licensed](LICENSE) and accept contributions via
-GitHub pull requests.
+> **Note**: Please read the [common Metal3 contributing guidelines](https://github.com/metal3-io/community/blob/main/CONTRIBUTING.md)
+> first.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [Certificate of Origin](#certificate-of-origin)
-   - [Git commit Sign-off](#git-commit-sign-off)
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+- [Versioning](#versioning)
+   - [Codebase](#codebase)
+- [Branches](#branches)
+   - [Maintenance and Guarantees](#maintenance-and-guarantees)
+- [Backporting Policy](#backporting-policy)
+- [Release Process](#release-process)
+   - [Exact Steps](#exact-steps)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## Certificate of Origin
+## Versioning
 
-By contributing to this project you agree to the Developer Certificate of
-Origin (DCO). This document was created by the Linux Kernel community and is a
-simple statement that you, as a contributor, have the legal right to make the
-contribution. See the [DCO](DCO) file for details.
+See the [common versioning and release semantics](https://github.com/metal3-io/community/blob/main/CONTRIBUTING.md#versioning-and-release-semantics)
+in the Metal3 community contributing guide.
 
-### Git commit Sign-off
+**Note**: The test module and experiments do not provide any backward
+compatible guarantees.
 
-Commit message should contain signed off section with full name and email. For example:
+### Codebase
 
- ```text
-  Signed-off-by: John Doe <jdoe@example.com>
- ```
+Ironic Standalone Operator doesn't follow the release cadence of upstream Kubernetes.
+The versioning semantics follow the common Metal3 guidelines above.
 
-When making commits, include the `-s` flag and `Signed-off-by` section will be
-automatically added to your commit message. If you want GPG signing too, add
-the `-S` flag alongside `-s`.
+## Branches
 
-```bash
-  # Signing off commit
-  git commit -s
+See the [common branch structure guidelines](https://github.com/metal3-io/community/blob/main/CONTRIBUTING.md#branches)
+in the Metal3 community contributing guide.
 
-  # Signing off commit and also additional signing with GPG
-  git commit -s -S
-```
+### Maintenance and Guarantees
+
+Ironic Standalone Operator the most recent release/releases for all supported
+APIs and contract versions. Support for this section refers to CI support and
+the ability to backport and release patch versions;
+[backport policy](#backporting-policy) is defined below.
+
+## Backporting Policy
+
+See the [common backporting guidelines](https://github.com/metal3-io/community/blob/main/CONTRIBUTING.md#backporting)
+in the Metal3 community contributing guide.
+
+Additionally, for Ironic Standalone Operator:
+
+- We generally do not accept backports to Ironic Standalone Operator release
+  branches that are EOL. Check the [Version support](https://github.com/metal3-io/metal3-docs/blob/main/docs/user-guide/src/version_support.md#ironic-standalone-operator)
+  guide for reference.
+
+## Release Process
+
+See the [common release process guidelines](https://github.com/metal3-io/community/blob/main/CONTRIBUTING.md#release-process)
+in the Metal3 community contributing guide.
+
+### Exact Steps
+
+Refer to the [releasing document](./docs/releasing.md) for the exact steps.
