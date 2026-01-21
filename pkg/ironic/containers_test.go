@@ -605,3 +605,179 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 		})
 	}
 }
+
+func TestAppendAgentImageEnvVars(t *testing.T) {
+	testCases := []struct {
+		name                  string
+		images                []metal3api.AgentImages
+		expectedKernelByArch  string
+		expectedRamdiskByArch string
+		expectNoEnvVars       bool
+		expectError           bool
+	}{
+		{
+			name:            "empty images",
+			images:          nil,
+			expectNoEnvVars: true,
+		},
+		{
+			name: "single architecture x86_64",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:file:///shared/html/images/ipa.x86_64.kernel",
+			expectedRamdiskByArch: "x86_64:file:///shared/html/images/ipa.x86_64.initramfs",
+		},
+		{
+			name: "single architecture aarch64",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedKernelByArch:  "aarch64:file:///shared/html/images/ipa.aarch64.kernel",
+			expectedRamdiskByArch: "aarch64:file:///shared/html/images/ipa.aarch64.initramfs",
+		},
+		{
+			name: "multiple architectures",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+				{
+					Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:file:///shared/html/images/ipa.x86_64.kernel,aarch64:file:///shared/html/images/ipa.aarch64.kernel",
+			expectedRamdiskByArch: "x86_64:file:///shared/html/images/ipa.x86_64.initramfs,aarch64:file:///shared/html/images/ipa.aarch64.initramfs",
+		},
+		{
+			name: "whitespace trimming",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "  file:///path/kernel  ",
+					Initramfs:    "\tfile:///path/initramfs\n",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:file:///path/kernel",
+			expectedRamdiskByArch: "x86_64:file:///path/initramfs",
+		},
+		{
+			name: "http protocol single architecture",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "http://192.168.1.100:8080/images/ipa.kernel",
+					Initramfs:    "http://192.168.1.100:8080/images/ipa.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:http://192.168.1.100:8080/images/ipa.kernel",
+			expectedRamdiskByArch: "x86_64:http://192.168.1.100:8080/images/ipa.initramfs",
+		},
+		{
+			name: "https protocol single architecture",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "https://images.example.com/ipa/kernel",
+					Initramfs:    "https://images.example.com/ipa/initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedKernelByArch:  "aarch64:https://images.example.com/ipa/kernel",
+			expectedRamdiskByArch: "aarch64:https://images.example.com/ipa/initramfs",
+		},
+		{
+			name: "http protocol multiple architectures",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "http://server:8080/x86_64/ipa.kernel",
+					Initramfs:    "http://server:8080/x86_64/ipa.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+				{
+					Kernel:       "http://server:8080/aarch64/ipa.kernel",
+					Initramfs:    "http://server:8080/aarch64/ipa.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:http://server:8080/x86_64/ipa.kernel,aarch64:http://server:8080/aarch64/ipa.kernel",
+			expectedRamdiskByArch: "x86_64:http://server:8080/x86_64/ipa.initramfs,aarch64:http://server:8080/aarch64/ipa.initramfs",
+		},
+		{
+			name: "mixed protocols across architectures",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "http://local-server/ipa.x86_64.kernel",
+					Initramfs:    "http://local-server/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+				{
+					Kernel:       "https://secure-server/ipa.aarch64.kernel",
+					Initramfs:    "https://secure-server/ipa.aarch64.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedKernelByArch:  "x86_64:http://local-server/ipa.x86_64.kernel,aarch64:https://secure-server/ipa.aarch64.kernel",
+			expectedRamdiskByArch: "x86_64:http://local-server/ipa.x86_64.initramfs,aarch64:https://secure-server/ipa.aarch64.initramfs",
+		},
+		{
+			name: "duplicate architectures returns error",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///first/kernel",
+					Initramfs:    "file:///first/initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+				{
+					Kernel:       "file:///second/kernel",
+					Initramfs:    "file:///second/initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			envVars, err := appendAgentImageEnvVars(nil, tc.images)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			if tc.expectNoEnvVars {
+				assert.Empty(t, envVars)
+				return
+			}
+
+			require.Len(t, envVars, 2)
+
+			var kernelByArch, ramdiskByArch string
+			for _, env := range envVars {
+				switch env.Name {
+				case "DEPLOY_KERNEL_BY_ARCH":
+					kernelByArch = env.Value
+				case "DEPLOY_RAMDISK_BY_ARCH":
+					ramdiskByArch = env.Value
+				}
+			}
+
+			assert.Equal(t, tc.expectedKernelByArch, kernelByArch)
+			assert.Equal(t, tc.expectedRamdiskByArch, ramdiskByArch)
+		})
+	}
+}

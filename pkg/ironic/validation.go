@@ -38,6 +38,33 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	return nil
 }
 
+func validateAgentImages(images []metal3api.AgentImages) error {
+	if len(images) == 0 {
+		return nil
+	}
+
+	seenArchitectures := make(map[metal3api.CPUArchitecture]bool)
+
+	for i, img := range images {
+		if img.Architecture == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: architecture is required", i)
+		}
+		if img.Kernel == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: kernel is required", i)
+		}
+		if img.Initramfs == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: initramfs is required", i)
+		}
+
+		if seenArchitectures[img.Architecture] {
+			return fmt.Errorf("overrides.agentImages: duplicate architecture %q", img.Architecture)
+		}
+		seenArchitectures[img.Architecture] = true
+	}
+
+	return nil
+}
+
 func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 	dhcp := ironic.Networking.DHCP
 	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
@@ -149,6 +176,12 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Version != "" {
 		if err := metal3api.ValidateVersion(ironic.Version); err != nil {
+			return err
+		}
+	}
+
+	if ironic.Overrides != nil {
+		if err := validateAgentImages(ironic.Overrides.AgentImages); err != nil {
 			return err
 		}
 	}

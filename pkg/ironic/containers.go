@@ -36,7 +36,7 @@ const (
 	knownExistingPath = "/images/ironic-python-agent.kernel"
 )
 
-func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
+func buildCommonEnvVars(ironic *metal3api.Ironic) ([]corev1.EnvVar, error) {
 	result := []corev1.EnvVar{
 		{
 			Name:  "IRONIC_LISTEN_PORT",
@@ -137,7 +137,43 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	result = appendListOfStringsEnv(result,
 		"IRONIC_INSPECTOR_VLAN_INTERFACES", ironic.Spec.Inspection.VLANInterfaces, ",")
 
-	return result
+	if ironic.Spec.Overrides != nil {
+		var err error
+		result, err = appendAgentImageEnvVars(result, ironic.Spec.Overrides.AgentImages)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// appendAgentImageEnvVars appends agent image environment variables based on the images configuration.
+// If images are specified, always uses DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH.
+// Returns an error if duplicate architectures are found.
+func appendAgentImageEnvVars(envVars []corev1.EnvVar, images []metal3api.AgentImages) ([]corev1.EnvVar, error) {
+	if len(images) == 0 {
+		return envVars, nil
+	}
+
+	seen := make(map[metal3api.CPUArchitecture]bool, len(images))
+	kernelByArch := make([]string, 0, len(images))
+	ramdiskByArch := make([]string, 0, len(images))
+
+	for _, img := range images {
+		if seen[img.Architecture] {
+			return nil, fmt.Errorf("duplicate architecture %q in agent images", img.Architecture)
+		}
+		seen[img.Architecture] = true
+
+		arch := string(img.Architecture)
+		kernelByArch = append(kernelByArch, arch+":"+strings.Trim(img.Kernel, " \t\n\r"))
+		ramdiskByArch = append(ramdiskByArch, arch+":"+strings.Trim(img.Initramfs, " \t\n\r"))
+	}
+
+	envVars = appendStringEnv(envVars, "DEPLOY_KERNEL_BY_ARCH", strings.Join(kernelByArch, ","))
+	envVars = appendStringEnv(envVars, "DEPLOY_RAMDISK_BY_ARCH", strings.Join(ramdiskByArch, ","))
+	return envVars, nil
 }
 
 func buildExtraConfigVars(ironic *metal3api.Ironic) []corev1.EnvVar {
@@ -209,8 +245,11 @@ func buildTrustedCAEnvVars(cctx ControllerContext, configMap *corev1.ConfigMap) 
 	}
 }
 
-func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
-	result := buildCommonEnvVars(resources.Ironic)
+func buildIronicEnvVars(cctx ControllerContext, resources Resources) ([]corev1.EnvVar, error) {
+	result, err := buildCommonEnvVars(resources.Ironic)
+	if err != nil {
+		return nil, err
+	}
 	result = append(result, []corev1.EnvVar{
 		{
 			Name:  "IRONIC_USE_MARIADB",
@@ -297,11 +336,14 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		})
 	}
 
-	return result
+	return result, nil
 }
 
-func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
-	result := buildCommonEnvVars(resources.Ironic)
+func buildHttpdEnvVars(resources Resources) ([]corev1.EnvVar, error) {
+	result, err := buildCommonEnvVars(resources.Ironic)
+	if err != nil {
+		return nil, err
+	}
 
 	// When TLS is used, httpd is responsible for authentication
 	if resources.TLSSecret != nil {
@@ -320,7 +362,7 @@ func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
 		)
 	}
 
-	return result
+	return result, nil
 }
 
 func databaseClientMounts(db *metal3api.Database) (volumes []corev1.Volume, mounts []corev1.VolumeMount) {
@@ -556,10 +598,13 @@ func newURLProbeHandler(https bool, port int, path string, requiresOk bool) core
 	}
 }
 
-func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
+func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) (corev1.Container, error) {
 	dhcp := ironic.Spec.Networking.DHCP
 
-	envVars := buildCommonEnvVars(ironic)
+	envVars, err := buildCommonEnvVars(ironic)
+	if err != nil {
+		return corev1.Container{}, err
+	}
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "DHCP_RANGE",
 		Value: buildDHCPRange(dhcp),
@@ -596,7 +641,7 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 		},
 		LivenessProbe:  probe,
 		ReadinessProbe: probe,
-	}
+	}, nil
 }
 
 func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
@@ -706,15 +751,42 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	ironicPorts, httpdPorts := buildIronicHttpdPorts(resources.Ironic)
 
 	ironicHandler := newURLProbeHandler(resources.TLSSecret != nil, int(resources.Ironic.Spec.Networking.APIPort), "/v1", true)
-	httpPathExpected := !resources.Ironic.Spec.DeployRamdisk.DisableDownloader
-	httpdHandler := newURLProbeHandler(false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
+
+	// Default probes check the standard IPA kernel path.
+	// When custom agent images are specified, no default probes are set - must be configured via Overrides.
+	var httpdLivenessProbe, httpdReadinessProbe *corev1.Probe
+	hasCustomImages := resources.Ironic.Spec.Overrides != nil && len(resources.Ironic.Spec.Overrides.AgentImages) > 0
+	if !hasCustomImages {
+		httpPathExpected := !resources.Ironic.Spec.DeployRamdisk.DisableDownloader
+		httpdHandler := newURLProbeHandler(false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
+		httpdLivenessProbe = newProbe(httpdHandler)
+		httpdReadinessProbe = newProbe(httpdHandler)
+	}
+	if resources.Ironic.Spec.Overrides != nil {
+		if resources.Ironic.Spec.Overrides.HttpdLivenessProbe != nil {
+			httpdLivenessProbe = resources.Ironic.Spec.Overrides.HttpdLivenessProbe
+		}
+		if resources.Ironic.Spec.Overrides.HttpdReadinessProbe != nil {
+			httpdReadinessProbe = resources.Ironic.Spec.Overrides.HttpdReadinessProbe
+		}
+	}
+
+	ironicEnvVars, err := buildIronicEnvVars(cctx, resources)
+	if err != nil {
+		return corev1.PodTemplateSpec{}, err
+	}
+
+	httpdEnvVars, err := buildHttpdEnvVars(resources)
+	if err != nil {
+		return corev1.PodTemplateSpec{}, err
+	}
 
 	containers := []corev1.Container{
 		{
 			Name:         "ironic",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
-			Env:          buildIronicEnvVars(cctx, resources),
+			Env:          ironicEnvVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
@@ -731,7 +803,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Name:         "httpd",
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runhttpd"},
-			Env:          buildHttpdEnvVars(resources),
+			Env:          httpdEnvVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
@@ -741,8 +813,8 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 				},
 			},
 			Ports:          httpdPorts,
-			LivenessProbe:  newProbe(httpdHandler),
-			ReadinessProbe: newProbe(httpdHandler),
+			LivenessProbe:  httpdLivenessProbe,
+			ReadinessProbe: httpdReadinessProbe,
 		},
 		{
 			Name:         "ramdisk-logs",
@@ -763,7 +835,11 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		containers = append(containers, newDnsmasqContainer(cctx.VersionInfo, resources.Ironic))
+		dnsmasqContainer, err := newDnsmasqContainer(cctx.VersionInfo, resources.Ironic)
+		if err != nil {
+			return corev1.PodTemplateSpec{}, err
+		}
+		containers = append(containers, dnsmasqContainer)
 	}
 
 	if resources.Ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
