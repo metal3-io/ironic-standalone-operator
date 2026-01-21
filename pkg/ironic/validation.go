@@ -4,9 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"reflect"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+)
+
+const (
+	protoFile = "file"
+	protoOCI  = "oci"
 )
 
 func validateIP(ip string) error {
@@ -33,6 +39,55 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 
 	if !prefix.Contains(parsed) {
 		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+	}
+
+	return nil
+}
+
+func validateURL(urlStr string, fieldName string) error {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("%s: invalid URL format: %w", fieldName, err)
+	}
+
+	switch parsed.Scheme {
+	case protoFile, protoHTTP, protoHTTPS, protoOCI:
+		return nil
+	default:
+		return fmt.Errorf("%s: unsupported protocol %q (must be file://, http://, https://, or oci://)", fieldName, parsed.Scheme)
+	}
+}
+
+func validateAgentImages(images []metal3api.AgentImages) error {
+	if len(images) == 0 {
+		return nil
+	}
+
+	seenArchitectures := make(map[metal3api.CPUArchitecture]bool)
+
+	for i, img := range images {
+		if img.Kernel == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: kernel is required", i)
+		}
+		if img.Initramfs == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: initramfs is required", i)
+		}
+
+		if err := validateURL(img.Kernel, fmt.Sprintf("overrides.agentImages[%d].kernel", i)); err != nil {
+			return err
+		}
+
+		if err := validateURL(img.Initramfs, fmt.Sprintf("overrides.agentImages[%d].initramfs", i)); err != nil {
+			return err
+		}
+
+		if seenArchitectures[img.Architecture] {
+			if img.Architecture == "" {
+				return errors.New("overrides.agentImages: duplicate default (empty architecture) entry")
+			}
+			return fmt.Errorf("overrides.agentImages: duplicate architecture %q", img.Architecture)
+		}
+		seenArchitectures[img.Architecture] = true
 	}
 
 	return nil
@@ -149,6 +204,12 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Version != "" {
 		if err := metal3api.ValidateVersion(ironic.Version); err != nil {
+			return err
+		}
+	}
+
+	if ironic.Overrides != nil {
+		if err := validateAgentImages(ironic.Overrides.AgentImages); err != nil {
 			return err
 		}
 	}

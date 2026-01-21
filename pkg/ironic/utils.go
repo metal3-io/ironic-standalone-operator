@@ -25,11 +25,15 @@ const (
 	probeTimeout          = 5
 	probeFailureThreshold = 12
 
-	dataDir        = "/data"
-	confDir        = "/conf"
-	tmpDir         = "/tmp"
-	dataVolumeName = "ironic-data"
-	tmpVolumeName  = "ironic-tmp"
+	dataDir          = "/data"
+	confDir          = "/conf"
+	tmpDir           = "/tmp"
+	dataVolumeName   = "ironic-data"
+	tmpVolumeName    = "ironic-tmp"
+	protoHTTP        = "http"
+	protoHTTPS       = "https"
+	httpDefaultPort  = 80
+	httpsDefaultPort = 443
 )
 
 //nolint:containedctx // Context is intentionally stored for use throughout the controller lifecycle
@@ -206,7 +210,7 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 	portString := strconv.Itoa(port)
 	for _, ip := range ips {
 		var endpoint string
-		if (includeProto == "https" && port == 443) || (includeProto == "http" && port == 80) {
+		if (includeProto == protoHTTPS && port == httpsDefaultPort) || (includeProto == protoHTTP && port == httpDefaultPort) {
 			if strings.Contains(ip, ":") {
 				endpoint = fmt.Sprintf("%s://[%s]", includeProto, ip) // IPv6
 			} else {
