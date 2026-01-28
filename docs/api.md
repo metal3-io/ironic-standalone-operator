@@ -659,6 +659,14 @@ EXPERIMENTAL: requires feature gate Overrides.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#ironicspecoverridesagentimagesindex">agentImages</a></b></td>
+        <td>[]object</td>
+        <td>
+          AgentImages overrides the default IPA (Ironic Python Agent) images provided by the downloader.
+Each image must have a unique architecture (rendered as DEPLOY_KERNEL_BY_ARCH/DEPLOY_RAMDISK_BY_ARCH).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
@@ -671,6 +679,24 @@ EXPERIMENTAL: requires feature gate Overrides.
         <td>
           Containers to append to the main Ironic pod.
 If a container name matches an existing container, the existing container is replaced.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobe">httpdLivenessProbe</a></b></td>
+        <td>object</td>
+        <td>
+          HttpdLivenessProbe configures the httpd container liveness probe.
+If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
+When AgentImages is specified, no default probe is configured.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobe">httpdReadinessProbe</a></b></td>
+        <td>object</td>
+        <td>
+          HttpdReadinessProbe configures the httpd container readiness probe.
+If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
+When AgentImages is specified, no default probe is configured.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -688,6 +714,52 @@ If a container name matches an existing init container, the existing init contai
           Extra labels to add to each pod (including upgrade jobs).<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.agentImages[index]
+<sup><sup>[↩ Parent](#ironicspecoverrides)</sup></sup>
+
+
+
+AgentImages defines a single IPA (Ironic Python Agent) image configuration.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>architecture</b></td>
+        <td>enum</td>
+        <td>
+          Architecture is the target CPU architecture for this image.
+Each image must have a unique architecture.<br/>
+          <br/>
+            <i>Enum</i>: x86_64, aarch64<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>initramfs</b></td>
+        <td>string</td>
+        <td>
+          Initramfs is the URL of the IPA initramfs/ramdisk image.
+Example: "file:///shared/html/images/ironic-python-agent.initramfs"<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>kernel</b></td>
+        <td>string</td>
+        <td>
+          Kernel is the URL of the IPA kernel image.
+Example: "file:///shared/html/images/ironic-python-agent.kernel"<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -3749,6 +3821,648 @@ Defaults to "" (volume's root).<br/>
 Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 Defaults to "" (volume's root).
 SubPathExpr and SubPath are mutually exclusive.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe
+<sup><sup>[↩ Parent](#ironicspecoverrides)</sup></sup>
+
+
+
+HttpdLivenessProbe configures the httpd container liveness probe.
+If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
+When AgentImages is specified, no default probe is configured.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobeexec">exec</a></b></td>
+        <td>object</td>
+        <td>
+          Exec specifies a command to execute in the container.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>failureThreshold</b></td>
+        <td>integer</td>
+        <td>
+          Minimum consecutive failures for the probe to be considered failed after having succeeded.
+Defaults to 3. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobegrpc">grpc</a></b></td>
+        <td>object</td>
+        <td>
+          GRPC specifies a GRPC HealthCheckRequest.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobehttpget">httpGet</a></b></td>
+        <td>object</td>
+        <td>
+          HTTPGet specifies an HTTP GET request to perform.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>initialDelaySeconds</b></td>
+        <td>integer</td>
+        <td>
+          Number of seconds after the container has started before liveness probes are initiated.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>periodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          How often (in seconds) to perform the probe.
+Default to 10 seconds. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>successThreshold</b></td>
+        <td>integer</td>
+        <td>
+          Minimum consecutive successes for the probe to be considered successful after having failed.
+Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobetcpsocket">tcpSocket</a></b></td>
+        <td>object</td>
+        <td>
+          TCPSocket specifies a connection to a TCP port.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>terminationGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          Optional duration in seconds the pod needs to terminate gracefully upon probe failure.
+The grace period is the duration in seconds after the processes running in the pod are sent
+a termination signal and the time when the processes are forcibly halted with a kill signal.
+Set this value longer than the expected cleanup time for your process.
+If this value is nil, the pod's terminationGracePeriodSeconds will be used. Otherwise, this
+value overrides the value provided by the pod spec.
+Value must be non-negative integer. The value zero indicates stop immediately via
+the kill signal (no opportunity to shut down).
+This is a beta field and requires enabling ProbeTerminationGracePeriod feature gate.
+Minimum value is 1. spec.terminationGracePeriodSeconds is used if unset.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>timeoutSeconds</b></td>
+        <td>integer</td>
+        <td>
+          Number of seconds after which the probe times out.
+Defaults to 1 second. Minimum value is 1.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe.exec
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdlivenessprobe)</sup></sup>
+
+
+
+Exec specifies a command to execute in the container.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>command</b></td>
+        <td>[]string</td>
+        <td>
+          Command is the command line to execute inside the container, the working directory for the
+command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+a shell, you need to explicitly call out to that shell.
+Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe.grpc
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdlivenessprobe)</sup></sup>
+
+
+
+GRPC specifies a GRPC HealthCheckRequest.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>integer</td>
+        <td>
+          Port number of the gRPC service. Number must be in the range 1 to 65535.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>service</b></td>
+        <td>string</td>
+        <td>
+          Service is the name of the service to place in the gRPC HealthCheckRequest
+(see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+
+If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe.httpGet
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdlivenessprobe)</sup></sup>
+
+
+
+HTTPGet specifies an HTTP GET request to perform.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Name or number of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Host name to connect to, defaults to the pod IP. You probably want to set
+"Host" in httpHeaders instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td>[]object</td>
+        <td>
+          Custom headers to set in the request. HTTP allows repeated headers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path to access on the HTTP server.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>scheme</b></td>
+        <td>string</td>
+        <td>
+          Scheme to use for connecting to the host.
+Defaults to HTTP.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdlivenessprobehttpget)</sup></sup>
+
+
+
+HTTPHeader describes a custom header to be used in HTTP probes
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          The header field name.
+This will be canonicalized upon output, so case-variant names will be understood as the same header.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          The header field value<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdLivenessProbe.tcpSocket
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdlivenessprobe)</sup></sup>
+
+
+
+TCPSocket specifies a connection to a TCP port.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Number or name of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Optional: Host name to connect to, defaults to the pod IP.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe
+<sup><sup>[↩ Parent](#ironicspecoverrides)</sup></sup>
+
+
+
+HttpdReadinessProbe configures the httpd container readiness probe.
+If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
+When AgentImages is specified, no default probe is configured.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobeexec">exec</a></b></td>
+        <td>object</td>
+        <td>
+          Exec specifies a command to execute in the container.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>failureThreshold</b></td>
+        <td>integer</td>
+        <td>
+          Minimum consecutive failures for the probe to be considered failed after having succeeded.
+Defaults to 3. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobegrpc">grpc</a></b></td>
+        <td>object</td>
+        <td>
+          GRPC specifies a GRPC HealthCheckRequest.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobehttpget">httpGet</a></b></td>
+        <td>object</td>
+        <td>
+          HTTPGet specifies an HTTP GET request to perform.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>initialDelaySeconds</b></td>
+        <td>integer</td>
+        <td>
+          Number of seconds after the container has started before liveness probes are initiated.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>periodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          How often (in seconds) to perform the probe.
+Default to 10 seconds. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>successThreshold</b></td>
+        <td>integer</td>
+        <td>
+          Minimum consecutive successes for the probe to be considered successful after having failed.
+Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobetcpsocket">tcpSocket</a></b></td>
+        <td>object</td>
+        <td>
+          TCPSocket specifies a connection to a TCP port.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>terminationGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          Optional duration in seconds the pod needs to terminate gracefully upon probe failure.
+The grace period is the duration in seconds after the processes running in the pod are sent
+a termination signal and the time when the processes are forcibly halted with a kill signal.
+Set this value longer than the expected cleanup time for your process.
+If this value is nil, the pod's terminationGracePeriodSeconds will be used. Otherwise, this
+value overrides the value provided by the pod spec.
+Value must be non-negative integer. The value zero indicates stop immediately via
+the kill signal (no opportunity to shut down).
+This is a beta field and requires enabling ProbeTerminationGracePeriod feature gate.
+Minimum value is 1. spec.terminationGracePeriodSeconds is used if unset.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>timeoutSeconds</b></td>
+        <td>integer</td>
+        <td>
+          Number of seconds after which the probe times out.
+Defaults to 1 second. Minimum value is 1.
+More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe.exec
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdreadinessprobe)</sup></sup>
+
+
+
+Exec specifies a command to execute in the container.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>command</b></td>
+        <td>[]string</td>
+        <td>
+          Command is the command line to execute inside the container, the working directory for the
+command  is root ('/') in the container's filesystem. The command is simply exec'd, it is
+not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use
+a shell, you need to explicitly call out to that shell.
+Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe.grpc
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdreadinessprobe)</sup></sup>
+
+
+
+GRPC specifies a GRPC HealthCheckRequest.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>integer</td>
+        <td>
+          Port number of the gRPC service. Number must be in the range 1 to 65535.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>service</b></td>
+        <td>string</td>
+        <td>
+          Service is the name of the service to place in the gRPC HealthCheckRequest
+(see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
+
+If this is not specified, the default behavior is defined by gRPC.<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe.httpGet
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdreadinessprobe)</sup></sup>
+
+
+
+HTTPGet specifies an HTTP GET request to perform.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Name or number of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Host name to connect to, defaults to the pod IP. You probably want to set
+"Host" in httpHeaders instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverrideshttpdreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td>[]object</td>
+        <td>
+          Custom headers to set in the request. HTTP allows repeated headers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path to access on the HTTP server.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>scheme</b></td>
+        <td>string</td>
+        <td>
+          Scheme to use for connecting to the host.
+Defaults to HTTP.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdreadinessprobehttpget)</sup></sup>
+
+
+
+HTTPHeader describes a custom header to be used in HTTP probes
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          The header field name.
+This will be canonicalized upon output, so case-variant names will be understood as the same header.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          The header field value<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.httpdReadinessProbe.tcpSocket
+<sup><sup>[↩ Parent](#ironicspecoverrideshttpdreadinessprobe)</sup></sup>
+
+
+
+TCPSocket specifies a connection to a TCP port.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>port</b></td>
+        <td>int or string</td>
+        <td>
+          Number or name of the port to access on the container.
+Number must be in the range 1 to 65535.
+Name must be an IANA_SVC_NAME.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Optional: Host name to connect to, defaults to the pod IP.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
