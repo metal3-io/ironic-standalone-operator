@@ -74,6 +74,10 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 		Ironic: ironics[0],
 	}
 
+	// Get effective CA references
+	bmcCARef := GetBMCCA(&resources.Ironic.Spec.TLS)
+	trustedCARef := GetTrustedCA(&resources.Ironic.Spec.TLS)
+
 	for _, secretObj := range secrets {
 		// Determine secret type based on name patterns or labels
 		switch secretObj.Name {
@@ -81,19 +85,34 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 			resources.APISecret = secretObj
 		case resources.Ironic.Spec.TLS.CertificateName:
 			resources.TLSSecret = secretObj
-		case resources.Ironic.Spec.TLS.BMCCAName:
-			resources.BMCCASecret = secretObj
 		default:
-			return nil, fmt.Errorf("secret %s does not belong to the Ironic resource", secretObj.Name)
+			matched := false
+			if bmcCARef != nil && bmcCARef.Kind == metal3api.ResourceKindSecret && bmcCARef.Name == secretObj.Name {
+				resources.BMCCASecret = secretObj
+				matched = true
+			}
+			if trustedCARef != nil && trustedCARef.Kind == metal3api.ResourceKindSecret && trustedCARef.Name == secretObj.Name {
+				resources.TrustedCASecret = secretObj
+				matched = true
+			}
+			if !matched {
+				return nil, fmt.Errorf("secret %s does not belong to the Ironic resource", secretObj.Name)
+			}
 		}
 	}
 
 	for _, configMapObj := range configMaps {
 		// Determine configmap type based on name patterns or labels
-		switch configMapObj.Name {
-		case resources.Ironic.Spec.TLS.TrustedCAName:
+		matched := false
+		if bmcCARef != nil && bmcCARef.Kind == metal3api.ResourceKindConfigMap && bmcCARef.Name == configMapObj.Name {
+			resources.BMCCAConfigMap = configMapObj
+			matched = true
+		}
+		if trustedCARef != nil && trustedCARef.Kind == metal3api.ResourceKindConfigMap && trustedCARef.Name == configMapObj.Name {
 			resources.TrustedCAConfigMap = configMapObj
-		default:
+			matched = true
+		}
+		if !matched {
 			return nil, fmt.Errorf("configmap %s does not belong to the Ironic resource", configMapObj.Name)
 		}
 	}
@@ -178,6 +197,12 @@ func GenerateLocalManifests(cctx ControllerContext, resources *Resources) ([]run
 	}
 	if resources.BMCCASecret != nil {
 		manifests = append(manifests, resources.BMCCASecret)
+	}
+	if resources.BMCCAConfigMap != nil {
+		manifests = append(manifests, resources.BMCCAConfigMap)
+	}
+	if resources.TrustedCASecret != nil {
+		manifests = append(manifests, resources.TrustedCASecret)
 	}
 	if resources.TrustedCAConfigMap != nil {
 		manifests = append(manifests, resources.TrustedCAConfigMap)
