@@ -176,26 +176,68 @@ func databaseClientEnvVars(db *metal3api.Database) []corev1.EnvVar {
 	return envVars
 }
 
-func buildTrustedCAEnvVars(cctx ControllerContext, configMap *corev1.ConfigMap) []corev1.EnvVar {
-	if configMap == nil || len(configMap.Data) == 0 {
+func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
+	var keys map[string]struct{}
+	var resourceName string
+	var namespace string
+	var resourceKind string
+
+	switch {
+	case resources.TrustedCAConfigMap != nil:
+		keys = make(map[string]struct{}, len(resources.TrustedCAConfigMap.Data))
+		for key := range resources.TrustedCAConfigMap.Data {
+			keys[key] = struct{}{}
+		}
+		resourceName = resources.TrustedCAConfigMap.Name
+		namespace = resources.TrustedCAConfigMap.Namespace
+		resourceKind = metal3api.ResourceKindConfigMap
+	case resources.TrustedCASecret != nil:
+		keys = make(map[string]struct{}, len(resources.TrustedCASecret.Data))
+		for key := range resources.TrustedCASecret.Data {
+			keys[key] = struct{}{}
+		}
+		resourceName = resources.TrustedCASecret.Name
+		namespace = resources.TrustedCASecret.Namespace
+		resourceKind = metal3api.ResourceKindSecret
+	default:
 		return nil
 	}
 
-	// Select the first key from the ConfigMap and collect ignored keys
-	var firstKey string
-	first := true
-	for key := range configMap.Data {
-		if first {
-			firstKey = key
-			first = false
+	if len(keys) == 0 {
+		return nil
+	}
+
+	// Get the TrustedCA reference to check if a specific key was requested
+	trustedCARef := resources.Ironic.Spec.TLS.GetTrustedCA()
+	var selectedKey string
+
+	if trustedCARef != nil && trustedCARef.Key != "" {
+		// User specified a key, use it if it exists
+		if _, exists := keys[trustedCARef.Key]; exists {
+			selectedKey = trustedCARef.Key
 		} else {
-			cctx.Logger.Info("ignoring duplicate key in Trusted CA ConfigMap",
-				"key", key, "configmap", fmt.Sprintf("%s/%s", configMap.Namespace, configMap.Name))
+			cctx.Logger.Info("specified key not found in Trusted CA "+resourceKind+", using first available key",
+				"requestedKey", trustedCARef.Key, resourceKind, namespace+"/"+resourceName)
+			// Fall through to select first key
+		}
+	}
+
+	// If no key was specified or the specified key doesn't exist, select the first key
+	if selectedKey == "" {
+		first := true
+		for key := range keys {
+			if first {
+				selectedKey = key
+				first = false
+			} else {
+				cctx.Logger.Info("ignoring duplicate key in Trusted CA "+resourceKind,
+					"key", key, resourceKind, namespace+"/"+resourceName)
+			}
 		}
 	}
 
 	// Build the path to the CA bundle file
-	caPath := fmt.Sprintf("%s/ca/trusted/%s", certsDir, firstKey)
+	caPath := fmt.Sprintf("%s/ca/trusted/%s", certsDir, selectedKey)
 
 	return []corev1.EnvVar{
 		{
@@ -267,8 +309,8 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		)
 	}
 
-	if resources.TrustedCAConfigMap != nil {
-		result = append(result, buildTrustedCAEnvVars(cctx, resources.TrustedCAConfigMap)...)
+	if resources.TrustedCAConfigMap != nil || resources.TrustedCASecret != nil {
+		result = append(result, buildTrustedCAEnvVars(cctx, resources)...)
 	}
 
 	if resources.Ironic.Spec.ExtraConfig != nil {
@@ -433,9 +475,49 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 				ReadOnly:  true,
 			},
 		)
+	} else if resources.BMCCAConfigMap != nil {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "cert-bmc",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: resources.BMCCAConfigMap.Name,
+						},
+						DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
+					},
+				},
+			},
+		)
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "cert-bmc",
+				MountPath: certsDir + "/ca/bmc",
+				ReadOnly:  true,
+			},
+		)
 	}
 
-	if resources.TrustedCAConfigMap != nil {
+	if resources.TrustedCASecret != nil {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "trusted-ca",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  resources.TrustedCASecret.Name,
+						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
+					},
+				},
+			},
+		)
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "trusted-ca",
+				MountPath: certsDir + "/ca/trusted",
+				ReadOnly:  true,
+			},
+		)
+	} else if resources.TrustedCAConfigMap != nil {
 		volumes = append(volumes,
 			corev1.Volume{
 				Name: "trusted-ca",

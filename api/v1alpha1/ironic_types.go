@@ -21,6 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ResourceKindConfigMap is the kind for ConfigMap resources.
+	ResourceKindConfigMap = "ConfigMap"
+	// ResourceKindSecret is the kind for Secret resources.
+	ResourceKindSecret = "Secret"
+)
+
 var (
 	VersionLatest = Version{}
 	Version330    = Version{Major: 33, Minor: 0}
@@ -51,6 +58,21 @@ type Inspection struct {
 	// This can be interface names (to collect all VLANs using LLDP) or pairs <interface>.<vlan ID>.
 	// +optional
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
+}
+
+// ResourceReference references a ConfigMap or Secret resource.
+type ResourceReference struct {
+	// Name of the resource.
+	Name string `json:"name"`
+
+	// Kind of the resource (ConfigMap or Secret).
+	// +kubebuilder:validation:Enum=ConfigMap;Secret
+	Kind string `json:"kind"`
+
+	// Key within the resource to use. If not specified and the resource contains multiple keys,
+	// the first key will be used and a warning will be logged for other keys.
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 type DHCP struct {
@@ -188,9 +210,17 @@ type DeployRamdisk struct {
 
 // TLS defines the TLS settings.
 type TLS struct {
+	// BMCCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+	// to use when validating TLS connections to BMCs.
+	// Supported in Ironic 32.0 or newer.
+	// +optional
+	BMCCA *ResourceReference `json:"bmcCA,omitempty"`
+
 	// BMCCAName is a reference to the secret with the CA certificate(s)
 	// to use when validating TLS connections to BMC's.
 	// Supported in Ironic 32.0 or newer.
+	//
+	// Deprecated: Use BMCCA instead. This field will be removed in a future release.
 	// +optional
 	BMCCAName string `json:"bmcCAName,omitempty"`
 
@@ -199,11 +229,21 @@ type TLS struct {
 	// +optional
 	CertificateName string `json:"certificateName,omitempty"`
 
+	// TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+	// to use when validating TLS connections to image servers and other services.
+	// The resource should contain one or more CA certificates in PEM format.
+	// If the resource contains multiple keys, only the first key will be used and
+	// a warning will be logged.
+	// +optional
+	TrustedCA *ResourceReference `json:"trustedCA,omitempty"`
+
 	// TrustedCAName is a reference to the configmap with the CA certificate(s)
 	// to use when validating TLS connections to image servers and other services.
 	// The configmap should contain one or more CA certificates in PEM format.
 	// If the configmap contains multiple keys, only the first key will be used and
 	// a warning will be logged.
+	//
+	// Deprecated: Use TrustedCA instead. This field will be removed in a future release.
 	// +optional
 	TrustedCAName string `json:"trustedCAName,omitempty"`
 
@@ -219,6 +259,36 @@ type TLS struct {
 	// HighAvailability feature gate to be set.
 	// +optional
 	InsecureRPC *bool `json:"insecureRPC,omitempty"`
+}
+
+// GetBMCCA returns the effective BMC CA resource reference.
+// It prefers the new BMCCA field over the deprecated BMCCAName field.
+func (t *TLS) GetBMCCA() *ResourceReference {
+	if t.BMCCA != nil {
+		return t.BMCCA
+	}
+	if t.BMCCAName != "" {
+		return &ResourceReference{
+			Name: t.BMCCAName,
+			Kind: ResourceKindSecret,
+		}
+	}
+	return nil
+}
+
+// GetTrustedCA returns the effective Trusted CA resource reference.
+// It prefers the new TrustedCA field over the deprecated TrustedCAName field.
+func (t *TLS) GetTrustedCA() *ResourceReference {
+	if t.TrustedCA != nil {
+		return t.TrustedCA
+	}
+	if t.TrustedCAName != "" {
+		return &ResourceReference{
+			Name: t.TrustedCAName,
+			Kind: ResourceKindConfigMap,
+		}
+	}
+	return nil
 }
 
 type Images struct {
