@@ -34,6 +34,9 @@ const (
 	metricsPort = 9608
 
 	knownExistingPath = "/images/ironic-python-agent.kernel"
+
+	trustedCAVolumeName = "trusted-ca"
+	bmcCAVolumeName     = "cert-bmc"
 )
 
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
@@ -456,84 +459,24 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 		}
 	}
 
-	if resources.BMCCASecret != nil {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "cert-bmc",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  resources.BMCCASecret.Name,
-						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
-					},
-				},
-			},
-		)
+	if maybeVolume := volumeForSecretOrConfigMap(bmcCAVolumeName, resources.BMCCASecret, resources.BMCCAConfigMap,
+		resources.Ironic.Spec.TLS.GetBMCCA()); maybeVolume != nil {
+		volumes = append(volumes, *maybeVolume)
 		mounts = append(mounts,
 			corev1.VolumeMount{
-				Name:      "cert-bmc",
-				MountPath: certsDir + "/ca/bmc",
-				ReadOnly:  true,
-			},
-		)
-	} else if resources.BMCCAConfigMap != nil {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "cert-bmc",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: resources.BMCCAConfigMap.Name,
-						},
-						DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
-					},
-				},
-			},
-		)
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "cert-bmc",
+				Name:      bmcCAVolumeName,
 				MountPath: certsDir + "/ca/bmc",
 				ReadOnly:  true,
 			},
 		)
 	}
 
-	if resources.TrustedCASecret != nil {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "trusted-ca",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  resources.TrustedCASecret.Name,
-						DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
-					},
-				},
-			},
-		)
+	if maybeVolume := volumeForSecretOrConfigMap(trustedCAVolumeName, resources.TrustedCASecret, resources.TrustedCAConfigMap,
+		resources.Ironic.Spec.TLS.GetTrustedCA()); maybeVolume != nil {
+		volumes = append(volumes, *maybeVolume)
 		mounts = append(mounts,
 			corev1.VolumeMount{
-				Name:      "trusted-ca",
-				MountPath: certsDir + "/ca/trusted",
-				ReadOnly:  true,
-			},
-		)
-	} else if resources.TrustedCAConfigMap != nil {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "trusted-ca",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: resources.TrustedCAConfigMap.Name,
-						},
-						DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
-					},
-				},
-			},
-		)
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "trusted-ca",
+				Name:      trustedCAVolumeName,
 				MountPath: certsDir + "/ca/trusted",
 				ReadOnly:  true,
 			},

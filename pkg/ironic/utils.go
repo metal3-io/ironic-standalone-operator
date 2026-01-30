@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -366,4 +367,41 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers)
 
 	return podTemplate
+}
+
+func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *corev1.ConfigMap, res *metal3api.ResourceReference) *corev1.Volume {
+	var items []corev1.KeyToPath
+	if res != nil && res.Key != "" {
+		items = append(items, corev1.KeyToPath{Key: res.Key, Path: res.Key})
+	}
+
+	if secret != nil {
+		return &corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  secret.Name,
+					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
+					Items:       items,
+				},
+			},
+		}
+	}
+
+	if configMap != nil {
+		return &corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMap.Name,
+					},
+					DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
+					Items:       items,
+				},
+			},
+		}
+	}
+
+	return nil
 }
