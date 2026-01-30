@@ -134,6 +134,12 @@ linters:
     - linters:
       - tagliatelle
       text: CA
+    - linters:
+      - staticcheck
+      text: 'SA1019: tls\.(TrustedCAName|BMCCAName) is deprecated: .*'
+      paths:
+      - pkg/ironic/validation.go
+      - pkg/ironic/utils.go
     paths:
     - zz_generated.*\.go$
     - .*conversion.*\.go$

@@ -21,6 +21,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// ResourceKindConfigMap is the kind for ConfigMap resources.
+	ResourceKindConfigMap = "ConfigMap"
+	// ResourceKindSecret is the kind for Secret resources.
+	ResourceKindSecret = "Secret"
+)
+
 var (
 	VersionLatest = Version{}
 	Version340    = Version{Major: 34, Minor: 0}
@@ -188,9 +195,17 @@ type DeployRamdisk struct {
 
 // TLS defines the TLS settings.
 type TLS struct {
+	// BMCCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+	// to use when validating TLS connections to BMCs.
+	// Supported in Ironic 32.0 or newer.
+	// +optional
+	BMCCA *ResourceReference `json:"bmcCA,omitempty"`
+
 	// BMCCAName is a reference to the secret with the CA certificate(s)
 	// to use when validating TLS connections to BMC's.
 	// Supported in Ironic 32.0 or newer.
+	//
+	// Deprecated: Use BMCCA instead. This field will be removed in a future release.
 	// +optional
 	BMCCAName string `json:"bmcCAName,omitempty"`
 
@@ -199,11 +214,19 @@ type TLS struct {
 	// +optional
 	CertificateName string `json:"certificateName,omitempty"`
 
+	// TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+	// to use when validating TLS connections to image servers and other services.
+	// The resource should contain one or more CA certificates in PEM format.
+	// +optional
+	TrustedCA *ResourceReferenceWithKey `json:"trustedCA,omitempty"`
+
 	// TrustedCAName is a reference to the configmap with the CA certificate(s)
 	// to use when validating TLS connections to image servers and other services.
 	// The configmap should contain one or more CA certificates in PEM format.
 	// If the configmap contains multiple keys, only the first key will be used and
 	// a warning will be logged.
+	//
+	// Deprecated: Use TrustedCA instead. This field will be removed in a future release.
 	// +optional
 	TrustedCAName string `json:"trustedCAName,omitempty"`
 
