@@ -12,6 +12,8 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
+const ironicContainerName = "ironic"
+
 func TestExpectedContainers(t *testing.T) {
 	testCases := []struct {
 		Scenario string
@@ -378,7 +380,7 @@ func TestTrustedCAConfigMap(t *testing.T) {
 			// Check volume mount on ironic container
 			var ironicContainer *corev1.Container
 			for i := range podTemplate.Spec.Containers {
-				if podTemplate.Spec.Containers[i].Name == "ironic" {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
 					ironicContainer = &podTemplate.Spec.Containers[i]
 					break
 				}
@@ -418,6 +420,85 @@ func TestTrustedCAConfigMap(t *testing.T) {
 					assert.Contains(t, webserverCACertValue, "/certs/ca/trusted/", "WEBSERVER_CACERT_FILE should contain /certs/ca/trusted/")
 				}
 			}
+		})
+	}
+}
+
+func TestIronicPortEnvVars(t *testing.T) {
+	testCases := []struct {
+		name               string
+		apiPort            int32
+		expectedListenPort string
+		expectedAccessPort string
+	}{
+		{
+			name:               "standard API port",
+			apiPort:            6385,
+			expectedListenPort: "6385",
+			expectedAccessPort: "6385",
+		},
+		{
+			name:               "custom API port",
+			apiPort:            6388,
+			expectedListenPort: "6388",
+			expectedAccessPort: "6388",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						APIPort: tc.apiPort,
+					},
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			// Find the ironic container
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer, "ironic container should exist")
+
+			// Check for IRONIC_LISTEN_PORT and IRONIC_ACCESS_PORT env vars
+			var foundListenPort, foundAccessPort bool
+			var listenPortValue, accessPortValue string
+			for _, env := range ironicContainer.Env {
+				if env.Name == "IRONIC_LISTEN_PORT" {
+					foundListenPort = true
+					listenPortValue = env.Value
+				}
+				if env.Name == "IRONIC_ACCESS_PORT" {
+					foundAccessPort = true
+					accessPortValue = env.Value
+				}
+			}
+
+			assert.True(t, foundListenPort, "IRONIC_LISTEN_PORT env var should be present")
+			assert.True(t, foundAccessPort, "IRONIC_ACCESS_PORT env var should be present")
+			assert.Equal(t, tc.expectedListenPort, listenPortValue, "IRONIC_LISTEN_PORT value mismatch")
+			assert.Equal(t, tc.expectedAccessPort, accessPortValue, "IRONIC_ACCESS_PORT value mismatch")
+			// Both ports should always be the same
+			assert.Equal(t, listenPortValue, accessPortValue, "IRONIC_LISTEN_PORT and IRONIC_ACCESS_PORT should have the same value")
 		})
 	}
 }
@@ -487,7 +568,7 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			var exporterContainer *corev1.Container
 			for _, cont := range podTemplate.Spec.Containers {
 				contCopy := cont
-				if cont.Name == "ironic" {
+				if cont.Name == ironicContainerName {
 					ironicContainer = &contCopy
 				}
 				if cont.Name == "ironic-prometheus-exporter" {
