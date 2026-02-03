@@ -43,6 +43,10 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
 		},
 		{
+			Name:  "IRONIC_ACCESS_PORT",
+			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
+		},
+		{
 			Name:  "HTTP_PORT",
 			Value: strconv.Itoa(int(ironic.Spec.Networking.ImageServerPort)),
 		},
