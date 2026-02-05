@@ -673,6 +673,10 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"IPA_BASEURI", os.Getenv("IPA_BASEURI"))
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"IPA_FLAVOR", os.Getenv("IPA_FLAVOR"))
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
+		"IPA_ARCH", os.Getenv("IPA_ARCH"))
+	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"HTTPS_PROXY", os.Getenv("IPA_HTTPS_PROXY"))
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"HTTP_PROXY", os.Getenv("IPA_HTTP_PROXY"))
