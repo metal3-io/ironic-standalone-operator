@@ -40,13 +40,44 @@ popd
 
 # Installing MariaDB operator
 
-"${HELM}" repo add mariadb-operator https://helm.mariadb.com/mariadb-operator
-"${HELM}" install mariadb-operator-crds mariadb-operator/mariadb-operator-crds \
-    --version "${MARIADB_OPERATOR_VERSION}"
-"${HELM}" install mariadb-operator mariadb-operator/mariadb-operator \
-    --namespace mariadb-operator --create-namespace \
-    --set webhook.cert.certManager.enabled=true \
-    --version "${MARIADB_OPERATOR_VERSION}"
+# Add MariaDB Operator repository using direct GitHub Pages URL
+"${HELM}" repo add mariadb-operator https://mariadb-operator.github.io/mariadb-operator
+"${HELM}" repo update mariadb-operator
+
+# Install MariaDB Operator CRDs with retries
+echo "Installing MariaDB Operator CRDs..."
+for i in {1..5}; do
+    if "${HELM}" install mariadb-operator-crds mariadb-operator/mariadb-operator-crds \
+        --version "${MARIADB_OPERATOR_VERSION}"; then
+        break
+    fi
+    echo "Attempt $i failed, retrying in 10s..."
+    sleep 10
+
+    if [[ "$i" -eq 5 ]]; then
+        echo "ERROR: Failed to install MariaDB CRDs after 5 attempts."
+        exit 1
+    fi
+done
+
+# Install MariaDB Operator with retries
+echo "Installing MariaDB Operator..."
+for i in {1..5}; do
+    if "${HELM}" install mariadb-operator mariadb-operator/mariadb-operator \
+        --namespace mariadb-operator --create-namespace \
+        --version "${MARIADB_OPERATOR_VERSION}" \
+        --set webhook.cert.certManager.enabled=true \
+        --set certController.enabled=false; then
+        break
+    fi
+    echo "Attempt $i failed, retrying in 10s..."
+    sleep 10
+
+    if [[ "$i" -eq 5 ]]; then
+        echo "ERROR: Failed to install MariaDB Operator after 5 attempts."
+        exit 1
+    fi
+done
 
 # Caching required images
 
