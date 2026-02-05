@@ -170,10 +170,8 @@ func validateCASettings(tls *metal3api.TLS) error {
 		if tls.BMCCA.Kind != metal3api.ResourceKindConfigMap && tls.BMCCA.Kind != metal3api.ResourceKindSecret {
 			return errors.New("tls.bmcCA.kind must be either 'ConfigMap' or 'Secret'")
 		}
-		//nolint:staticcheck // Intentionally accessing deprecated field for backward compatibility validation
 		if tls.BMCCAName != "" {
 			// Both old and new fields are set - validate they're consistent
-			//nolint:staticcheck // Intentionally accessing deprecated field for backward compatibility validation
 			if tls.BMCCA.Kind != metal3api.ResourceKindSecret || tls.BMCCA.Name != tls.BMCCAName {
 				return errors.New("tls.bmcCA and tls.bmcCAName are both set but inconsistent; use tls.bmcCA only")
 			}
@@ -188,10 +186,8 @@ func validateCASettings(tls *metal3api.TLS) error {
 		if tls.TrustedCA.Kind != metal3api.ResourceKindConfigMap && tls.TrustedCA.Kind != metal3api.ResourceKindSecret {
 			return errors.New("tls.trustedCA.kind must be either 'ConfigMap' or 'Secret'")
 		}
-		//nolint:staticcheck // Intentionally accessing deprecated field for backward compatibility validation
 		if tls.TrustedCAName != "" {
 			// Both old and new fields are set - validate they're consistent
-			//nolint:staticcheck // Intentionally accessing deprecated field for backward compatibility validation
 			if tls.TrustedCA.Kind != metal3api.ResourceKindConfigMap || tls.TrustedCA.Name != tls.TrustedCAName {
 				return errors.New("tls.trustedCA and tls.trustedCAName are both set but inconsistent; use tls.trustedCA only")
 			}

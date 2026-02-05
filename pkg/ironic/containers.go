@@ -211,16 +211,19 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 	}
 
 	// Get the TrustedCA reference to check if a specific key was requested
-	trustedCARef := resources.Ironic.Spec.TLS.GetTrustedCA()
+	var requestedKey string
+	if resources.Ironic.Spec.TLS.TrustedCA != nil {
+		requestedKey = resources.Ironic.Spec.TLS.TrustedCA.Key
+	}
 	var selectedKey string
 
-	if trustedCARef != nil && trustedCARef.Key != "" {
+	if requestedKey != "" {
 		// User specified a key, use it if it exists
-		if _, exists := keys[trustedCARef.Key]; exists {
-			selectedKey = trustedCARef.Key
+		if _, exists := keys[requestedKey]; exists {
+			selectedKey = requestedKey
 		} else {
 			cctx.Logger.Info("specified key not found in Trusted CA "+resourceKind+", using first available key",
-				"requestedKey", trustedCARef.Key, resourceKind, namespace+"/"+resourceName)
+				"requestedKey", requestedKey, resourceKind, namespace+"/"+resourceName)
 			// Fall through to select first key
 		}
 	}
@@ -459,8 +462,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 		}
 	}
 
-	if maybeVolume := volumeForSecretOrConfigMap(bmcCAVolumeName, resources.BMCCASecret, resources.BMCCAConfigMap,
-		resources.Ironic.Spec.TLS.GetBMCCA()); maybeVolume != nil {
+	if maybeVolume := volumeForSecretOrConfigMap(bmcCAVolumeName, resources.BMCCASecret, resources.BMCCAConfigMap); maybeVolume != nil {
 		volumes = append(volumes, *maybeVolume)
 		mounts = append(mounts,
 			corev1.VolumeMount{
@@ -471,8 +473,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 		)
 	}
 
-	if maybeVolume := volumeForSecretOrConfigMap(trustedCAVolumeName, resources.TrustedCASecret, resources.TrustedCAConfigMap,
-		resources.Ironic.Spec.TLS.GetTrustedCA()); maybeVolume != nil {
+	if maybeVolume := volumeForSecretOrConfigMap(trustedCAVolumeName, resources.TrustedCASecret, resources.TrustedCAConfigMap); maybeVolume != nil {
 		volumes = append(volumes, *maybeVolume)
 		mounts = append(mounts,
 			corev1.VolumeMount{

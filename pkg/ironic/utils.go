@@ -369,12 +369,37 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 	return podTemplate
 }
 
-func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *corev1.ConfigMap, res *metal3api.ResourceReference) *corev1.Volume {
-	var items []corev1.KeyToPath
-	if res != nil && res.Key != "" {
-		items = append(items, corev1.KeyToPath{Key: res.Key, Path: res.Key})
+// GetBMCCA returns the effective BMC CA resource reference.
+// It prefers the new BMCCA field over the deprecated BMCCAName field.
+func GetBMCCA(tls *metal3api.TLS) *metal3api.ResourceReference {
+	if tls.BMCCA != nil {
+		return tls.BMCCA
 	}
+	if tls.BMCCAName != "" {
+		return &metal3api.ResourceReference{
+			Name: tls.BMCCAName,
+			Kind: metal3api.ResourceKindSecret,
+		}
+	}
+	return nil
+}
 
+// GetTrustedCA returns the effective Trusted CA resource reference.
+// It prefers the new TrustedCA field over the deprecated TrustedCAName field.
+func GetTrustedCA(tls *metal3api.TLS) *metal3api.ResourceReference {
+	if tls.TrustedCA != nil {
+		return &tls.TrustedCA.ResourceReference
+	}
+	if tls.TrustedCAName != "" {
+		return &metal3api.ResourceReference{
+			Name: tls.TrustedCAName,
+			Kind: metal3api.ResourceKindConfigMap,
+		}
+	}
+	return nil
+}
+
+func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *corev1.ConfigMap) *corev1.Volume {
 	if secret != nil {
 		return &corev1.Volume{
 			Name: name,
@@ -382,7 +407,6 @@ func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *c
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  secret.Name,
 					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
-					Items:       items,
 				},
 			},
 		}
@@ -397,7 +421,6 @@ func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *c
 						Name: configMap.Name,
 					},
 					DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
-					Items:       items,
 				},
 			},
 		}

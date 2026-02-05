@@ -6941,9 +6941,7 @@ HighAvailability feature gate to be set.<br/>
         <td>
           TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
 to use when validating TLS connections to image servers and other services.
-The resource should contain one or more CA certificates in PEM format.
-If the resource contains multiple keys, only the first key will be used and
-a warning will be logged.<br/>
+The resource should contain one or more CA certificates in PEM format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6997,14 +6995,6 @@ Supported in Ironic 32.0 or newer.
           Name of the resource.<br/>
         </td>
         <td>true</td>
-      </tr><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          Key within the resource to use. If not specified and the resource contains multiple keys,
-the first key will be used and a warning will be logged for other keys.<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -7017,8 +7007,6 @@ the first key will be used and a warning will be logged for other keys.<br/>
 TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
 to use when validating TLS connections to image servers and other services.
 The resource should contain one or more CA certificates in PEM format.
-If the resource contains multiple keys, only the first key will be used and
-a warning will be logged.
 
 <table>
     <thead>

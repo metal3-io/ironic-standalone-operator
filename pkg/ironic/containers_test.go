@@ -529,7 +529,7 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 func TestBuildTrustedCAEnvVars(t *testing.T) {
 	testCases := []struct {
 		name            string
-		trustedCARef    *metal3api.ResourceReference
+		trustedCARef    *metal3api.ResourceReferenceWithKey
 		configMapData   map[string]string
 		secretData      map[string][]byte
 		expectedKey     string
@@ -538,10 +538,12 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 	}{
 		{
 			name: "ConfigMap with specific key",
-			trustedCARef: &metal3api.ResourceReference{
-				Name: "trusted-ca",
-				Kind: "ConfigMap",
-				Key:  "custom-ca.crt",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca",
+					Kind: "ConfigMap",
+				},
+				Key: "custom-ca.crt",
 			},
 			configMapData: map[string]string{
 				"custom-ca.crt": "cert1",
@@ -552,10 +554,12 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 		},
 		{
 			name: "Secret with specific key",
-			trustedCARef: &metal3api.ResourceReference{
-				Name: "trusted-ca-secret",
-				Kind: "Secret",
-				Key:  "tls.crt",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca-secret",
+					Kind: "Secret",
+				},
+				Key: "tls.crt",
 			},
 			secretData: map[string][]byte{
 				"tls.crt": []byte("cert1"),
@@ -566,10 +570,12 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 		},
 		{
 			name: "Key specified but doesn't exist - ConfigMap",
-			trustedCARef: &metal3api.ResourceReference{
-				Name: "trusted-ca",
-				Kind: "ConfigMap",
-				Key:  "nonexistent.crt",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca",
+					Kind: "ConfigMap",
+				},
+				Key: "nonexistent.crt",
 			},
 			configMapData: map[string]string{
 				"actual-ca.crt": "cert1",
@@ -580,10 +586,12 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 		},
 		{
 			name: "Key specified but doesn't exist - Secret",
-			trustedCARef: &metal3api.ResourceReference{
-				Name: "trusted-ca-secret",
-				Kind: "Secret",
-				Key:  "missing.crt",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca-secret",
+					Kind: "Secret",
+				},
+				Key: "missing.crt",
 			},
 			secretData: map[string][]byte{
 				"available.crt": []byte("cert1"),
@@ -594,9 +602,11 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 		},
 		{
 			name: "Multiple keys without Key specified - ConfigMap",
-			trustedCARef: &metal3api.ResourceReference{
-				Name: "trusted-ca",
-				Kind: "ConfigMap",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca",
+					Kind: "ConfigMap",
+				},
 			},
 			configMapData: map[string]string{
 				"ca1.crt": "cert1",
@@ -712,10 +722,12 @@ func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 				Logger: logr.Discard(),
 			}
 
-			trustedCARef := &metal3api.ResourceReference{
-				Name: "test-ca",
-				Kind: "ConfigMap",
-				Key:  tc.specifiedKey,
+			trustedCARef := &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "test-ca",
+					Kind: "ConfigMap",
+				},
+				Key: tc.specifiedKey,
 			}
 
 			data := make(map[string]string)

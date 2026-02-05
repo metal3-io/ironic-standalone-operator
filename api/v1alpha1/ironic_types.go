@@ -60,21 +60,6 @@ type Inspection struct {
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
-// ResourceReference references a ConfigMap or Secret resource.
-type ResourceReference struct {
-	// Name of the resource.
-	Name string `json:"name"`
-
-	// Kind of the resource (ConfigMap or Secret).
-	// +kubebuilder:validation:Enum=ConfigMap;Secret
-	Kind string `json:"kind"`
-
-	// Key within the resource to use. If not specified and the resource contains multiple keys,
-	// the first key will be used and a warning will be logged for other keys.
-	// +optional
-	Key string `json:"key,omitempty"`
-}
-
 type DHCP struct {
 	// DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
 	// Must not be set together with ServeDNS.
@@ -232,10 +217,8 @@ type TLS struct {
 	// TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
 	// to use when validating TLS connections to image servers and other services.
 	// The resource should contain one or more CA certificates in PEM format.
-	// If the resource contains multiple keys, only the first key will be used and
-	// a warning will be logged.
 	// +optional
-	TrustedCA *ResourceReference `json:"trustedCA,omitempty"`
+	TrustedCA *ResourceReferenceWithKey `json:"trustedCA,omitempty"`
 
 	// TrustedCAName is a reference to the configmap with the CA certificate(s)
 	// to use when validating TLS connections to image servers and other services.
@@ -259,36 +242,6 @@ type TLS struct {
 	// HighAvailability feature gate to be set.
 	// +optional
 	InsecureRPC *bool `json:"insecureRPC,omitempty"`
-}
-
-// GetBMCCA returns the effective BMC CA resource reference.
-// It prefers the new BMCCA field over the deprecated BMCCAName field.
-func (t *TLS) GetBMCCA() *ResourceReference {
-	if t.BMCCA != nil {
-		return t.BMCCA
-	}
-	if t.BMCCAName != "" {
-		return &ResourceReference{
-			Name: t.BMCCAName,
-			Kind: ResourceKindSecret,
-		}
-	}
-	return nil
-}
-
-// GetTrustedCA returns the effective Trusted CA resource reference.
-// It prefers the new TrustedCA field over the deprecated TrustedCAName field.
-func (t *TLS) GetTrustedCA() *ResourceReference {
-	if t.TrustedCA != nil {
-		return t.TrustedCA
-	}
-	if t.TrustedCAName != "" {
-		return &ResourceReference{
-			Name: t.TrustedCAName,
-			Kind: ResourceKindConfigMap,
-		}
-	}
-	return nil
 }
 
 type Images struct {

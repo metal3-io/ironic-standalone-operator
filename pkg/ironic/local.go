@@ -75,8 +75,8 @@ func ParseLocalIronic(inputFile string, scheme *runtime.Scheme) (*Resources, err
 	}
 
 	// Get effective CA references
-	bmcCARef := resources.Ironic.Spec.TLS.GetBMCCA()
-	trustedCARef := resources.Ironic.Spec.TLS.GetTrustedCA()
+	bmcCARef := GetBMCCA(&resources.Ironic.Spec.TLS)
+	trustedCARef := GetTrustedCA(&resources.Ironic.Spec.TLS)
 
 	for _, secretObj := range secrets {
 		// Determine secret type based on name patterns or labels
