@@ -129,12 +129,6 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "PrometheusExporter with version 31.0",
-			version:       metal3api.Version310,
-			enabled:       true,
-			expectedError: "",
-		},
-		{
 			name:          "PrometheusExporter with version 32.0",
 			version:       metal3api.Version320,
 			enabled:       true,
@@ -219,11 +213,6 @@ func TestBMCCAVersionCheck(t *testing.T) {
 			name:          "BMCCA with latest version",
 			version:       metal3api.VersionLatest,
 			expectedError: "",
-		},
-		{
-			name:          "BMCCA with version 31.0 (too old)",
-			version:       metal3api.Version310,
-			expectedError: "using tls.bmcCAName is only possible for Ironic 32.0 or newer",
 		},
 	}
 
