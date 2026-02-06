@@ -223,7 +223,7 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		{
 			name:          "BMCCA with version 31.0 (too old)",
 			version:       metal3api.Version310,
-			expectedError: "using tls.bmcCAName is only possible for Ironic 32.0 or newer",
+			expectedError: "using tls.bmcCA or tls.bmcCAName is only possible for Ironic 32.0 or newer",
 		},
 	}
 

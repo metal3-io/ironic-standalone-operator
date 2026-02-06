@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -48,6 +49,8 @@ type Resources struct {
 	APISecret          *corev1.Secret
 	TLSSecret          *corev1.Secret
 	BMCCASecret        *corev1.Secret
+	BMCCAConfigMap     *corev1.ConfigMap
+	TrustedCASecret    *corev1.Secret
 	TrustedCAConfigMap *corev1.ConfigMap
 }
 
@@ -364,4 +367,64 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers)
 
 	return podTemplate
+}
+
+// GetBMCCA returns the effective BMC CA resource reference.
+// It prefers the new BMCCA field over the deprecated BMCCAName field.
+func GetBMCCA(tls *metal3api.TLS) *metal3api.ResourceReference {
+	if tls.BMCCA != nil {
+		return tls.BMCCA
+	}
+	if tls.BMCCAName != "" {
+		return &metal3api.ResourceReference{
+			Name: tls.BMCCAName,
+			Kind: metal3api.ResourceKindSecret,
+		}
+	}
+	return nil
+}
+
+// GetTrustedCA returns the effective Trusted CA resource reference.
+// It prefers the new TrustedCA field over the deprecated TrustedCAName field.
+func GetTrustedCA(tls *metal3api.TLS) *metal3api.ResourceReference {
+	if tls.TrustedCA != nil {
+		return &tls.TrustedCA.ResourceReference
+	}
+	if tls.TrustedCAName != "" {
+		return &metal3api.ResourceReference{
+			Name: tls.TrustedCAName,
+			Kind: metal3api.ResourceKindConfigMap,
+		}
+	}
+	return nil
+}
+
+func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *corev1.ConfigMap) *corev1.Volume {
+	if secret != nil {
+		return &corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  secret.Name,
+					DefaultMode: ptr.To(corev1.SecretVolumeSourceDefaultMode),
+				},
+			},
+		}
+	}
+
+	if configMap != nil {
+		return &corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMap.Name,
+					},
+					DefaultMode: ptr.To(corev1.ConfigMapVolumeSourceDefaultMode),
+				},
+			},
+		}
+	}
+
+	return nil
 }
