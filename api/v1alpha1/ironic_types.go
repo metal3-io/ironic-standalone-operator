@@ -312,20 +312,24 @@ type Overrides struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	// AgentImages overrides the default IPA images with custom per-architecture images.
+	// Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
+	// Consider setting deployRamdisk.disableDownloader=true when using custom images.
+	// +optional
+	AgentImages []AgentImages `json:"agentImages,omitempty"`
+
 	// Containers to append to the main Ironic pod.
 	// If a container name matches an existing container, the existing container is replaced.
 	// +optional
 	Containers []corev1.Container `json:"containers,omitempty"`
 
 	// HttpdLivenessProbe configures the httpd container liveness probe.
-	// If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-	// When AgentImages is specified, no default probe is configured.
+	// Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
 	// +optional
 	HttpdLivenessProbe *corev1.Probe `json:"httpdLivenessProbe,omitempty"`
 
 	// HttpdReadinessProbe configures the httpd container readiness probe.
-	// If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-	// When AgentImages is specified, no default probe is configured.
+	// Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
 	// +optional
 	HttpdReadinessProbe *corev1.Probe `json:"httpdReadinessProbe,omitempty"`
 
@@ -333,11 +337,6 @@ type Overrides struct {
 	// If a container name matches an existing init container, the existing init container is replaced.
 	// +optional
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
-
-	// AgentImages overrides the default IPA (Ironic Python Agent) images provided by the downloader.
-	// Each image must have a unique architecture (rendered as DEPLOY_KERNEL_BY_ARCH/DEPLOY_RAMDISK_BY_ARCH).
-	// +optional
-	AgentImages []AgentImages `json:"agentImages,omitempty"`
 
 	// Extra labels to add to each pod (including upgrade jobs).
 	// +optional

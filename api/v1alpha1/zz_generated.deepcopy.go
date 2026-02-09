@@ -314,6 +314,11 @@ func (in *Overrides) DeepCopyInto(out *Overrides) {
 			(*out)[key] = val
 		}
 	}
+	if in.AgentImages != nil {
+		in, out := &in.AgentImages, &out.AgentImages
+		*out = make([]AgentImages, len(*in))
+		copy(*out, *in)
+	}
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers
 		*out = make([]v1.Container, len(*in))
@@ -337,11 +342,6 @@ func (in *Overrides) DeepCopyInto(out *Overrides) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
-	}
-	if in.AgentImages != nil {
-		in, out := &in.AgentImages, &out.AgentImages
-		*out = make([]AgentImages, len(*in))
-		copy(*out, *in)
 	}
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels

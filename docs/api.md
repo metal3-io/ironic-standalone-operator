@@ -662,8 +662,9 @@ EXPERIMENTAL: requires feature gate Overrides.
         <td><b><a href="#ironicspecoverridesagentimagesindex">agentImages</a></b></td>
         <td>[]object</td>
         <td>
-          AgentImages overrides the default IPA (Ironic Python Agent) images provided by the downloader.
-Each image must have a unique architecture (rendered as DEPLOY_KERNEL_BY_ARCH/DEPLOY_RAMDISK_BY_ARCH).<br/>
+          AgentImages overrides the default IPA images with custom per-architecture images.
+Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
+Consider setting deployRamdisk.disableDownloader=true when using custom images.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -686,8 +687,7 @@ If a container name matches an existing container, the existing container is rep
         <td>object</td>
         <td>
           HttpdLivenessProbe configures the httpd container liveness probe.
-If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-When AgentImages is specified, no default probe is configured.<br/>
+Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -695,8 +695,7 @@ When AgentImages is specified, no default probe is configured.<br/>
         <td>object</td>
         <td>
           HttpdReadinessProbe configures the httpd container readiness probe.
-If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-When AgentImages is specified, no default probe is configured.<br/>
+Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3833,8 +3832,7 @@ SubPathExpr and SubPath are mutually exclusive.<br/>
 
 
 HttpdLivenessProbe configures the httpd container liveness probe.
-If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-When AgentImages is specified, no default probe is configured.
+Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
 
 <table>
     <thead>
@@ -4154,8 +4152,7 @@ Name must be an IANA_SVC_NAME.<br/>
 
 
 HttpdReadinessProbe configures the httpd container readiness probe.
-If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-When AgentImages is specified, no default probe is configured.
+Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
 
 <table>
     <thead>

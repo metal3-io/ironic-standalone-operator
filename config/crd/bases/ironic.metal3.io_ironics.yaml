@@ -315,8 +315,9 @@ spec:
                 properties:
                   agentImages:
                     description: |-
-                      AgentImages overrides the default IPA (Ironic Python Agent) images provided by the downloader.
-                      Each image must have a unique architecture (rendered as DEPLOY_KERNEL_BY_ARCH/DEPLOY_RAMDISK_BY_ARCH).
+                      AgentImages overrides the default IPA images with custom per-architecture images.
+                      Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
+                      Consider setting deployRamdisk.disableDownloader=true when using custom images.
                     items:
                       description: AgentImages defines a single IPA (Ironic Python
                         Agent) image configuration.
@@ -1886,8 +1887,7 @@ spec:
                   httpdLivenessProbe:
                     description: |-
                       HttpdLivenessProbe configures the httpd container liveness probe.
-                      If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-                      When AgentImages is specified, no default probe is configured.
+                      Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
                     properties:
                       exec:
                         description: Exec specifies a command to execute in the container.
@@ -2040,8 +2040,7 @@ spec:
                   httpdReadinessProbe:
                     description: |-
                       HttpdReadinessProbe configures the httpd container readiness probe.
-                      If not set and AgentImages is not specified, defaults to checking /images/ironic-python-agent.kernel exists.
-                      When AgentImages is specified, no default probe is configured.
+                      Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
                     properties:
                       exec:
                         description: Exec specifies a command to execute in the container.

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -731,33 +732,11 @@ func TestAppendAgentImageEnvVars(t *testing.T) {
 			expectedKernelByArch:  "x86_64:http://local-server/ipa.x86_64.kernel,aarch64:https://secure-server/ipa.aarch64.kernel",
 			expectedRamdiskByArch: "x86_64:http://local-server/ipa.x86_64.initramfs,aarch64:https://secure-server/ipa.aarch64.initramfs",
 		},
-		{
-			name: "duplicate architectures returns error",
-			images: []metal3api.AgentImages{
-				{
-					Kernel:       "file:///first/kernel",
-					Initramfs:    "file:///first/initramfs",
-					Architecture: metal3api.ArchX86_64,
-				},
-				{
-					Kernel:       "file:///second/kernel",
-					Initramfs:    "file:///second/initramfs",
-					Architecture: metal3api.ArchX86_64,
-				},
-			},
-			expectError: true,
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			envVars, err := appendAgentImageEnvVars(nil, tc.images)
-
-			if tc.expectError {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
+			envVars := appendAgentImageEnvVars(nil, tc.images)
 
 			if tc.expectNoEnvVars {
 				assert.Empty(t, envVars)
@@ -778,6 +757,159 @@ func TestAppendAgentImageEnvVars(t *testing.T) {
 
 			assert.Equal(t, tc.expectedKernelByArch, kernelByArch)
 			assert.Equal(t, tc.expectedRamdiskByArch, ramdiskByArch)
+		})
+	}
+}
+
+func TestHttpdProbeConfiguration(t *testing.T) {
+	testCases := []struct {
+		Scenario            string
+		Ironic              metal3api.IronicSpec
+		ExpectExecProbe     bool // true = exec probe with curl, false = HTTPGet probe
+		ExpectHTTPGetPath   string
+		ExpectCustomProbe   bool
+		ExpectedProbeNotNil bool
+	}{
+		{
+			Scenario: "Default - no custom images",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+			},
+			ExpectExecProbe:     true, // Should use exec probe with curl
+			ExpectedProbeNotNil: true,
+		},
+		{
+			Scenario: "Custom images - should use HTTP probe on root",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///custom/kernel",
+							Initramfs:    "file:///custom/initramfs",
+						},
+					},
+				},
+			},
+			ExpectExecProbe:     false, // Should use HTTPGet probe
+			ExpectHTTPGetPath:   "/",
+			ExpectedProbeNotNil: true,
+		},
+		{
+			Scenario: "Custom images with downloader disabled",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				DeployRamdisk: metal3api.DeployRamdisk{
+					DisableDownloader: true,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchAarch64,
+							Kernel:       "http://external.com/kernel",
+							Initramfs:    "http://external.com/initramfs",
+						},
+					},
+				},
+			},
+			ExpectExecProbe:     false, // Should use HTTPGet probe
+			ExpectHTTPGetPath:   "/",
+			ExpectedProbeNotNil: true,
+		},
+		{
+			Scenario: "Custom images with explicit liveness probe override",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///custom/kernel",
+							Initramfs:    "file:///custom/initramfs",
+						},
+					},
+					HttpdLivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/health",
+								Port: intstr.FromInt(8080),
+							},
+						},
+					},
+				},
+			},
+			ExpectCustomProbe:   true,
+			ExpectedProbeNotNil: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("test"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: tc.Ironic,
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			// Find the httpd container
+			var httpdContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "httpd" {
+					httpdContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			assert.NotNil(t, httpdContainer, "httpd container should exist")
+
+			// Check liveness probe
+			if tc.ExpectedProbeNotNil {
+				assert.NotNil(t, httpdContainer.LivenessProbe, "liveness probe should not be nil")
+			}
+
+			if httpdContainer.LivenessProbe != nil {
+				switch {
+				case tc.ExpectCustomProbe:
+					// Verify custom probe is used
+					assert.NotNil(t, httpdContainer.LivenessProbe.HTTPGet)
+					assert.Equal(t, "/health", httpdContainer.LivenessProbe.HTTPGet.Path)
+				case tc.ExpectExecProbe:
+					// Verify exec probe (curl)
+					assert.NotNil(t, httpdContainer.LivenessProbe.Exec, "should have exec probe")
+					assert.Nil(t, httpdContainer.LivenessProbe.HTTPGet, "should not have HTTPGet probe")
+				case tc.ExpectHTTPGetPath != "":
+					// Verify HTTPGet probe
+					assert.NotNil(t, httpdContainer.LivenessProbe.HTTPGet, "should have HTTPGet probe")
+					assert.Equal(t, tc.ExpectHTTPGetPath, httpdContainer.LivenessProbe.HTTPGet.Path)
+					assert.Equal(t, intstr.FromInt(int(tc.Ironic.Networking.ImageServerPort)), httpdContainer.LivenessProbe.HTTPGet.Port)
+					assert.Nil(t, httpdContainer.LivenessProbe.Exec, "should not have exec probe")
+				}
+			}
+
+			// Check readiness probe (should match liveness probe logic)
+			if tc.ExpectedProbeNotNil {
+				assert.NotNil(t, httpdContainer.ReadinessProbe, "readiness probe should not be nil")
+			}
 		})
 	}
 }
