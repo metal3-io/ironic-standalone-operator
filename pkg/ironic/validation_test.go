@@ -452,6 +452,94 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "overrides.agentImages: duplicate architecture \"x86_64\"",
 		},
+		{
+			Scenario: "agent images with http URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "http://example.com/ipa.kernel",
+							Initramfs:    "http://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "agent images with https URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "https://example.com/ipa.kernel",
+							Initramfs:    "https://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "agent images with invalid kernel URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "://invalid-url",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: invalid URL format",
+		},
+		{
+			Scenario: "agent images with invalid initramfs URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+							Initramfs:    "not a url",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol",
+		},
+		{
+			Scenario: "agent images with unsupported kernel protocol",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "ftp://example.com/ipa.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: unsupported protocol \"ftp\"",
+		},
+		{
+			Scenario: "agent images with unsupported initramfs protocol",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+							Initramfs:    "ssh://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol \"ssh\"",
+		},
 	}
 
 	for _, tc := range testCases {

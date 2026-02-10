@@ -315,6 +315,7 @@ type Overrides struct {
 	// AgentImages overrides the default IPA images with custom per-architecture images.
 	// Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
 	// Consider setting deployRamdisk.disableDownloader=true when using custom images.
+	// When agentImages is set, the httpd probe checks / instead of the standard IPA kernel path.
 	// +optional
 	AgentImages []AgentImages `json:"agentImages,omitempty"`
 

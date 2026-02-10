@@ -664,7 +664,8 @@ EXPERIMENTAL: requires feature gate Overrides.
         <td>
           AgentImages overrides the default IPA images with custom per-architecture images.
 Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
-Consider setting deployRamdisk.disableDownloader=true when using custom images.<br/>
+Consider setting deployRamdisk.disableDownloader=true when using custom images.
+When agentImages is set, the httpd probe checks / instead of the standard IPA kernel path.<br/>
         </td>
         <td>false</td>
       </tr><tr>

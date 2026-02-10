@@ -127,10 +127,10 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	}
 
 	result = appendStringEnv(result,
-		"IRONIC_KERNEL_PARAMS", strings.Trim(ironic.Spec.DeployRamdisk.ExtraKernelParams, " \t\n\r"))
+		"IRONIC_KERNEL_PARAMS", strings.TrimSpace(ironic.Spec.DeployRamdisk.ExtraKernelParams))
 
 	result = appendStringEnv(result,
-		"IRONIC_RAMDISK_SSH_KEY", strings.Trim(ironic.Spec.DeployRamdisk.SSHKey, " \t\n\r"))
+		"IRONIC_RAMDISK_SSH_KEY", strings.TrimSpace(ironic.Spec.DeployRamdisk.SSHKey))
 
 	result = appendListOfStringsEnv(result,
 		"IRONIC_IPA_COLLECTORS", ironic.Spec.Inspection.Collectors, ",")
@@ -157,8 +157,8 @@ func appendAgentImageEnvVars(envVars []corev1.EnvVar, images []metal3api.AgentIm
 
 	for _, img := range images {
 		arch := string(img.Architecture)
-		kernelByArch = append(kernelByArch, arch+":"+strings.Trim(img.Kernel, " \t\n\r"))
-		ramdiskByArch = append(ramdiskByArch, arch+":"+strings.Trim(img.Initramfs, " \t\n\r"))
+		kernelByArch = append(kernelByArch, arch+":"+strings.TrimSpace(img.Kernel))
+		ramdiskByArch = append(ramdiskByArch, arch+":"+strings.TrimSpace(img.Initramfs))
 	}
 
 	envVars = appendStringEnv(envVars, "DEPLOY_KERNEL_BY_ARCH", strings.Join(kernelByArch, ","))
