@@ -76,7 +76,7 @@ endif
 
 # Image URL to use all building/pushing image targets
 IMG_NO_TAG ?= quay.io/metal3-io/ironic-standalone-operator
-IMG ?= $(IMG_NO_TAG):latest
+IMG ?= $(IMG_NO_TAG):release-0.8
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))

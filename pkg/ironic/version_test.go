@@ -28,8 +28,8 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Expected: VersionInfo{
 				// NOTE(dtantsur): this value will change on stable branches
-				InstalledVersion:       metal3api.VersionLatest,
-				IronicImage:            "quay.io/metal3-io/ironic:latest",
+				InstalledVersion:       metal3api.Version340,
+				IronicImage:            "quay.io/metal3-io/ironic:release-34.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
@@ -52,7 +52,7 @@ func TestWithIronicOverrides(t *testing.T) {
 			Expected: VersionInfo{
 				AgentBranch: "stable/x.y",
 				// NOTE(dtantsur): this value will change on stable branches
-				InstalledVersion:       metal3api.VersionLatest,
+				InstalledVersion:       metal3api.Version340,
 				IronicImage:            "myorg/ironic:tag",
 				KeepalivedImage:        "myorg/keepalived:tag",
 				RamdiskDownloaderImage: "myorg/ramdisk-downloader:tag",
@@ -146,12 +146,6 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 			enabled:       true,
 			expectedError: "",
 		},
-		{
-			name:          "PrometheusExporter with latest version",
-			version:       metal3api.VersionLatest,
-			enabled:       true,
-			expectedError: "",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -207,11 +201,6 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		{
 			name:          "BMCCA with version 32.0",
 			version:       metal3api.Version320,
-			expectedError: "",
-		},
-		{
-			name:          "BMCCA with latest version",
-			version:       metal3api.VersionLatest,
 			expectedError: "",
 		},
 	}
