@@ -52,14 +52,14 @@ updates:
   - "ok-to-test"
 ## main branch config ends here
 
-## release-0.7 branch config starts here
+## release-0.8 branch config starts here
 - package-ecosystem: "github-actions"
   directory: "/" # Location of package manifests
   schedule:
     interval: "monthly"
     day: "wednesday"
     time: "03:30" # 3.30am utc
-  target-branch: release-0.7
+  target-branch: release-0.8
   ## group all action bumps into single PR
   groups:
     github-actions:
@@ -81,6 +81,54 @@ updates:
     interval: "weekly"
     day: "wednesday"
     time: "04:00" # 4am utc
+  target-branch: release-0.8
+  ## group all dependencies with a k8s.io prefix into a single PR.
+  groups:
+    kubernetes:
+      patterns: ["k8s.io/*"]
+  ignore:
+  # golang.org/x/* only releases minors no patches, so minors have to be allowed
+  - dependency-name: "golang.org/x/*"
+    update-types: ["version-update:semver-major"]
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+
+## release-0.8 branch config ends here
+
+## release-0.7 branch config starts here
+- package-ecosystem: "github-actions"
+  directory: "/" # Location of package manifests
+  schedule:
+    interval: "monthly"
+    day: "wednesday"
+    time: "04:30" # 4.30am utc
+  target-branch: release-0.7
+  ## group all action bumps into single PR
+  groups:
+    github-actions:
+      patterns: ["*"]
+  ignore:
+  # Ignore major and minor bumps for release branch
+  - dependency-name: "*"
+    update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  commit-message:
+    prefix: ":seedling:"
+  labels:
+  - "ok-to-test"
+- package-ecosystem: "gomod"
+  directories:
+  - "/"
+  - "/api"
+  - "/test"
+  schedule:
+    interval: "weekly"
+    day: "wednesday"
+    time: "05:00" # 5am utc
   target-branch: release-0.7
   ## group all dependencies with a k8s.io prefix into a single PR.
   groups:
@@ -106,7 +154,7 @@ updates:
   schedule:
     interval: "monthly"
     day: "wednesday"
-    time: "04:30" # 3.30am utc
+    time: "05:30" # 5.30am utc
   target-branch: release-0.6
   ## group all action bumps into single PR
   groups:
@@ -128,7 +176,7 @@ updates:
   schedule:
     interval: "weekly"
     day: "wednesday"
-    time: "05:00" # 4am utc
+    time: "06:00" # 6am utc
   target-branch: release-0.6
   ## group all dependencies with a k8s.io prefix into a single PR.
   groups:
