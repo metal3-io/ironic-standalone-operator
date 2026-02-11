@@ -8,10 +8,10 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.88.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.47.0
-	k8s.io/api v0.34.3
-	k8s.io/apimachinery v0.34.3
-	k8s.io/client-go v0.34.3
-	k8s.io/component-base v0.34.3
+	k8s.io/api v0.34.4
+	k8s.io/apimachinery v0.34.4
+	k8s.io/client-go v0.34.4
+	k8s.io/component-base v0.34.4
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	sigs.k8s.io/controller-runtime v0.22.5
 	sigs.k8s.io/yaml v1.6.0
