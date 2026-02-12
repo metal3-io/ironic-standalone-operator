@@ -7,7 +7,7 @@ require (
 	github.com/mariadb-operator/mariadb-operator v0.38.1
 	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.0
+	github.com/onsi/gomega v1.39.1
 	k8s.io/api v0.34.4
 	k8s.io/apimachinery v0.34.4
 	k8s.io/client-go v0.34.4
