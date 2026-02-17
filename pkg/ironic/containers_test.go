@@ -503,6 +503,88 @@ func TestIronicPortEnvVars(t *testing.T) {
 	}
 }
 
+func TestBuildDHCPRange(t *testing.T) {
+	testCases := []struct {
+		name     string
+		dhcp     *metal3api.DHCP
+		expected string
+	}{
+		{
+			name: "primary range only",
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.168.1.0/24",
+				RangeBegin:  "192.168.1.10",
+				RangeEnd:    "192.168.1.200",
+			},
+			expected: "192.168.1.10,192.168.1.200,24",
+		},
+		{
+			name: "networkRanges only",
+			dhcp: &metal3api.DHCP{
+				NetworkRanges: []metal3api.DHCPRange{
+					{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.200",
+					},
+					{
+						NetworkCIDR: "192.168.2.0/24",
+						RangeBegin:  "192.168.2.10",
+						RangeEnd:    "192.168.2.200",
+					},
+				},
+			},
+			expected: "192.168.1.10,192.168.1.200,24;192.168.2.10,192.168.2.200,24",
+		},
+		{
+			name: "primary range and networkRanges combined",
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "10.0.0.0/16",
+				RangeBegin:  "10.0.1.1",
+				RangeEnd:    "10.0.1.254",
+				NetworkRanges: []metal3api.DHCPRange{
+					{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.200",
+					},
+				},
+			},
+			expected: "10.0.1.1,10.0.1.254,16;192.168.1.10,192.168.1.200,24",
+		},
+		{
+			name: "IPv6 networkRanges",
+			dhcp: &metal3api.DHCP{
+				NetworkRanges: []metal3api.DHCPRange{
+					{
+						NetworkCIDR: "fd69:158d:692a:1::/64",
+						RangeBegin:  "fd69:158d:692a:1::3000",
+						RangeEnd:    "fd69:158d:692a:1::3fff",
+					},
+					{
+						NetworkCIDR: "fd69:158d:692a:2::/64",
+						RangeBegin:  "fd69:158d:692a:2::3000",
+						RangeEnd:    "fd69:158d:692a:2::3fff",
+					},
+				},
+			},
+			expected: "fd69:158d:692a:1::3000,fd69:158d:692a:1::3fff,64;fd69:158d:692a:2::3000,fd69:158d:692a:2::3fff,64",
+		},
+		{
+			name:     "empty DHCP",
+			dhcp:     &metal3api.DHCP{},
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := buildDHCPRange(tc.dhcp)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func TestPrometheusExporterEnvVars(t *testing.T) {
 	testCases := []struct {
 		name                   string

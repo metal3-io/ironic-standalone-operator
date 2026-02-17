@@ -53,6 +53,18 @@ type Inspection struct {
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
+// DHCPRange defines a DHCP range for a subnet served via DHCP relay agents.
+type DHCPRange struct {
+	// NetworkCIDR is the CIDR of the subnet. Required.
+	NetworkCIDR string `json:"networkCIDR"`
+
+	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	RangeBegin string `json:"rangeBegin"`
+
+	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	RangeEnd string `json:"rangeEnd"`
+}
+
 type DHCP struct {
 	// DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
 	// Must not be set together with ServeDNS.
@@ -83,6 +95,11 @@ type DHCP struct {
 
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
 	RangeEnd string `json:"rangeEnd,omitempty"`
+
+	// NetworkRanges is a list of additional DHCP ranges for subnets served via DHCP relay agents.
+	// Each range defines a separate subnet. The provisioning IP does not need to be within these subnets.
+	// +optional
+	NetworkRanges []DHCPRange `json:"networkRanges,omitempty"`
 
 	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 	// Must not be set together with DNSAddress.
