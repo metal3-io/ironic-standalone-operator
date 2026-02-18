@@ -22,6 +22,7 @@ jobs:
     with:
       image-name: 'ironic-standalone-operator'
       pushImage: true
+      platform: 'linux/amd64'
       generate-sbom: true
       sign-image: true
     secrets:
