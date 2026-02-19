@@ -343,6 +343,203 @@ func TestValidateIronic(t *testing.T) {
 			},
 			ExpectedError: "ServiceMonitor support is currently incompatible with the highly available architecture",
 		},
+		{
+			Scenario: "valid agent images single architecture x86_64",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "valid agent images single architecture aarch64",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchAarch64,
+							Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "valid agent images multiple architectures",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+						},
+						{
+							Architecture: metal3api.ArchAarch64,
+							Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "agent images empty architecture",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Kernel:    "file:///shared/html/images/ipa.kernel",
+							Initramfs: "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0]: architecture is required",
+		},
+		{
+			Scenario: "agent images empty kernel",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0]: kernel is required",
+		},
+		{
+			Scenario: "agent images empty initramfs",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0]: initramfs is required",
+		},
+		{
+			Scenario: "agent images duplicate architecture",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+						},
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.x86_64.v2.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.x86_64.v2.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages: duplicate architecture \"x86_64\"",
+		},
+		{
+			Scenario: "agent images with http URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "http://example.com/ipa.kernel",
+							Initramfs:    "http://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "agent images with https URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "https://example.com/ipa.kernel",
+							Initramfs:    "https://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "agent images with invalid kernel URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "://invalid-url",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: invalid URL format",
+		},
+		{
+			Scenario: "agent images with invalid initramfs URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+							Initramfs:    "not a url",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol",
+		},
+		{
+			Scenario: "agent images with unsupported kernel protocol",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "ftp://example.com/ipa.kernel",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: unsupported protocol \"ftp\"",
+		},
+		{
+			Scenario: "agent images with unsupported initramfs protocol",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+							Initramfs:    "ssh://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol \"ssh\"",
+		},
 	}
 
 	for _, tc := range testCases {
