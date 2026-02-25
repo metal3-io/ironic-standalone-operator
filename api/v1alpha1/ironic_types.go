@@ -169,6 +169,32 @@ type Networking struct {
 	RPCPort int32 `json:"rpcPort,omitempty"`
 }
 
+// CPUArchitecture represents a CPU architecture supported by IPA.
+// +kubebuilder:validation:Enum=x86_64;aarch64
+type CPUArchitecture string
+
+const (
+	// ArchX86_64 represents the x86_64 (amd64) architecture.
+	ArchX86_64 CPUArchitecture = "x86_64"
+	// ArchAarch64 represents the aarch64 (arm64) architecture.
+	ArchAarch64 CPUArchitecture = "aarch64"
+)
+
+// AgentImages defines a single IPA (Ironic Python Agent) image configuration.
+type AgentImages struct {
+	// Kernel is the URL of the IPA kernel image.
+	// Example: "file:///shared/html/images/ironic-python-agent.kernel"
+	Kernel string `json:"kernel"`
+
+	// Initramfs is the URL of the IPA initramfs/ramdisk image.
+	// Example: "file:///shared/html/images/ironic-python-agent.initramfs"
+	Initramfs string `json:"initramfs"`
+
+	// Architecture is the target CPU architecture for this image.
+	// Each image must have a unique architecture.
+	Architecture CPUArchitecture `json:"architecture"`
+}
+
 // DeployRamdisk defines IPA ramdisk settings.
 type DeployRamdisk struct {
 	// DisableDownloader tells the operator not to start the IPA downloader as the init container.
@@ -250,7 +276,6 @@ type Images struct {
 // Warning: modifying arbitrary options may cause your Ironic installation to
 // fail or misbehave. Do not modify anything you don't understand well.
 type ExtraConfig struct {
-
 	// The group that config belongs to.
 	// +optional
 	Group string `json:"group,omitempty"`
@@ -287,10 +312,27 @@ type Overrides struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	// AgentImages overrides the default IPA images with custom per-architecture images.
+	// Rendered as DEPLOY_KERNEL_BY_ARCH and DEPLOY_RAMDISK_BY_ARCH environment variables.
+	// Consider setting deployRamdisk.disableDownloader=true when using custom images.
+	// When agentImages is set, the httpd probe checks / instead of the standard IPA kernel path.
+	// +optional
+	AgentImages []AgentImages `json:"agentImages,omitempty"`
+
 	// Containers to append to the main Ironic pod.
 	// If a container name matches an existing container, the existing container is replaced.
 	// +optional
 	Containers []corev1.Container `json:"containers,omitempty"`
+
+	// HttpdLivenessProbe configures the httpd container liveness probe.
+	// Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
+	// +optional
+	HttpdLivenessProbe *corev1.Probe `json:"httpdLivenessProbe,omitempty"`
+
+	// HttpdReadinessProbe configures the httpd container readiness probe.
+	// Defaults to checking /images/ironic-python-agent.kernel (or root / if custom images specified).
+	// +optional
+	HttpdReadinessProbe *corev1.Probe `json:"httpdReadinessProbe,omitempty"`
 
 	// InitContainers to append to the main Ironic pod.
 	// If a container name matches an existing init container, the existing init container is replaced.
