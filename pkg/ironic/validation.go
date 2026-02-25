@@ -38,33 +38,89 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	return nil
 }
 
+func validateDHCPRange(r *metal3api.DHCPRange, fieldPath string) error {
+	if r.NetworkCIDR == "" {
+		return fmt.Errorf("%s.networkCIDR is required", fieldPath)
+	}
+
+	prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+	if err != nil {
+		return fmt.Errorf("%s.networkCIDR is invalid: %w", fieldPath, err)
+	}
+
+	if r.RangeBegin == "" {
+		return fmt.Errorf("%s.rangeBegin is required", fieldPath)
+	}
+
+	if r.RangeEnd == "" {
+		return fmt.Errorf("%s.rangeEnd is required", fieldPath)
+	}
+
+	if err := validateIPinPrefix(r.RangeBegin, prefix); err != nil {
+		return fmt.Errorf("%s: %w", fieldPath, err)
+	}
+
+	if err := validateIPinPrefix(r.RangeEnd, prefix); err != nil {
+		return fmt.Errorf("%s: %w", fieldPath, err)
+	}
+
+	return nil
+}
+
 func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 	dhcp := ironic.Networking.DHCP
 	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
 	if !hasNetworking {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
-	if dhcp.NetworkCIDR == "" {
-		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
-	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
 	}
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
+
+	hasPrimaryRange := dhcp.RangeBegin != "" && dhcp.RangeEnd != ""
+	hasNetworkRanges := len(dhcp.NetworkRanges) > 0
+
+	if !hasPrimaryRange && !hasNetworkRanges {
+		return errors.New("networking.dhcp: at least one of rangeBegin/rangeEnd or networkRanges is required")
 	}
 
-	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+	// Validate primary range if present
+	if dhcp.RangeBegin != "" || dhcp.RangeEnd != "" {
+		if dhcp.NetworkCIDR == "" {
+			return errors.New("networking.dhcp.networkCIDR is required when rangeBegin/rangeEnd are set")
+		}
+		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
+			return errors.New("networking.dhcp: both rangeBegin and rangeEnd must be set together")
+		}
+
+		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
+			return err
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
+			return err
+		}
+
+		// Check that the provisioning IP is in the CIDR
+		if ironic.Networking.IPAddress != "" {
+			provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
+			if !provCIDR.Contains(provIP) {
+				return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+			}
+		}
 	}
 
-	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
-		return err
-	}
-
-	if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
-		return err
+	// Validate additional network ranges
+	for i := range dhcp.NetworkRanges {
+		fieldPath := fmt.Sprintf("networking.dhcp.networkRanges[%d]", i)
+		if err := validateDHCPRange(&dhcp.NetworkRanges[i], fieldPath); err != nil {
+			return err
+		}
 	}
 
 	if err := validateIP(dhcp.DNSAddress); err != nil {
@@ -73,19 +129,6 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 
 	if err := validateIP(dhcp.GatewayAddress); err != nil {
 		return err
-	}
-
-	// These are supposed to be populated by the webhook
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
-	}
-
-	// Check that the provisioning IP is in the CIDR
-	if ironic.Networking.IPAddress != "" {
-		provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
-		if !provCIDR.Contains(provIP) {
-			return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
-		}
 	}
 
 	return nil

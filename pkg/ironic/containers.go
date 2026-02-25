@@ -506,12 +506,26 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 }
 
 func buildDHCPRange(dhcp *metal3api.DHCP) string {
-	prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return "" // don't disable your webhooks people
+	var parts []string
+
+	// Primary range (from flat fields)
+	if dhcp.NetworkCIDR != "" && dhcp.RangeBegin != "" && dhcp.RangeEnd != "" {
+		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err == nil {
+			parts = append(parts, fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits()))
+		}
 	}
 
-	return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+	// Additional network ranges
+	for _, r := range dhcp.NetworkRanges {
+		prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+		if err != nil {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s,%s,%d", r.RangeBegin, r.RangeEnd, prefix.Bits()))
+	}
+
+	return strings.Join(parts, ";")
 }
 
 func buildDNSIP(dhcp *metal3api.DHCP) string {
