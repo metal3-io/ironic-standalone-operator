@@ -166,17 +166,29 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
-	var bmcSecret *corev1.Secret
-	if bmcSecretName := ironicConf.Spec.TLS.BMCCAName; bmcSecretName != "" {
-		bmcSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, bmcSecretName)
+	var bmcCASecret *corev1.Secret
+	var bmcCAConfigMap *corev1.ConfigMap
+	if bmcCARef := ironic.GetBMCCA(&ironicConf.Spec.TLS); bmcCARef != nil {
+		switch bmcCARef.Kind {
+		case metal3api.ResourceKindSecret:
+			bmcCASecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, bmcCARef.Name)
+		case metal3api.ResourceKindConfigMap:
+			bmcCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, bmcCARef.Name)
+		}
 		if requeue || err != nil {
 			return requeue, err
 		}
 	}
 
+	var trustedCASecret *corev1.Secret
 	var trustedCAConfigMap *corev1.ConfigMap
-	if trustedCAConfigMapName := ironicConf.Spec.TLS.TrustedCAName; trustedCAConfigMapName != "" {
-		trustedCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, trustedCAConfigMapName)
+	if trustedCARef := ironic.GetTrustedCA(&ironicConf.Spec.TLS); trustedCARef != nil {
+		switch trustedCARef.Kind {
+		case metal3api.ResourceKindSecret:
+			trustedCASecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, trustedCARef.Name)
+		case metal3api.ResourceKindConfigMap:
+			trustedCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, trustedCARef.Name)
+		}
 		if requeue || err != nil {
 			return requeue, err
 		}
@@ -186,7 +198,9 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		Ironic:             ironicConf,
 		APISecret:          apiSecret,
 		TLSSecret:          tlsSecret,
-		BMCCASecret:        bmcSecret,
+		BMCCASecret:        bmcCASecret,
+		BMCCAConfigMap:     bmcCAConfigMap,
+		TrustedCASecret:    trustedCASecret,
 		TrustedCAConfigMap: trustedCAConfigMap,
 	}
 

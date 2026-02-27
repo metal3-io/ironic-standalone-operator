@@ -6889,12 +6889,23 @@ TLS defines TLS-related settings for various network interactions.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#ironicspectlsbmcca">bmcCA</a></b></td>
+        <td>object</td>
+        <td>
+          BMCCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+to use when validating TLS connections to BMCs.
+Supported in Ironic 32.0 or newer.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>bmcCAName</b></td>
         <td>string</td>
         <td>
           BMCCAName is a reference to the secret with the CA certificate(s)
 to use when validating TLS connections to BMC's.
-Supported in Ironic 32.0 or newer.<br/>
+Supported in Ironic 32.0 or newer.
+
+Deprecated: Use BMCCA instead. This field will be removed in a future release.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -6925,6 +6936,15 @@ HighAvailability feature gate to be set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspectlstrustedca">trustedCA</a></b></td>
+        <td>object</td>
+        <td>
+          TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+to use when validating TLS connections to image servers and other services.
+The resource should contain one or more CA certificates in PEM format.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>trustedCAName</b></td>
         <td>string</td>
         <td>
@@ -6932,7 +6952,93 @@ HighAvailability feature gate to be set.<br/>
 to use when validating TLS connections to image servers and other services.
 The configmap should contain one or more CA certificates in PEM format.
 If the configmap contains multiple keys, only the first key will be used and
-a warning will be logged.<br/>
+a warning will be logged.
+
+Deprecated: Use TrustedCA instead. This field will be removed in a future release.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.tls.bmcCA
+<sup><sup>[↩ Parent](#ironicspectls)</sup></sup>
+
+
+
+BMCCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+to use when validating TLS connections to BMCs.
+Supported in Ironic 32.0 or newer.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>kind</b></td>
+        <td>enum</td>
+        <td>
+          Kind of the resource (ConfigMap or Secret).<br/>
+          <br/>
+            <i>Enum</i>: ConfigMap, Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the resource.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.tls.trustedCA
+<sup><sup>[↩ Parent](#ironicspectls)</sup></sup>
+
+
+
+TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+to use when validating TLS connections to image servers and other services.
+The resource should contain one or more CA certificates in PEM format.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>kind</b></td>
+        <td>enum</td>
+        <td>
+          Kind of the resource (ConfigMap or Secret).<br/>
+          <br/>
+            <i>Enum</i>: ConfigMap, Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the resource.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the resource to use. If not specified and the resource contains multiple keys,
+the first key will be used and a warning will be logged for other keys.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

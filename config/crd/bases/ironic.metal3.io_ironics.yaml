@@ -3425,11 +3425,32 @@ spec:
                 description: TLS defines TLS-related settings for various network
                   interactions.
                 properties:
+                  bmcCA:
+                    description: |-
+                      BMCCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+                      to use when validating TLS connections to BMCs.
+                      Supported in Ironic 32.0 or newer.
+                    properties:
+                      kind:
+                        description: Kind of the resource (ConfigMap or Secret).
+                        enum:
+                        - ConfigMap
+                        - Secret
+                        type: string
+                      name:
+                        description: Name of the resource.
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
                   bmcCAName:
                     description: |-
                       BMCCAName is a reference to the secret with the CA certificate(s)
                       to use when validating TLS connections to BMC's.
                       Supported in Ironic 32.0 or newer.
+
+                      Deprecated: Use BMCCA instead. This field will be removed in a future release.
                     type: string
                   certificateName:
                     description: |-
@@ -3449,6 +3470,30 @@ spec:
                       Has no effect when HighAvailability is false and requires the
                       HighAvailability feature gate to be set.
                     type: boolean
+                  trustedCA:
+                    description: |-
+                      TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
+                      to use when validating TLS connections to image servers and other services.
+                      The resource should contain one or more CA certificates in PEM format.
+                    properties:
+                      key:
+                        description: |-
+                          Key within the resource to use. If not specified and the resource contains multiple keys,
+                          the first key will be used and a warning will be logged for other keys.
+                        type: string
+                      kind:
+                        description: Kind of the resource (ConfigMap or Secret).
+                        enum:
+                        - ConfigMap
+                        - Secret
+                        type: string
+                      name:
+                        description: Name of the resource.
+                        type: string
+                    required:
+                    - kind
+                    - name
+                    type: object
                   trustedCAName:
                     description: |-
                       TrustedCAName is a reference to the configmap with the CA certificate(s)
@@ -3456,6 +3501,8 @@ spec:
                       The configmap should contain one or more CA certificates in PEM format.
                       If the configmap contains multiple keys, only the first key will be used and
                       a warning will be logged.
+
+                      Deprecated: Use TrustedCA instead. This field will be removed in a future release.
                     type: string
                 type: object
               version:
