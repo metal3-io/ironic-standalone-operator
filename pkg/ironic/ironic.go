@@ -23,6 +23,16 @@ func ironicDeploymentName(ironic *metal3api.Ironic) string {
 	return ironic.Name + "-service"
 }
 
+// SwitchConfigSecretName returns the name of the switch config secret.
+// Uses the configured name if provided, otherwise returns the default.
+func SwitchConfigSecretName(ironic *metal3api.Ironic) string {
+	// Use configured name if provided, otherwise use default
+	if ironic.Spec.NetworkingService != nil && ironic.Spec.NetworkingService.SwitchConfigSecretName != "" {
+		return ironic.Spec.NetworkingService.SwitchConfigSecretName
+	}
+	return ironic.Name + "-switch-config"
+}
+
 func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status, error) {
 	template, err := newIronicPodTemplate(cctx, resources)
 	if err != nil {
