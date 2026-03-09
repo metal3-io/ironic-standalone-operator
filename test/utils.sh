@@ -4,7 +4,7 @@ set -eux -o pipefail
 
 CLUSTER_TYPE="${CLUSTER_TYPE:-kind}"
 
-if [[ -z "${CONTAINER_RUNTIME}" ]]; then
+if [[ -z "${CONTAINER_RUNTIME:-}" ]]; then
     if command -v podman &> /dev/null;  then
         CONTAINER_RUNTIME=podman
     else
@@ -13,6 +13,14 @@ if [[ -z "${CONTAINER_RUNTIME}" ]]; then
 fi
 
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-quay.io/metal3-io}"
+
+ipa_host_ip() {
+    if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
+        docker network inspect kind -f '{{(index .IPAM.Config 0).Gateway}}'
+    else
+        minikube ssh -- ip route show default | awk '{print $3}'
+    fi
+}
 
 image_load() {
     local image="$1"
