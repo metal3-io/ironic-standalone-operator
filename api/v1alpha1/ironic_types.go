@@ -221,6 +221,100 @@ type TLS struct {
 	InsecureRPC *bool `json:"insecureRPC,omitempty"`
 }
 
+// SwitchportMode defines the switchport mode for network interfaces.
+type SwitchportMode string
+
+const (
+	// SwitchportModeAccess sets the interface to access mode (single VLAN).
+	SwitchportModeAccess SwitchportMode = "access"
+	// SwitchportModeTrunk sets the interface to trunk mode (multiple VLANs).
+	SwitchportModeTrunk SwitchportMode = "trunk"
+	// SwitchportModeHybrid sets the interface to hybrid mode (access + trunk).
+	SwitchportModeHybrid SwitchportMode = "hybrid"
+)
+
+// ProviderNetworkType defines the type of provider network.
+type ProviderNetworkType string
+
+const (
+	ProviderNetworkIdle         ProviderNetworkType = "idle"
+	ProviderNetworkInspection   ProviderNetworkType = "inspection"
+	ProviderNetworkCleaning     ProviderNetworkType = "cleaning"
+	ProviderNetworkRescuing     ProviderNetworkType = "rescuing"
+	ProviderNetworkServicing    ProviderNetworkType = "servicing"
+	ProviderNetworkProvisioning ProviderNetworkType = "provisioning"
+)
+
+// ProviderNetworkConfig defines the network configuration for Ironic service operations.
+type ProviderNetworkConfig struct {
+	// Type specifies which provider network this configuration applies to.
+	// +kubebuilder:validation:Enum=idle;inspection;cleaning;rescuing;servicing;provisioning
+	Type ProviderNetworkType `json:"type"`
+
+	// Mode specifies the switch port mode for service operations
+	// +kubebuilder:validation:Enum=access;trunk;hybrid
+	// +kubebuilder:default=access
+	Mode SwitchportMode `json:"mode"`
+
+	// NativeVLAN specifies the native VLAN ID for service operations
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4094
+	NativeVLAN int32 `json:"nativeVLAN"`
+
+	// AllowedVLANs specifies the list of allowed VLANs for trunk/hybrid modes.
+	// Each entry can be a single VLAN ID (e.g., "100") or a range (e.g., "100-200").
+	// +optional
+	AllowedVLANs []string `json:"allowedVLANs,omitempty"`
+}
+
+// NetworkingService defines configuration for the Ironic Networking Service.
+type NetworkingService struct {
+	// Enabled enables the Ironic Networking Service integration
+	// +kubebuilder:default=false
+	// +optional
+	Enabled bool `json:"enabled"`
+
+	// RPCPort is the internal RPC port used for Ironic Networking
+	// Only change this if the default value causes a conflict on your deployment.
+	// +kubebuilder:default=6190
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	RPCPort int32 `json:"rpcPort,omitempty"`
+
+	// NetworkDriver sets the default network interface driver for nodes.
+	// Defaults to "ironic-networking" when networking service is enabled.
+	// +kubebuilder:default=ironic-networking
+	// +optional
+	NetworkDriver string `json:"networkDriver,omitempty"`
+
+	// SwitchDrivers sets the supported switch drivers for the service.
+	// +kubebuilder:default={generic-switch}
+	// +optional
+	SwitchDrivers []string `json:"switchDrivers,omitempty"`
+
+	// ProviderNetworks defines the provider network configurations for Ironic
+	ProviderNetworks []ProviderNetworkConfig `json:"providerNetworks,omitempty"`
+
+	// Endpoint optionally specifies an external networking service hostname or IP address.
+	// The port is determined by the RPCPort field. If not specified and Enabled is true,
+	// the operator creates a separate Deployment for the networking service.
+	// Format: "hostname" or "ip-address"
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// SwitchConfigSecretName optionally specifies the name of the secret containing
+	// switch configuration. If not specified, defaults to "<ironic-name>-switch-config".
+	// This secret is automatically generated from IronicSwitch CRDs in the namespace.
+	// +optional
+	SwitchConfigSecretName string `json:"switchConfigSecretName,omitempty"`
+
+	// SwitchCredentialsSecretName optionally specifies the name of the secret containing
+	// additional switch credentials. If specified, the secret will be mounted to the
+	// networking service pod. If not specified, no credentials secret is mounted.
+	// +optional
+	SwitchCredentialsSecretName string `json:"switchCredentialsSecretName,omitempty"`
+}
+
 type Images struct {
 	// DeployRamdiskBranch is the branch of IPA to download. The main branch is used by default.
 	// Not used if deployRamdisk.disableDownloader is true.
@@ -366,6 +460,10 @@ type IronicSpec struct {
 	// +optional
 	Networking Networking `json:"networking,omitempty"`
 
+	// NetworkingService provides configuration for the Ironic Networking Service
+	// +optional
+	NetworkingService *NetworkingService `json:"networkingService,omitempty"`
+
 	// NodeSelector is a selector which must be true for the Ironic pod to fit on a node.
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -425,6 +523,17 @@ type Ironic struct {
 
 	Spec   IronicSpec   `json:"spec,omitempty"`
 	Status IronicStatus `json:"status,omitempty"`
+}
+
+// IsNetworkingServiceEnabled returns true if the networking service is configured and enabled.
+func (i *Ironic) IsNetworkingServiceEnabled() bool {
+	return i.Spec.NetworkingService != nil && i.Spec.NetworkingService.Enabled
+}
+
+// IsNetworkingServiceExternal returns true if the networking service is enabled and provided
+// by a separate service externally managed by the user.
+func (i *Ironic) IsNetworkingServiceExternal() bool {
+	return i.IsNetworkingServiceEnabled() && i.Spec.NetworkingService.Endpoint != ""
 }
 
 //+kubebuilder:object:root=true
