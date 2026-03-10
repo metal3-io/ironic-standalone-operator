@@ -223,6 +223,32 @@ spec:
                         description: NetworkCIDR is a CIDR of the provisioning network.
                           Required.
                         type: string
+                      networkRanges:
+                        description: |-
+                          NetworkRanges is a list of additional DHCP ranges for subnets served via DHCP relay agents.
+                          Each range defines a separate subnet. The provisioning IP does not need to be within these subnets.
+                        items:
+                          description: DHCPRange defines a DHCP range for a subnet
+                            served via DHCP relay agents.
+                          properties:
+                            networkCIDR:
+                              description: NetworkCIDR is the CIDR of the subnet.
+                                Required.
+                              type: string
+                            rangeBegin:
+                              description: RangeBegin is the first IP that can be
+                                given to hosts. Must be inside NetworkCIDR.
+                              type: string
+                            rangeEnd:
+                              description: RangeEnd is the last IP that can be given
+                                to hosts. Must be inside NetworkCIDR.
+                              type: string
+                          required:
+                          - networkCIDR
+                          - rangeBegin
+                          - rangeEnd
+                          type: object
+                        type: array
                       rangeBegin:
                         description: RangeBegin is the first IP that can be given
                           to hosts. Must be inside NetworkCIDR.
