@@ -113,8 +113,8 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 }
 
 func checkVersion(resources Resources, version metal3api.Version) error {
-	if resources.BMCCASecret != nil && version.Compare(versionBMCCA) < 0 {
-		return errors.New("using tls.bmcCAName is only possible for Ironic 32.0 or newer")
+	if (resources.BMCCASecret != nil || resources.BMCCAConfigMap != nil) && version.Compare(versionBMCCA) < 0 {
+		return errors.New("using tls.bmcCA or tls.bmcCAName is only possible for Ironic 32.0 or newer")
 	}
 
 	return nil

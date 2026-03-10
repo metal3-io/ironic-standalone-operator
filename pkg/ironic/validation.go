@@ -147,9 +147,40 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("insecureRPC makes no sense without highAvailability")
 	}
 
+	// Validate TLS CA settings
+	if err := validateCASettings(&ironic.TLS); err != nil {
+		return err
+	}
+
 	if ironic.Version != "" {
 		if err := metal3api.ValidateVersion(ironic.Version); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func validateCASettings(tls *metal3api.TLS) error {
+	// Validate BMCCA
+	if tls.BMCCA != nil {
+		if tls.BMCCA.Name == "" {
+			return errors.New("tls.bmcCA.name is required when tls.bmcCA is set")
+		}
+		// Both old and new fields are set - validate they're consistent
+		if tls.BMCCAName != "" && (tls.BMCCA.Kind != metal3api.ResourceKindSecret || tls.BMCCA.Name != tls.BMCCAName) {
+			return errors.New("tls.bmcCA and tls.bmcCAName are both set but inconsistent; use tls.bmcCA only")
+		}
+	}
+
+	// Validate TrustedCA
+	if tls.TrustedCA != nil {
+		if tls.TrustedCA.Name == "" {
+			return errors.New("tls.trustedCA.name is required when tls.trustedCA is set")
+		}
+		// Both old and new fields are set - validate they're consistent
+		if tls.TrustedCAName != "" && (tls.TrustedCA.Kind != metal3api.ResourceKindConfigMap || tls.TrustedCA.Name != tls.TrustedCAName) {
+			return errors.New("tls.trustedCA and tls.trustedCAName are both set but inconsistent; use tls.trustedCA only")
 		}
 	}
 
