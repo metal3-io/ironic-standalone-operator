@@ -85,6 +85,21 @@ for image in ironic ironic-ipa-downloader keepalived; do
     image_pull "${image}"
 done
 
+# Predownloading IPA image and serving it locally (see #574)
+
+IPA_FILE="ipa-centos9-master.tar.gz"
+IPA_REMOTE_URI="https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib"
+
+mkdir -p "${IPA_DIR}"
+if [[ ! -f "${IPA_DIR}/${IPA_FILE}" ]]; then
+    curl -Lo "${IPA_DIR}/${IPA_FILE}" "${IPA_REMOTE_URI}/${IPA_FILE}"
+fi
+
+IPA_HOST_IP=$(ipa_host_ip)
+
+IPA_BASEURI="http://${IPA_HOST_IP}:${IPA_SERVER_PORT}"
+sed -i "s|IRSO_IPA_BASEURI|${IPA_BASEURI}|" config/testing/manager_irso_config_patch.yaml
+
 # Building and installing the operator
 
 "${CONTAINER_RUNTIME}" build -t "${IMG}" . 2>&1 | tee "${LOGDIR}/docker-build.log"
