@@ -55,7 +55,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
 # This variable is used to construct full image tags for bundle and catalog images.
 #
-# For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
+# For example, running 'make bundle-build catalog-build' will build both
 # metal3.io/ironic-standalone-operator-bundle:$VERSION and metal3.io/ironic-standalone-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= metal3.io/ironic-standalone-operator
 
@@ -171,11 +171,6 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-build-debug
 docker-build-debug: test ## Build docker image with the manager with debug info.
 	$(CONTAINER_RUNTIME) build --build-arg LDFLAGS="-extldflags=-static" -t ${IMG} .
-
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
-	$(CONTAINER_RUNTIME) push ${IMG}
-
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
 # - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
@@ -270,11 +265,6 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
 	$(CONTAINER_RUNTIME) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-.PHONY: bundle-push
-bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
-
 .PHONY: opm
 OPM = ./bin/opm
 opm: ## Download opm locally if necessary.
@@ -310,12 +300,6 @@ endif
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
 	$(OPM) index add --container-tool docker --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
-
-# Push the catalog image.
-.PHONY: catalog-push
-catalog-push: ## Push a catalog image.
-	$(MAKE) docker-push IMG=$(CATALOG_IMG)
-
 ##@ helpers:
 go-version: ## Print the go version we use to compile our binaries and images
 	@echo $(GO_VERSION)
