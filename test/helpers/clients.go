@@ -23,9 +23,9 @@ var (
 
 func LoadIronicCert() {
 	var err error
-	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE"))
+	ironicCertPEM, err = os.ReadFile(os.Getenv("IRONIC_CERT_FILE")) //nolint:gosec // path comes from trusted test environment variable
 	Expect(err).NotTo(HaveOccurred())
-	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE"))
+	ironicKeyPEM, err = os.ReadFile(os.Getenv("IRONIC_KEY_FILE")) //nolint:gosec // path comes from trusted test environment variable
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -50,7 +50,7 @@ func GetStatusCode(ctx context.Context, httpClient *http.Client, url string) int
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
 	Expect(err).NotTo(HaveOccurred())
 
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) //nolint:gosec // URL is controlled by test infrastructure
 	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 

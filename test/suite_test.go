@@ -303,13 +303,13 @@ func WaitForIronicFailure(name types.NamespacedName, message string, tolerateRea
 
 func writeYAML(obj interface{}, namespace, name, typ string) {
 	fileDir := fmt.Sprintf("%s/%s", os.Getenv("LOGDIR"), namespace)
-	err := os.MkdirAll(fileDir, 0o755)
+	err := os.MkdirAll(fileDir, 0o755) //nolint:gosec // path derived from trusted LOGDIR env var
 	Expect(err).NotTo(HaveOccurred())
 
 	fileName := fmt.Sprintf("%s/%s_%s.yaml", fileDir, typ, name)
 	yamlData, err := yaml.Marshal(obj)
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(fileName, yamlData, 0o600)
+	err = os.WriteFile(fileName, yamlData, 0o600) //nolint:gosec // path derived from trusted LOGDIR env var
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -596,7 +596,7 @@ func writeContainerLogs(pod *corev1.Pod, containerName, logDir string) {
 	defer podLogs.Close()
 
 	targetFileName := fmt.Sprintf("%s/%s.log", logDir, containerName)
-	logFile, err := os.Create(targetFileName)
+	logFile, err := os.Create(targetFileName) //nolint:gosec // path derived from trusted LOGDIR env var
 	Expect(err).NotTo(HaveOccurred())
 	defer logFile.Close()
 
@@ -638,7 +638,7 @@ func CollectLogs(namespace string) {
 
 	for _, pod := range pods.Items {
 		logDir := fmt.Sprintf("%s/%s/pod_%s", os.Getenv("LOGDIR"), namespace, pod.Name)
-		err = os.MkdirAll(logDir, 0o755)
+		err = os.MkdirAll(logDir, 0o755) //nolint:gosec // path derived from trusted LOGDIR env var
 		Expect(err).NotTo(HaveOccurred())
 
 		writeYAML(&pod, namespace, pod.Name, "pod")
@@ -656,7 +656,7 @@ func CollectLogs(namespace string) {
 
 	for _, rset := range rsets.Items {
 		logDir := fmt.Sprintf("%s/%s/replicaset_%s", os.Getenv("LOGDIR"), namespace, rset.Name)
-		err = os.MkdirAll(logDir, 0o755)
+		err = os.MkdirAll(logDir, 0o755) //nolint:gosec // path derived from trusted LOGDIR env var
 		Expect(err).NotTo(HaveOccurred())
 
 		writeYAML(&rset, namespace, rset.Name, "replicaset")
@@ -667,7 +667,7 @@ func CollectLogs(namespace string) {
 
 	for _, job := range jobs.Items {
 		logDir := fmt.Sprintf("%s/%s/job_%s", os.Getenv("LOGDIR"), namespace, job.Name)
-		err = os.MkdirAll(logDir, 0o755)
+		err = os.MkdirAll(logDir, 0o755) //nolint:gosec // path derived from trusted LOGDIR env var
 		Expect(err).NotTo(HaveOccurred())
 
 		writeYAML(&job, namespace, job.Name, "job")
@@ -713,7 +713,7 @@ func saveEvents(namespace string) {
 	Expect(err).NotTo(HaveOccurred())
 
 	targetFileName := fmt.Sprintf("%s/%s/events.yaml", os.Getenv("LOGDIR"), namespace)
-	logFile, err := os.Create(targetFileName)
+	logFile, err := os.Create(targetFileName) //nolint:gosec // path derived from trusted LOGDIR env var
 	Expect(err).NotTo(HaveOccurred())
 	defer logFile.Close()
 

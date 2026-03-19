@@ -57,7 +57,7 @@ func TestGenerateHtpasswd(t *testing.T) {
 		Scenario string
 
 		User     string
-		Password string
+		Password string //nolint:gosec // test struct field, not a real secret
 	}{
 		{
 			User:     "admin",
@@ -86,7 +86,7 @@ func TestSecretNeedsUpdating(t *testing.T) {
 		Scenario string
 
 		User            string
-		Password        string
+		Password        string //nolint:gosec // test struct field, not a real secret
 		CurrentHtpasswd string
 
 		ExpectedChanged bool

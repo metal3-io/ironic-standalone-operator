@@ -106,7 +106,7 @@ func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo
 	}
 
 	outputDir := filepath.Dir(outputFile)
-	if err = os.MkdirAll(outputDir, 0o755); err != nil {
+	if err = os.MkdirAll(outputDir, 0o755); err != nil { //nolint:gosec // outputDir is derived from a controlled output file path, not user input
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -144,7 +144,7 @@ func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo
 }
 
 func writeManifestsToYAML(manifests []runtime.Object, filename string, scheme *runtime.Scheme) error {
-	file, err := os.Create(filename)
+	file, err := os.Create(filename) //nolint:gosec // filename is a controlled output path, not user input
 	if err != nil {
 		return err
 	}
@@ -184,9 +184,9 @@ func writeManifestsToYAML(manifests []runtime.Object, filename string, scheme *r
 func runPodmanKubePlay(manifestFile string, tearDown bool) error {
 	var cmd *exec.Cmd
 	if tearDown {
-		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--down", manifestFile)
+		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--down", manifestFile) //nolint:gosec // manifestFile is a controlled output path, not user input
 	} else {
-		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--network=host", manifestFile)
+		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--network=host", manifestFile) //nolint:gosec // manifestFile is a controlled output path, not user input
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

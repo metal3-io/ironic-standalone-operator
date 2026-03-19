@@ -1,6 +1,6 @@
 module github.com/metal3-io/ironic-standalone-operator/test
 
-go 1.24.2
+go 1.25.0
 
 require (
 	github.com/gophercloud/gophercloud/v2 v2.10.0
