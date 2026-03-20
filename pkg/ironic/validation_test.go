@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -352,6 +353,299 @@ func TestValidateIronic(t *testing.T) {
 			}
 
 			err := ValidateIronic(&tc.Ironic, tc.OldIronic)
+			if tc.ExpectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.ExpectedError)
+			}
+		})
+	}
+}
+
+func TestValidateCASettings(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		TLS           metal3api.TLS
+		ExpectedError string
+	}{
+		{
+			Scenario: "empty TLS",
+		},
+		{
+			Scenario: "bmcCA with name",
+			TLS: metal3api.TLS{
+				BMCCA: &metal3api.ResourceReference{
+					Name: "my-ca",
+					Kind: metal3api.ResourceKindSecret,
+				},
+			},
+		},
+		{
+			Scenario: "bmcCA without name",
+			TLS: metal3api.TLS{
+				BMCCA: &metal3api.ResourceReference{
+					Kind: metal3api.ResourceKindSecret,
+				},
+			},
+			ExpectedError: "tls.bmcCA.name is required",
+		},
+		{
+			Scenario: "bmcCA consistent with bmcCAName",
+			TLS: metal3api.TLS{
+				BMCCA: &metal3api.ResourceReference{
+					Name: "my-ca",
+					Kind: metal3api.ResourceKindSecret,
+				},
+				BMCCAName: "my-ca",
+			},
+		},
+		{
+			Scenario: "bmcCA inconsistent kind with bmcCAName",
+			TLS: metal3api.TLS{
+				BMCCA: &metal3api.ResourceReference{
+					Name: "my-ca",
+					Kind: metal3api.ResourceKindConfigMap,
+				},
+				BMCCAName: "my-ca",
+			},
+			ExpectedError: "tls.bmcCA and tls.bmcCAName are both set but inconsistent",
+		},
+		{
+			Scenario: "bmcCA inconsistent name with bmcCAName",
+			TLS: metal3api.TLS{
+				BMCCA: &metal3api.ResourceReference{
+					Name: "new-ca",
+					Kind: metal3api.ResourceKindSecret,
+				},
+				BMCCAName: "old-ca",
+			},
+			ExpectedError: "tls.bmcCA and tls.bmcCAName are both set but inconsistent",
+		},
+		{
+			Scenario: "trustedCA with name",
+			TLS: metal3api.TLS{
+				TrustedCA: &metal3api.ResourceReferenceWithKey{
+					ResourceReference: metal3api.ResourceReference{
+						Name: "my-ca",
+						Kind: metal3api.ResourceKindConfigMap,
+					},
+				},
+			},
+		},
+		{
+			Scenario: "trustedCA without name",
+			TLS: metal3api.TLS{
+				TrustedCA: &metal3api.ResourceReferenceWithKey{
+					ResourceReference: metal3api.ResourceReference{
+						Kind: metal3api.ResourceKindConfigMap,
+					},
+				},
+			},
+			ExpectedError: "tls.trustedCA.name is required",
+		},
+		{
+			Scenario: "trustedCA consistent with trustedCAName",
+			TLS: metal3api.TLS{
+				TrustedCA: &metal3api.ResourceReferenceWithKey{
+					ResourceReference: metal3api.ResourceReference{
+						Name: "my-ca",
+						Kind: metal3api.ResourceKindConfigMap,
+					},
+				},
+				TrustedCAName: "my-ca",
+			},
+		},
+		{
+			Scenario: "trustedCA inconsistent kind with trustedCAName",
+			TLS: metal3api.TLS{
+				TrustedCA: &metal3api.ResourceReferenceWithKey{
+					ResourceReference: metal3api.ResourceReference{
+						Name: "my-ca",
+						Kind: metal3api.ResourceKindSecret,
+					},
+				},
+				TrustedCAName: "my-ca",
+			},
+			ExpectedError: "tls.trustedCA and tls.trustedCAName are both set but inconsistent",
+		},
+		{
+			Scenario: "trustedCA inconsistent name with trustedCAName",
+			TLS: metal3api.TLS{
+				TrustedCA: &metal3api.ResourceReferenceWithKey{
+					ResourceReference: metal3api.ResourceReference{
+						Name: "new-ca",
+						Kind: metal3api.ResourceKindConfigMap,
+					},
+				},
+				TrustedCAName: "old-ca",
+			},
+			ExpectedError: "tls.trustedCA and tls.trustedCAName are both set but inconsistent",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			err := validateCASettings(&tc.TLS)
+			if tc.ExpectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.ExpectedError)
+			}
+		})
+	}
+}
+
+func TestResourcesValidate(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Resources     Resources
+		ExpectedError string
+	}{
+		{
+			Scenario: "minimal valid resources",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{},
+			},
+		},
+		{
+			Scenario: "trustedCA secret with matching key",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindSecret,
+								},
+								Key: "ca.crt",
+							},
+						},
+					},
+				},
+				TrustedCASecret: &corev1.Secret{
+					Data: map[string][]byte{
+						"ca.crt": []byte("cert-data"),
+					},
+				},
+			},
+		},
+		{
+			Scenario: "trustedCA secret with missing key",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindSecret,
+								},
+								Key: "missing-key",
+							},
+						},
+					},
+				},
+				TrustedCASecret: &corev1.Secret{
+					Data: map[string][]byte{
+						"ca.crt": []byte("cert-data"),
+					},
+				},
+			},
+			ExpectedError: "does not contain the required key missing-key",
+		},
+		{
+			Scenario: "trustedCA configmap with matching key",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindConfigMap,
+								},
+								Key: "ca-bundle.crt",
+							},
+						},
+					},
+				},
+				TrustedCAConfigMap: &corev1.ConfigMap{
+					Data: map[string]string{
+						"ca-bundle.crt": "cert-data",
+					},
+				},
+			},
+		},
+		{
+			Scenario: "trustedCA configmap with missing key",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindConfigMap,
+								},
+								Key: "missing-key",
+							},
+						},
+					},
+				},
+				TrustedCAConfigMap: &corev1.ConfigMap{
+					Data: map[string]string{
+						"ca-bundle.crt": "cert-data",
+					},
+				},
+			},
+			ExpectedError: "does not contain the required key missing-key",
+		},
+		{
+			Scenario: "trustedCA with empty key skips key check",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindConfigMap,
+								},
+							},
+						},
+					},
+				},
+				TrustedCAConfigMap: &corev1.ConfigMap{
+					Data: map[string]string{
+						"ca-bundle.crt": "cert-data",
+					},
+				},
+			},
+		},
+		{
+			Scenario: "trustedCA without resource defaults to valid",
+			Resources: Resources{
+				Ironic: &metal3api.Ironic{
+					Spec: metal3api.IronicSpec{
+						TLS: metal3api.TLS{
+							TrustedCA: &metal3api.ResourceReferenceWithKey{
+								ResourceReference: metal3api.ResourceReference{
+									Name: "my-ca",
+									Kind: metal3api.ResourceKindConfigMap,
+								},
+								Key: "ca.crt",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			err := tc.Resources.Validate()
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 			} else {
