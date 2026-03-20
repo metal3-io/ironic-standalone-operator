@@ -58,10 +58,9 @@ type IronicReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -174,6 +173,39 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
+	// Ensure switch config secret if networking service is enabled
+	var switchConfigSecret *corev1.Secret
+	if ironicConf.IsNetworkingServiceEnabled() {
+		err = ironic.EnsureSwitchConfigSecret(cctx, ironicConf)
+		if err != nil {
+			cctx.Logger.Error(err, "failed to ensure switch config secret")
+			return requeue, err
+		}
+		// Fetch the switch config secret so we can include its version in pod annotations
+		switchConfigSecretName := ironic.SwitchConfigSecretName(ironicConf)
+		switchConfigSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, switchConfigSecretName)
+		if requeue || err != nil {
+			return requeue, err
+		}
+	} else {
+		err = ironic.EnsureSwitchConfigSecretDeleted(cctx, ironicConf)
+		if err != nil {
+			cctx.Logger.Error(err, "failed to ensure switch config secret deleted")
+			return requeue, err
+		}
+	}
+
+	// Fetch switch credentials secret if specified
+	var switchCredentialsSecret *corev1.Secret
+	if ironicConf.IsNetworkingServiceEnabled() &&
+		ironicConf.Spec.NetworkingService.SwitchCredentialsSecretName != "" {
+		switchCredentialsSecretName := ironicConf.Spec.NetworkingService.SwitchCredentialsSecretName
+		switchCredentialsSecret, requeue, err = r.getAndUpdateSecret(cctx, ironicConf, switchCredentialsSecretName)
+		if requeue || err != nil {
+			return requeue, err
+		}
+	}
+
 	var trustedCAConfigMap *corev1.ConfigMap
 	if trustedCAConfigMapName := ironicConf.Spec.TLS.TrustedCAName; trustedCAConfigMapName != "" {
 		trustedCAConfigMap, requeue, err = r.getConfigMap(cctx, ironicConf, trustedCAConfigMapName)
@@ -183,11 +215,61 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	}
 
 	resources := ironic.Resources{
-		Ironic:             ironicConf,
-		APISecret:          apiSecret,
-		TLSSecret:          tlsSecret,
-		BMCCASecret:        bmcSecret,
-		TrustedCAConfigMap: trustedCAConfigMap,
+		Ironic:                    ironicConf,
+		APISecret:                 apiSecret,
+		TLSSecret:                 tlsSecret,
+		BMCCASecret:               bmcSecret,
+		SwitchConfigSecret:        switchConfigSecret,
+		SwitchCredentialsSecret:   switchCredentialsSecret,
+		TrustedCAConfigMap:        trustedCAConfigMap,
+		NetworkingServiceEndpoint: ironic.GetNetworkingServiceEndpoint(ironicConf),
+	}
+
+	// Manage networking service deployment
+	if ironicConf.IsNetworkingServiceEnabled() {
+		if ironicConf.Spec.NetworkingService.Endpoint == "" {
+			// Operator-managed networking service deployment
+			err = r.ensureNetworkingDeployment(cctx, resources)
+			if err != nil {
+				cctx.Logger.Error(err, "failed to ensure networking deployment")
+				return requeue, err
+			}
+			err = r.ensureNetworkingService(cctx, ironicConf)
+			if err != nil {
+				cctx.Logger.Error(err, "failed to ensure networking service")
+				return requeue, err
+			}
+
+			// Wait for the networking deployment to be ready before proceeding
+			// so that Ironic doesn't start before its networking service is available.
+			networkingDeploy := &appsv1.Deployment{}
+			err = cctx.Client.Get(cctx.Context, client.ObjectKey{
+				Name:      ironic.NetworkingDeploymentName(ironicConf),
+				Namespace: ironicConf.Namespace,
+			}, networkingDeploy)
+			if err != nil {
+				return requeue, err
+			}
+			if networkingDeploy.Status.ReadyReplicas < 1 {
+				cctx.Logger.Info("waiting for networking service deployment to become ready")
+				return true, nil
+			}
+		} else {
+			// External networking service - use the provided endpoint
+			// Clean up networking deployment/service if using an external service
+			err = r.deleteNetworkingResources(cctx, ironicConf)
+			if err != nil {
+				cctx.Logger.Error(err, "failed to delete networking resources")
+				return requeue, err
+			}
+		}
+	} else {
+		// Clean up networking deployment/service if disabled
+		err = r.deleteNetworkingResources(cctx, ironicConf)
+		if err != nil {
+			cctx.Logger.Error(err, "failed to delete networking resources")
+			return requeue, err
+		}
 	}
 
 	status, err := ironic.EnsureIronic(cctx, resources)
@@ -306,8 +388,118 @@ func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *me
 		return false, err
 	}
 
+	if err := r.deleteNetworkingResources(cctx, ironicConf); err != nil {
+		return false, err
+	}
+
+	if err := ironic.EnsureSwitchConfigSecretDeleted(cctx, ironicConf); err != nil {
+		return false, err
+	}
+
 	// This must be the last action.
 	return removeFinalizer(cctx, ironicConf)
+}
+
+// ensureNetworkingDeployment creates or updates the networking service deployment.
+func (r *IronicReconciler) ensureNetworkingDeployment(cctx ironic.ControllerContext, resources ironic.Resources) error {
+	deployment := ironic.BuildNetworkingDeployment(cctx, resources)
+
+	// Set owner reference so the deployment is cleaned up when Ironic is deleted
+	if err := ctrl.SetControllerReference(resources.Ironic, deployment, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference on networking deployment: %w", err)
+	}
+
+	// Create or update the deployment
+	existingDeployment := &appsv1.Deployment{}
+	err := cctx.Client.Get(cctx.Context, client.ObjectKey{
+		Name:      deployment.Name,
+		Namespace: deployment.Namespace,
+	}, existingDeployment)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Create new deployment
+			cctx.Logger.Info("creating networking service deployment", "Deployment", deployment.Name)
+			return cctx.Client.Create(cctx.Context, deployment)
+		}
+		return fmt.Errorf("failed to get networking deployment: %w", err)
+	}
+
+	// Update existing deployment
+	existingDeployment.Spec = deployment.Spec
+	existingDeployment.Labels = deployment.Labels
+	cctx.Logger.Info("updating networking service deployment", "Deployment", deployment.Name)
+	return cctx.Client.Update(cctx.Context, existingDeployment)
+}
+
+// ensureNetworkingService creates or updates the networking service.
+func (r *IronicReconciler) ensureNetworkingService(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) error {
+	service := ironic.BuildNetworkingService(ironicConf)
+
+	// Set owner reference so the service is cleaned up when Ironic is deleted
+	if err := ctrl.SetControllerReference(ironicConf, service, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference on networking service: %w", err)
+	}
+
+	// Create or update the service
+	existingService := &corev1.Service{}
+	err := cctx.Client.Get(cctx.Context, client.ObjectKey{
+		Name:      service.Name,
+		Namespace: service.Namespace,
+	}, existingService)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Create new service
+			cctx.Logger.Info("creating networking service", "Service", service.Name)
+			return cctx.Client.Create(cctx.Context, service)
+		}
+		return fmt.Errorf("failed to get networking service: %w", err)
+	}
+
+	// Update existing service
+	existingService.Spec.Ports = service.Spec.Ports
+	existingService.Spec.Selector = service.Spec.Selector
+	existingService.Labels = service.Labels
+	cctx.Logger.Info("updating networking service", "Service", service.Name)
+	return cctx.Client.Update(cctx.Context, existingService)
+}
+
+// deleteNetworkingResources deletes the networking deployment and service if they exist.
+func (r *IronicReconciler) deleteNetworkingResources(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic) error {
+	// Delete deployment
+	deployment := &appsv1.Deployment{}
+	err := cctx.Client.Get(cctx.Context, client.ObjectKey{
+		Name:      ironic.NetworkingDeploymentName(ironicConf),
+		Namespace: ironicConf.Namespace,
+	}, deployment)
+
+	if err == nil {
+		cctx.Logger.Info("deleting networking service deployment", "Deployment", deployment.Name)
+		if err = cctx.Client.Delete(cctx.Context, deployment); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete networking deployment: %w", err)
+		}
+	} else if !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get networking deployment: %w", err)
+	}
+
+	// Delete service
+	service := &corev1.Service{}
+	err = cctx.Client.Get(cctx.Context, client.ObjectKey{
+		Name:      ironic.NetworkingServiceName(ironicConf),
+		Namespace: ironicConf.Namespace,
+	}, service)
+
+	if err == nil {
+		cctx.Logger.Info("deleting networking service", "Service", service.Name)
+		if err = cctx.Client.Delete(cctx.Context, service); err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete networking service: %w", err)
+		}
+	} else if !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("failed to get networking service: %w", err)
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
