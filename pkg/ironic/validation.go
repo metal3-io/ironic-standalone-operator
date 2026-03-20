@@ -268,3 +268,42 @@ func validateCASettings(tls *metal3api.TLS) error {
 
 	return nil
 }
+
+// Validate all resources before using them. This method is a superset of
+// ValidateIronic with validations that require access to linked resources.
+func (resources *Resources) Validate() error {
+	if err := ValidateIronic(&resources.Ironic.Spec, nil); err != nil {
+		return err
+	}
+
+	if resources.Ironic.Spec.TLS.TrustedCA != nil {
+		key := resources.Ironic.Spec.TLS.TrustedCA.Key
+		if key != "" && !resources.hasTrustedCAKey(key) {
+			return fmt.Errorf("resources referenced in tls.trustedCA does not contain the required key %s", key)
+		}
+	}
+
+	return nil
+}
+
+func (resources *Resources) hasTrustedCAKey(key string) bool {
+	switch {
+	case resources.TrustedCASecret != nil:
+		for found := range resources.TrustedCASecret.Data {
+			if found == key {
+				return true
+			}
+		}
+	case resources.TrustedCAConfigMap != nil:
+		for found := range resources.TrustedCAConfigMap.Data {
+			if found == key {
+				return true
+			}
+		}
+	default:
+		// Cannot happen in reality but just in case
+		return true
+	}
+
+	return false
+}
