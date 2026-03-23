@@ -506,13 +506,14 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 }
 
 func buildDHCPRange(dhcp *metal3api.DHCP) string {
-	var parts []string
+	parts := make([]string, 0, len(dhcp.NetworkRanges)+1)
 
-	// Primary range (from flat fields)
+	// Primary range (from deprecated flat fields)
+	//nolint:staticcheck // backward compat with deprecated flat DHCP fields
 	if dhcp.NetworkCIDR != "" && dhcp.RangeBegin != "" && dhcp.RangeEnd != "" {
-		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR) //nolint:staticcheck // backward compat with deprecated flat DHCP fields
 		if err == nil {
-			parts = append(parts, fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits()))
+			parts = append(parts, fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())) //nolint:staticcheck // backward compat with deprecated flat DHCP fields
 		}
 	}
 

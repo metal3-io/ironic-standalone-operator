@@ -220,8 +220,10 @@ spec:
                           type: string
                         type: array
                       networkCIDR:
-                        description: NetworkCIDR is a CIDR of the provisioning network.
-                          Required.
+                        description: |-
+                          NetworkCIDR is a CIDR of the provisioning network.
+
+                          Deprecated: use NetworkRanges instead.
                         type: string
                       networkRanges:
                         description: |-
@@ -250,12 +252,16 @@ spec:
                           type: object
                         type: array
                       rangeBegin:
-                        description: RangeBegin is the first IP that can be given
-                          to hosts. Must be inside NetworkCIDR.
+                        description: |-
+                          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+
+                          Deprecated: use NetworkRanges instead.
                         type: string
                       rangeEnd:
-                        description: RangeEnd is the last IP that can be given to
-                          hosts. Must be inside NetworkCIDR.
+                        description: |-
+                          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+
+                          Deprecated: use NetworkRanges instead.
                         type: string
                       serveDNS:
                         description: |-

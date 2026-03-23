@@ -612,7 +612,9 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network.
+
+Deprecated: use NetworkRanges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -627,14 +629,18 @@ Each range defines a separate subnet. The provisioning IP does not need to be wi
         <td><b>rangeBegin</b></td>
         <td>string</td>
         <td>
-          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use NetworkRanges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeEnd</b></td>
         <td>string</td>
         <td>
-          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use NetworkRanges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>

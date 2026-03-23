@@ -77,37 +77,32 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
 	}
 
-	hasPrimaryRange := dhcp.RangeBegin != "" && dhcp.RangeEnd != ""
+	hasPrimaryRange := dhcp.RangeBegin != "" && dhcp.RangeEnd != "" //nolint:staticcheck // backward compat with deprecated flat DHCP fields
 	hasNetworkRanges := len(dhcp.NetworkRanges) > 0
 
 	if !hasPrimaryRange && !hasNetworkRanges {
 		return errors.New("networking.dhcp: at least one of rangeBegin/rangeEnd or networkRanges is required")
 	}
 
-	// Validate primary range if present
-	if dhcp.RangeBegin != "" || dhcp.RangeEnd != "" {
-		if dhcp.NetworkCIDR == "" {
-			return errors.New("networking.dhcp.networkCIDR is required when rangeBegin/rangeEnd are set")
-		}
-		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
+	// Validate primary range if present (deprecated flat fields)
+	if dhcp.RangeBegin != "" || dhcp.RangeEnd != "" { //nolint:staticcheck // backward compat with deprecated flat DHCP fields
+		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" { //nolint:staticcheck // backward compat with deprecated flat DHCP fields
 			return errors.New("networking.dhcp: both rangeBegin and rangeEnd must be set together")
 		}
 
-		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-		if err != nil {
-			return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+		//nolint:staticcheck // backward compat with deprecated flat DHCP fields
+		primaryRange := &metal3api.DHCPRange{
+			NetworkCIDR: dhcp.NetworkCIDR,
+			RangeBegin:  dhcp.RangeBegin,
+			RangeEnd:    dhcp.RangeEnd,
 		}
-
-		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
-			return err
-		}
-
-		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
+		if err := validateDHCPRange(primaryRange, "networking.dhcp"); err != nil {
 			return err
 		}
 
 		// Check that the provisioning IP is in the CIDR
 		if ironic.Networking.IPAddress != "" {
+			provCIDR, _ := netip.ParsePrefix(dhcp.NetworkCIDR) //nolint:staticcheck // backward compat with deprecated flat DHCP fields
 			provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
 			if !provCIDR.Contains(provIP) {
 				return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")

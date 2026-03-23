@@ -87,13 +87,22 @@ type DHCP struct {
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
 
-	// NetworkCIDR is a CIDR of the provisioning network. Required.
+	// NetworkCIDR is a CIDR of the provisioning network.
+	//
+	// Deprecated: use NetworkRanges instead.
+	// +optional
 	NetworkCIDR string `json:"networkCIDR,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	//
+	// Deprecated: use NetworkRanges instead.
+	// +optional
 	RangeBegin string `json:"rangeBegin,omitempty"`
 
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	//
+	// Deprecated: use NetworkRanges instead.
+	// +optional
 	RangeEnd string `json:"rangeEnd,omitempty"`
 
 	// NetworkRanges is a list of additional DHCP ranges for subnets served via DHCP relay agents.
