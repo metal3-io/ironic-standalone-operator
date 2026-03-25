@@ -300,6 +300,103 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+              networkingService:
+                description: NetworkingService provides configuration for the Ironic
+                  Networking Service
+                properties:
+                  enabled:
+                    default: false
+                    description: Enabled enables the Ironic Networking Service integration
+                    type: boolean
+                  endpoint:
+                    description: |-
+                      Endpoint optionally specifies an external networking service hostname or IP address.
+                      The port is determined by the RPCPort field. If not specified and Enabled is true,
+                      the operator creates a separate Deployment for the networking service.
+                      Format: "hostname" or "ip-address"
+                    type: string
+                  networkDriver:
+                    default: ironic-networking
+                    description: |-
+                      NetworkDriver sets the default network interface driver for nodes.
+                      Defaults to "ironic-networking" when networking service is enabled.
+                    type: string
+                  providerNetworks:
+                    description: ProviderNetworks defines the provider network configurations
+                      for Ironic
+                    items:
+                      description: ProviderNetworkConfig defines the network configuration
+                        for Ironic service operations.
+                      properties:
+                        allowedVLANs:
+                          description: |-
+                            AllowedVLANs specifies the list of allowed VLANs for trunk/hybrid modes.
+                            Each entry can be a single VLAN ID (e.g., "100") or a range (e.g., "100-200").
+                          items:
+                            type: string
+                          type: array
+                        mode:
+                          default: access
+                          description: Mode specifies the switch port mode for service
+                            operations
+                          enum:
+                          - access
+                          - trunk
+                          - hybrid
+                          type: string
+                        nativeVLAN:
+                          description: NativeVLAN specifies the native VLAN ID for
+                            service operations
+                          format: int32
+                          maximum: 4094
+                          minimum: 1
+                          type: integer
+                        type:
+                          description: Type specifies which provider network this
+                            configuration applies to.
+                          enum:
+                          - idle
+                          - inspection
+                          - cleaning
+                          - rescuing
+                          - servicing
+                          - provisioning
+                          type: string
+                      required:
+                      - mode
+                      - nativeVLAN
+                      - type
+                      type: object
+                    type: array
+                  rpcPort:
+                    default: 6190
+                    description: |-
+                      RPCPort is the internal RPC port used for Ironic Networking
+                      Only change this if the default value causes a conflict on your deployment.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                  switchConfigSecretName:
+                    description: |-
+                      SwitchConfigSecretName optionally specifies the name of the secret containing
+                      switch configuration. If not specified, defaults to "<ironic-name>-switch-config".
+                      This secret is automatically generated from IronicSwitch CRDs in the namespace.
+                    type: string
+                  switchCredentialsSecretName:
+                    description: |-
+                      SwitchCredentialsSecretName optionally specifies the name of the secret containing
+                      additional switch credentials. If specified, the secret will be mounted to the
+                      networking service pod. If not specified, no credentials secret is mounted.
+                    type: string
+                  switchDrivers:
+                    default:
+                    - generic-switch
+                    description: SwitchDrivers sets the supported switch drivers for
+                      the service.
+                    items:
+                      type: string
+                    type: array
+                type: object
               nodeSelector:
                 additionalProperties:
                   type: string
