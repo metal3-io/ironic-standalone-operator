@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -602,6 +603,190 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 				"SEND_SENSOR_DATA env var presence mismatch")
 			assert.Equal(t, expectExporter, foundSensorInterval,
 				"OS_SENSOR_DATA__INTERVAL env var presence mismatch")
+		})
+	}
+}
+
+func TestBuildTrustedCAEnvVars(t *testing.T) {
+	testCases := []struct {
+		name          string
+		trustedCARef  *metal3api.ResourceReferenceWithKey
+		configMapData map[string]string
+		secretData    map[string][]byte
+		expectedKey   string
+	}{
+		{
+			name: "ConfigMap with specific key",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca",
+					Kind: "ConfigMap",
+				},
+				Key: "custom-ca.crt",
+			},
+			configMapData: map[string]string{
+				"custom-ca.crt": "cert1",
+				"other-ca.crt":  "cert2",
+			},
+			expectedKey: "custom-ca.crt",
+		},
+		{
+			name: "Secret with specific key",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca-secret",
+					Kind: "Secret",
+				},
+				Key: "tls.crt",
+			},
+			secretData: map[string][]byte{
+				"tls.crt": []byte("cert1"),
+				"ca.crt":  []byte("cert2"),
+			},
+			expectedKey: "tls.crt",
+		},
+		{
+			name: "Multiple keys without Key specified - ConfigMap",
+			trustedCARef: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "trusted-ca",
+					Kind: "ConfigMap",
+				},
+			},
+			configMapData: map[string]string{
+				"ca1.crt": "cert1",
+				"ca2.crt": "cert2",
+			},
+			expectedKey: "ca1.crt",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := logr.New(logr.Discard().GetSink())
+
+			cctx := ControllerContext{
+				Logger: logger,
+			}
+
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ironic",
+					Namespace: "test",
+				},
+				Spec: metal3api.IronicSpec{
+					TLS: metal3api.TLS{
+						TrustedCA: tc.trustedCARef,
+					},
+				},
+			}
+
+			resources := Resources{
+				Ironic: ironic,
+			}
+
+			if tc.configMapData != nil {
+				resources.TrustedCAConfigMap = &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      tc.trustedCARef.Name,
+						Namespace: "test",
+					},
+					Data: tc.configMapData,
+				}
+			}
+
+			if tc.secretData != nil {
+				resources.TrustedCASecret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      tc.trustedCARef.Name,
+						Namespace: "test",
+					},
+					Data: tc.secretData,
+				}
+			}
+
+			envVars := buildTrustedCAEnvVars(cctx, resources)
+
+			// Should always return exactly one env var
+			require.Len(t, envVars, 1, "Should return exactly one environment variable")
+			assert.Equal(t, "WEBSERVER_CACERT_FILE", envVars[0].Name)
+
+			// Verify the path contains the expected key
+			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
+			assert.Equal(t, expectedPath, envVars[0].Value, "Environment variable value mismatch")
+		})
+	}
+}
+
+func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
+	// Test that verifies the key selection logic directly
+	testCases := []struct {
+		name          string
+		specifiedKey  string
+		availableKeys []string
+		expectedKey   string
+	}{
+		{
+			name:          "Specified key exists",
+			specifiedKey:  "my-ca.crt",
+			availableKeys: []string{"other.crt", "my-ca.crt"},
+			expectedKey:   "my-ca.crt",
+		},
+		{
+			name:          "No key specified uses first",
+			specifiedKey:  "",
+			availableKeys: []string{"ignored.crt", "actual.crt"},
+			expectedKey:   "actual.crt",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{
+				Logger: logr.Discard(),
+			}
+
+			trustedCARef := &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{
+					Name: "test-ca",
+					Kind: "ConfigMap",
+				},
+				Key: tc.specifiedKey,
+			}
+
+			data := make(map[string]string)
+			for _, key := range tc.availableKeys {
+				data[key] = "cert-data"
+			}
+
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Spec: metal3api.IronicSpec{
+					TLS: metal3api.TLS{
+						TrustedCA: trustedCARef,
+					},
+				},
+			}
+
+			resources := Resources{
+				Ironic: ironic,
+				TrustedCAConfigMap: &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-ca",
+						Namespace: "test",
+					},
+					Data: data,
+				},
+			}
+
+			envVars := buildTrustedCAEnvVars(cctx, resources)
+			require.Len(t, envVars, 1)
+
+			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
+			assert.Equal(t, expectedPath, envVars[0].Value)
 		})
 	}
 }
