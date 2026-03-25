@@ -169,6 +169,31 @@ type Networking struct {
 	RPCPort int32 `json:"rpcPort,omitempty"`
 }
 
+// CPUArchitecture represents a CPU architecture supported by IPA.
+// +kubebuilder:validation:Enum="";x86_64;aarch64
+type CPUArchitecture string
+
+const (
+	ArchX86_64  CPUArchitecture = "x86_64"
+	ArchAarch64 CPUArchitecture = "aarch64"
+)
+
+// AgentImages defines a single IPA (Ironic Python Agent) image configuration.
+type AgentImages struct {
+	// Kernel is the URL of the IPA kernel image.
+	// Example: "file:///shared/html/images/ironic-python-agent.kernel"
+	Kernel string `json:"kernel"`
+
+	// Initramfs is the URL of the IPA initramfs/ramdisk image.
+	// Example: "file:///shared/html/images/ironic-python-agent.initramfs"
+	Initramfs string `json:"initramfs"`
+
+	// Architecture is the target CPU architecture.
+	// When empty, sets the default DEPLOY_KERNEL_URL/DEPLOY_RAMDISK_URL.
+	// +optional
+	Architecture CPUArchitecture `json:"architecture,omitempty"`
+}
+
 // DeployRamdisk defines IPA ramdisk settings.
 type DeployRamdisk struct {
 	// DisableDownloader tells the operator not to start the IPA downloader as the init container.
@@ -250,7 +275,6 @@ type Images struct {
 // Warning: modifying arbitrary options may cause your Ironic installation to
 // fail or misbehave. Do not modify anything you don't understand well.
 type ExtraConfig struct {
-
 	// The group that config belongs to.
 	// +optional
 	Group string `json:"group,omitempty"`
@@ -287,10 +311,23 @@ type Overrides struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
+	// AgentImages overrides the default IPA images with custom per-architecture images.
+	// Consider setting deployRamdisk.disableDownloader=true when using custom images.
+	// +optional
+	AgentImages []AgentImages `json:"agentImages,omitempty"`
+
 	// Containers to append to the main Ironic pod.
 	// If a container name matches an existing container, the existing container is replaced.
 	// +optional
 	Containers []corev1.Container `json:"containers,omitempty"`
+
+	// HttpdLivenessProbe overrides the httpd container liveness probe.
+	// +optional
+	HttpdLivenessProbe *corev1.Probe `json:"httpdLivenessProbe,omitempty"`
+
+	// HttpdReadinessProbe overrides the httpd container readiness probe.
+	// +optional
+	HttpdReadinessProbe *corev1.Probe `json:"httpdReadinessProbe,omitempty"`
 
 	// InitContainers to append to the main Ironic pod.
 	// If a container name matches an existing init container, the existing init container is replaced.
