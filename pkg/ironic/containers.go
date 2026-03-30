@@ -220,10 +220,8 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 			Name:  "IRONIC_EXPOSE_JSON_RPC",
 			Value: strconv.FormatBool(resources.Ironic.Spec.HighAvailability),
 		},
-		// NOTE(dtantsur): this is necessary for the transition process from port 8089 (conflicting with kubernetes-nmstate)
-		// to port 6189 chosen for Metal3.
 		{
-			Name:  "OS_JSON_RPC__PORT",
+			Name:  "IRONIC_JSON_RPC_PORT",
 			Value: strconv.Itoa(int(resources.Ironic.Spec.Networking.RPCPort)),
 		},
 	}...)
