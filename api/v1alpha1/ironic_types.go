@@ -181,11 +181,13 @@ const (
 // AgentImages defines a single IPA (Ironic Python Agent) image configuration.
 type AgentImages struct {
 	// Kernel is the URL of the IPA kernel image.
-	// Example: "file:///shared/html/images/ironic-python-agent.kernel"
+	// Supported schemes: file://, http://, https://, oci://.
+	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
 	Kernel string `json:"kernel"`
 
 	// Initramfs is the URL of the IPA initramfs/ramdisk image.
-	// Example: "file:///shared/html/images/ironic-python-agent.initramfs"
+	// Supported schemes: file://, http://, https://, oci://.
+	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
 	Initramfs string `json:"initramfs"`
 
 	// Architecture is the target CPU architecture.

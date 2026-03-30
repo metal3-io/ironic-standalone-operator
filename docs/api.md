@@ -735,7 +735,8 @@ AgentImages defines a single IPA (Ironic Python Agent) image configuration.
         <td>string</td>
         <td>
           Initramfs is the URL of the IPA initramfs/ramdisk image.
-Example: "file:///shared/html/images/ironic-python-agent.initramfs"<br/>
+Supported schemes: file://, http://, https://, oci://.
+file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -743,7 +744,8 @@ Example: "file:///shared/html/images/ironic-python-agent.initramfs"<br/>
         <td>string</td>
         <td>
           Kernel is the URL of the IPA kernel image.
-Example: "file:///shared/html/images/ironic-python-agent.kernel"<br/>
+Supported schemes: file://, http://, https://, oci://.
+file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").<br/>
         </td>
         <td>true</td>
       </tr><tr>

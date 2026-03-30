@@ -235,10 +235,17 @@ func updateProbe(current *corev1.Probe, handler corev1.ProbeHandler) *corev1.Pro
 	}
 	current.ProbeHandler = handler
 	// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
-	// Also be conservative about failing the pod since Ironic restars are not cheap (the database is wiped).
-	current.InitialDelaySeconds = probeInitialDelay
-	current.TimeoutSeconds = probeTimeout
-	current.FailureThreshold = probeFailureThreshold
+	// Also be conservative about failing the pod since Ironic restarts are not cheap (the database is wiped).
+	// Only apply defaults for fields the user has not explicitly set (zero value = not set).
+	if current.InitialDelaySeconds == 0 {
+		current.InitialDelaySeconds = probeInitialDelay
+	}
+	if current.TimeoutSeconds == 0 {
+		current.TimeoutSeconds = probeTimeout
+	}
+	if current.FailureThreshold == 0 {
+		current.FailureThreshold = probeFailureThreshold
+	}
 	return current
 }
 

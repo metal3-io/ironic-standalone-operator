@@ -733,21 +733,22 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 
 	ironicHandler := newURLProbeHandler(resources.TLSSecret != nil, int(resources.Ironic.Spec.Networking.APIPort), "/v1", true)
 
-	// Httpd probes: require a positive response only when the default IPA kernel is expected to exist.
-	var httpdLivenessProbe, httpdReadinessProbe *corev1.Probe
+	// Httpd probes are always exec-based (curl). HTTP 2xx is only required when the default IPA
+	// kernel is expected to be served (i.e. no custom images and downloader is enabled).
 	hasCustomImages := resources.Ironic.Spec.Overrides != nil && len(resources.Ironic.Spec.Overrides.AgentImages) > 0
 	httpPathExpected := !hasCustomImages && !resources.Ironic.Spec.DeployRamdisk.DisableDownloader
 	httpdHandler := newURLProbeHandler(false, int(resources.Ironic.Spec.Networking.ImageServerPort), knownExistingPath, httpPathExpected)
-	httpdLivenessProbe = newProbe(httpdHandler)
-	httpdReadinessProbe = newProbe(httpdHandler)
+	httpdLivenessProbe := newProbe(httpdHandler)
+	httpdReadinessProbe := newProbe(httpdHandler)
 
-	// Apply explicit probe overrides
+	// Apply explicit probe overrides. DeepCopy avoids mutating the API object; updateProbe
+	// fills in timing defaults for any fields the user has not explicitly set.
 	if resources.Ironic.Spec.Overrides != nil {
-		if resources.Ironic.Spec.Overrides.HttpdLivenessProbe != nil {
-			httpdLivenessProbe = resources.Ironic.Spec.Overrides.HttpdLivenessProbe
+		if p := resources.Ironic.Spec.Overrides.HttpdLivenessProbe; p != nil {
+			httpdLivenessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
 		}
-		if resources.Ironic.Spec.Overrides.HttpdReadinessProbe != nil {
-			httpdReadinessProbe = resources.Ironic.Spec.Overrides.HttpdReadinessProbe
+		if p := resources.Ironic.Spec.Overrides.HttpdReadinessProbe; p != nil {
+			httpdReadinessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
 		}
 	}
 

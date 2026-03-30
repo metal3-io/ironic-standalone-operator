@@ -333,12 +333,14 @@ spec:
                         initramfs:
                           description: |-
                             Initramfs is the URL of the IPA initramfs/ramdisk image.
-                            Example: "file:///shared/html/images/ironic-python-agent.initramfs"
+                            Supported schemes: file://, http://, https://, oci://.
+                            file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
                           type: string
                         kernel:
                           description: |-
                             Kernel is the URL of the IPA kernel image.
-                            Example: "file:///shared/html/images/ironic-python-agent.kernel"
+                            Supported schemes: file://, http://, https://, oci://.
+                            file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
                           type: string
                       required:
                       - initramfs

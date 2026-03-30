@@ -739,10 +739,12 @@ func TestAppendAgentImageEnvVars(t *testing.T) {
 
 func TestHttpdProbeConfiguration(t *testing.T) {
 	testCases := []struct {
-		Scenario          string
-		Ironic            metal3api.IronicSpec
-		ExpectExecProbe   bool
-		ExpectCustomProbe bool
+		Scenario                   string
+		Ironic                     metal3api.IronicSpec
+		ExpectExecProbe            bool
+		ExpectCustomProbe          bool
+		ExpectCustomReadinessProbe bool
+		ExpectExecReadinessProbe   bool
 	}{
 		{
 			Scenario: "Default - no custom images",
@@ -754,7 +756,7 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 			ExpectExecProbe: true,
 		},
 		{
-			Scenario: "Custom images - should use exec probe on root",
+			Scenario: "Custom images - exec probe without HTTP success requirement",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
 					ImageServerPort: 8080,
@@ -793,6 +795,33 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 			ExpectExecProbe: true,
 		},
 		{
+			Scenario: "Custom images with explicit readiness probe override",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///custom/kernel",
+							Initramfs:    "file:///custom/initramfs",
+						},
+					},
+					HttpdReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/ready",
+								Port: intstr.FromInt(8080),
+							},
+						},
+					},
+				},
+			},
+			ExpectExecProbe:            true, // liveness stays exec default
+			ExpectCustomReadinessProbe: true,
+		},
+		{
 			Scenario: "Custom images with explicit liveness probe override",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
@@ -816,7 +845,8 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 					},
 				},
 			},
-			ExpectCustomProbe: true,
+			ExpectCustomProbe:        true,
+			ExpectExecReadinessProbe: true, // readiness stays exec when only liveness is overridden
 		},
 	}
 
@@ -858,6 +888,14 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 			} else if tc.ExpectExecProbe {
 				assert.NotNil(t, httpdContainer.LivenessProbe.Exec, "should have exec probe")
 				assert.Nil(t, httpdContainer.LivenessProbe.HTTPGet, "should not have HTTPGet probe")
+			}
+
+			if tc.ExpectCustomReadinessProbe {
+				assert.NotNil(t, httpdContainer.ReadinessProbe.HTTPGet)
+				assert.Equal(t, "/ready", httpdContainer.ReadinessProbe.HTTPGet.Path)
+			} else if tc.ExpectExecProbe || tc.ExpectExecReadinessProbe {
+				assert.NotNil(t, httpdContainer.ReadinessProbe.Exec, "should have exec readiness probe")
+				assert.Nil(t, httpdContainer.ReadinessProbe.HTTPGet, "should not have HTTPGet readiness probe")
 			}
 		})
 	}
