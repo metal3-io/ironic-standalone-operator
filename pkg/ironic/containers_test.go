@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -602,6 +603,262 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 				"SEND_SENSOR_DATA env var presence mismatch")
 			assert.Equal(t, expectExporter, foundSensorInterval,
 				"OS_SENSOR_DATA__INTERVAL env var presence mismatch")
+		})
+	}
+}
+
+func TestAppendAgentImageEnvVars(t *testing.T) {
+	testCases := []struct {
+		name            string
+		images          []metal3api.AgentImages
+		expectedEnvVars map[string]string
+		expectNoEnvVars bool
+	}{
+		{
+			name:            "empty images",
+			images:          nil,
+			expectNoEnvVars: true,
+		},
+		{
+			name: "single architecture x86_64",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_BY_ARCH":  "x86_64:file:///shared/html/images/ipa.x86_64.kernel",
+				"DEPLOY_RAMDISK_BY_ARCH": "x86_64:file:///shared/html/images/ipa.x86_64.initramfs",
+			},
+		},
+		{
+			name: "single architecture aarch64",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_BY_ARCH":  "aarch64:file:///shared/html/images/ipa.aarch64.kernel",
+				"DEPLOY_RAMDISK_BY_ARCH": "aarch64:file:///shared/html/images/ipa.aarch64.initramfs",
+			},
+		},
+		{
+			name: "multiple architectures",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+				{
+					Kernel:       "file:///shared/html/images/ipa.aarch64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.aarch64.initramfs",
+					Architecture: metal3api.ArchAarch64,
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_BY_ARCH":  "x86_64:file:///shared/html/images/ipa.x86_64.kernel,aarch64:file:///shared/html/images/ipa.aarch64.kernel",
+				"DEPLOY_RAMDISK_BY_ARCH": "x86_64:file:///shared/html/images/ipa.x86_64.initramfs,aarch64:file:///shared/html/images/ipa.aarch64.initramfs",
+			},
+		},
+		{
+			name: "whitespace trimming",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:       "  file:///path/kernel  ",
+					Initramfs:    "\tfile:///path/initramfs\n",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_BY_ARCH":  "x86_64:file:///path/kernel",
+				"DEPLOY_RAMDISK_BY_ARCH": "x86_64:file:///path/initramfs",
+			},
+		},
+		{
+			name: "default (empty architecture)",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:    "file:///shared/html/images/ipa.kernel",
+					Initramfs: "file:///shared/html/images/ipa.initramfs",
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_URL":  "file:///shared/html/images/ipa.kernel",
+				"DEPLOY_RAMDISK_URL": "file:///shared/html/images/ipa.initramfs",
+			},
+		},
+		{
+			name: "default with architecture-specific",
+			images: []metal3api.AgentImages{
+				{
+					Kernel:    "file:///shared/html/images/ipa.kernel",
+					Initramfs: "file:///shared/html/images/ipa.initramfs",
+				},
+				{
+					Kernel:       "file:///shared/html/images/ipa.x86_64.kernel",
+					Initramfs:    "file:///shared/html/images/ipa.x86_64.initramfs",
+					Architecture: metal3api.ArchX86_64,
+				},
+			},
+			expectedEnvVars: map[string]string{
+				"DEPLOY_KERNEL_URL":      "file:///shared/html/images/ipa.kernel",
+				"DEPLOY_RAMDISK_URL":     "file:///shared/html/images/ipa.initramfs",
+				"DEPLOY_KERNEL_BY_ARCH":  "x86_64:file:///shared/html/images/ipa.x86_64.kernel",
+				"DEPLOY_RAMDISK_BY_ARCH": "x86_64:file:///shared/html/images/ipa.x86_64.initramfs",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			envVars := appendAgentImageEnvVars(nil, tc.images)
+
+			if tc.expectNoEnvVars {
+				assert.Empty(t, envVars)
+				return
+			}
+
+			envMap := make(map[string]string, len(envVars))
+			for _, env := range envVars {
+				envMap[env.Name] = env.Value
+			}
+
+			for name, expectedValue := range tc.expectedEnvVars {
+				assert.Equal(t, expectedValue, envMap[name], "env var %s", name)
+			}
+			assert.Len(t, envVars, len(tc.expectedEnvVars))
+		})
+	}
+}
+
+func TestHttpdProbeConfiguration(t *testing.T) {
+	testCases := []struct {
+		Scenario          string
+		Ironic            metal3api.IronicSpec
+		ExpectExecProbe   bool
+		ExpectCustomProbe bool
+	}{
+		{
+			Scenario: "Default - no custom images",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+			},
+			ExpectExecProbe: true,
+		},
+		{
+			Scenario: "Custom images - should use exec probe on root",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///custom/kernel",
+							Initramfs:    "file:///custom/initramfs",
+						},
+					},
+				},
+			},
+			ExpectExecProbe: true,
+		},
+		{
+			Scenario: "Custom images with downloader disabled",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				DeployRamdisk: metal3api.DeployRamdisk{
+					DisableDownloader: true,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchAarch64,
+							Kernel:       "http://external.com/kernel",
+							Initramfs:    "http://external.com/initramfs",
+						},
+					},
+				},
+			},
+			ExpectExecProbe: true,
+		},
+		{
+			Scenario: "Custom images with explicit liveness probe override",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 8080,
+				},
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///custom/kernel",
+							Initramfs:    "file:///custom/initramfs",
+						},
+					},
+					HttpdLivenessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/health",
+								Port: intstr.FromInt(8080),
+							},
+						},
+					},
+				},
+			},
+			ExpectCustomProbe: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("test"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: tc.Ironic,
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			// Find the httpd container
+			var httpdContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "httpd" {
+					httpdContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, httpdContainer, "httpd container should exist")
+			require.NotNil(t, httpdContainer.LivenessProbe, "liveness probe should not be nil")
+			require.NotNil(t, httpdContainer.ReadinessProbe, "readiness probe should not be nil")
+
+			if tc.ExpectCustomProbe {
+				assert.NotNil(t, httpdContainer.LivenessProbe.HTTPGet)
+				assert.Equal(t, "/health", httpdContainer.LivenessProbe.HTTPGet.Path)
+			} else if tc.ExpectExecProbe {
+				assert.NotNil(t, httpdContainer.LivenessProbe.Exec, "should have exec probe")
+				assert.Nil(t, httpdContainer.LivenessProbe.HTTPGet, "should not have HTTPGet probe")
+			}
 		})
 	}
 }
