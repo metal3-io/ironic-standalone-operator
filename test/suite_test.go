@@ -785,6 +785,9 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name + "-api",
 			Namespace: namespace,
+			Labels: map[string]string{
+				metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+			},
 		},
 		Data: map[string][]byte{
 			corev1.BasicAuthUsernameKey: []byte("admin"),
@@ -877,7 +880,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+		WaitForIronicFailure(name, fmt.Sprintf("cannot load secret %s/banana", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
@@ -923,7 +926,7 @@ var _ = Describe("Ironic object tests", func() {
 			DeleteAndWait(ironic)
 		})
 
-		WaitForIronicFailure(name, fmt.Sprintf("secret %s/banana not found", namespace), false)
+		WaitForIronicFailure(name, fmt.Sprintf("cannot load secret %s/banana", namespace), false)
 
 		By("creating the secret and recovering the Ironic")
 
