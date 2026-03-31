@@ -300,6 +300,111 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "10.0.0.10 is not in networking.dhcp.networkCIDR",
 		},
 		{
+			Scenario: "DHCP with networkRanges only",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR: "192.168.1.0/24",
+								RangeBegin:  "192.168.1.10",
+								RangeEnd:    "192.168.1.100",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "DHCP with primary range and networkRanges",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.168.1.1",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						NetworkRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR: "192.168.2.0/24",
+								RangeBegin:  "192.168.2.10",
+								RangeEnd:    "192.168.2.100",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "DHCP with IPv6 networkRanges",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR: "fd69:158d:692a:1::/64",
+								RangeBegin:  "fd69:158d:692a:1::3000",
+								RangeEnd:    "fd69:158d:692a:1::3fff",
+							},
+							{
+								NetworkCIDR: "fd69:158d:692a:2::/64",
+								RangeBegin:  "fd69:158d:692a:2::3000",
+								RangeEnd:    "fd69:158d:692a:2::3fff",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "DHCP with neither primary range nor networkRanges",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP:      &metal3api.DHCP{},
+				},
+			},
+			ExpectedError: "at least one of rangeBegin/rangeEnd or networkRanges is required",
+		},
+		{
+			Scenario: "networkRange with missing networkCIDR",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkRanges: []metal3api.DHCPRange{
+							{
+								RangeBegin: "192.168.1.10",
+								RangeEnd:   "192.168.1.100",
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.networkRanges[0].networkCIDR is required",
+		},
+		{
+			Scenario: "networkRange with IP outside CIDR",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR: "192.168.1.0/24",
+								RangeBegin:  "10.0.0.10",
+								RangeEnd:    "192.168.1.100",
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.networkRanges[0]",
+		},
+		{
 			Scenario: "Provisioning IP address not in the CIDR",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{

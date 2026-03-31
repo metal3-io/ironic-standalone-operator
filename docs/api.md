@@ -612,21 +612,35 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network.
+
+Deprecated: use NetworkRanges instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingdhcpnetworkrangesindex">networkRanges</a></b></td>
+        <td>[]object</td>
+        <td>
+          NetworkRanges is a list of additional DHCP ranges for subnets served via DHCP relay agents.
+Each range defines a separate subnet. The provisioning IP does not need to be within these subnets.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeBegin</b></td>
         <td>string</td>
         <td>
-          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use NetworkRanges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeEnd</b></td>
         <td>string</td>
         <td>
-          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use NetworkRanges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -637,6 +651,47 @@ There is no API-side validation. Most users will leave this unset.<br/>
 Must not be set together with DNSAddress.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.dhcp.networkRanges[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingdhcp)</sup></sup>
+
+
+
+DHCPRange defines a DHCP range for a subnet served via DHCP relay agents.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>networkCIDR</b></td>
+        <td>string</td>
+        <td>
+          NetworkCIDR is the CIDR of the subnet. Required.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeBegin</b></td>
+        <td>string</td>
+        <td>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeEnd</b></td>
+        <td>string</td>
+        <td>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
