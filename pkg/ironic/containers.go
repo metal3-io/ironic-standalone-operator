@@ -54,10 +54,6 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 			Name:  "LISTEN_ALL_INTERFACES",
 			Value: strconv.FormatBool(!ironic.Spec.Networking.BindInterface),
 		},
-		{
-			Name:  "USE_IRONIC_INSPECTOR",
-			Value: "false",
-		},
 	}
 
 	networkingProvided := false
@@ -135,7 +131,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		"IRONIC_IPA_COLLECTORS", ironic.Spec.Inspection.Collectors, ",")
 
 	result = appendListOfStringsEnv(result,
-		"IRONIC_INSPECTOR_VLAN_INTERFACES", ironic.Spec.Inspection.VLANInterfaces, ",")
+		"IRONIC_ENABLE_VLAN_INTERFACES", ironic.Spec.Inspection.VLANInterfaces, ",")
 
 	return result
 }
