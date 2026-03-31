@@ -11,6 +11,14 @@ const (
 	IronicReasonAvailable  = "DeploymentAvailable"
 
 	IronicLabelPrefix = "ironic.metal3.io"
+
+	// LabelEnvironmentName is the label key that must be present on user-provided
+	// Secrets and ConfigMaps to grant the operator permission to use them.
+	// The value must be LabelEnvironmentValue.
+	LabelEnvironmentName = "environment.metal3.io/ironic-standalone-operator"
+
+	// LabelEnvironmentValue is the required value for the LabelEnvironmentName label.
+	LabelEnvironmentValue = "true"
 )
 
 var (
