@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"net/url"
 	"reflect"
+	"strings"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -45,17 +46,37 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 }
 
 func validateURL(urlStr string, fieldName string) error {
+	urlStr = strings.TrimSpace(urlStr)
+	if urlStr == "" {
+		return fmt.Errorf("%s: URL must not be empty", fieldName)
+	}
+
 	parsed, err := url.Parse(urlStr)
 	if err != nil {
 		return fmt.Errorf("%s: invalid URL format: %w", fieldName, err)
 	}
 
 	switch parsed.Scheme {
-	case protoFile, protoHTTP, protoHTTPS, protoOCI:
-		return nil
+	case protoFile:
+		if parsed.Host != "" {
+			return fmt.Errorf("%s: file URL must use an absolute path (file:///...)", fieldName)
+		}
+		if parsed.Path == "" || parsed.Path[0] != '/' {
+			return fmt.Errorf("%s: file URL must use an absolute path (file:///...)", fieldName)
+		}
+	case protoHTTP, protoHTTPS:
+		if parsed.Host == "" {
+			return fmt.Errorf("%s: %s URL must include a host", fieldName, parsed.Scheme)
+		}
+	case protoOCI:
+		if parsed.Host == "" {
+			return fmt.Errorf("%s: oci URL must include a registry host", fieldName)
+		}
 	default:
 		return fmt.Errorf("%s: unsupported protocol %q (must be file://, http://, https://, or oci://)", fieldName, parsed.Scheme)
 	}
+
+	return nil
 }
 
 func validateAgentImages(images []metal3api.AgentImages) error {
@@ -66,10 +87,10 @@ func validateAgentImages(images []metal3api.AgentImages) error {
 	seenArchitectures := make(map[metal3api.CPUArchitecture]bool)
 
 	for i, img := range images {
-		if img.Kernel == "" {
+		if strings.TrimSpace(img.Kernel) == "" {
 			return fmt.Errorf("overrides.agentImages[%d]: kernel is required", i)
 		}
-		if img.Initramfs == "" {
+		if strings.TrimSpace(img.Initramfs) == "" {
 			return fmt.Errorf("overrides.agentImages[%d]: initramfs is required", i)
 		}
 

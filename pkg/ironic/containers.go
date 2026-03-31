@@ -140,7 +140,8 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	return result
 }
 
-// appendAgentImageEnvVars renders AgentImages into DEPLOY_KERNEL/RAMDISK env vars.
+// appendAgentImageEnvVars renders AgentImages into DEPLOY_KERNEL_URL/DEPLOY_RAMDISK_URL
+// and DEPLOY_KERNEL_BY_ARCH/DEPLOY_RAMDISK_BY_ARCH env vars.
 // Validation is handled by webhook (see validation.go).
 func appendAgentImageEnvVars(envVars []corev1.EnvVar, images []metal3api.AgentImages) []corev1.EnvVar {
 	if len(images) == 0 {

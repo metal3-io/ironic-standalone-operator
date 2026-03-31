@@ -530,6 +530,50 @@ func TestValidateIronic(t *testing.T) {
 			},
 		},
 		{
+			Scenario: "agent images with whitespace-only kernel",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "   ",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0]: kernel is required",
+		},
+		{
+			Scenario: "agent images with whitespace-only initramfs",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file:///shared/html/images/ipa.kernel",
+							Initramfs:    "  \t ",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0]: initramfs is required",
+		},
+		{
+			Scenario: "agent images with whitespace-padded URL",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "  file:///shared/html/images/ipa.kernel  ",
+							Initramfs:    "  file:///shared/html/images/ipa.initramfs  ",
+						},
+					},
+				},
+			},
+		},
+		{
 			Scenario: "agent images with invalid kernel URL",
 			Ironic: metal3api.IronicSpec{
 				Overrides: &metal3api.Overrides{
@@ -573,6 +617,51 @@ func TestValidateIronic(t *testing.T) {
 				},
 			},
 			ExpectedError: "overrides.agentImages[0].kernel: unsupported protocol \"ftp\"",
+		},
+		{
+			Scenario: "agent images with non-absolute file URL kernel",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "file://relative/path",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: file URL must use an absolute path",
+		},
+		{
+			Scenario: "agent images with http URL missing host",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "http:///path/only",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: http URL must include a host",
+		},
+		{
+			Scenario: "agent images with oci URL missing host",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Architecture: metal3api.ArchX86_64,
+							Kernel:       "oci:///path/only",
+							Initramfs:    "file:///shared/html/images/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel: oci URL must include a registry host",
 		},
 		{
 			Scenario: "agent images with unsupported initramfs protocol",

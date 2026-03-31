@@ -742,6 +742,7 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 		Scenario                   string
 		Ironic                     metal3api.IronicSpec
 		ExpectExecProbe            bool
+		ExpectCurlFail             bool
 		ExpectCustomProbe          bool
 		ExpectCustomReadinessProbe bool
 		ExpectExecReadinessProbe   bool
@@ -754,6 +755,7 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 				},
 			},
 			ExpectExecProbe: true,
+			ExpectCurlFail:  true,
 		},
 		{
 			Scenario: "Custom images - exec probe without HTTP success requirement",
@@ -772,6 +774,7 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 				},
 			},
 			ExpectExecProbe: true,
+			ExpectCurlFail:  false,
 		},
 		{
 			Scenario: "Custom images with downloader disabled",
@@ -793,6 +796,7 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 				},
 			},
 			ExpectExecProbe: true,
+			ExpectCurlFail:  false,
 		},
 		{
 			Scenario: "Custom images with explicit readiness probe override",
@@ -888,6 +892,11 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 			} else if tc.ExpectExecProbe {
 				assert.NotNil(t, httpdContainer.LivenessProbe.Exec, "should have exec probe")
 				assert.Nil(t, httpdContainer.LivenessProbe.HTTPGet, "should not have HTTPGet probe")
+				if tc.ExpectCurlFail {
+					assert.Contains(t, httpdContainer.LivenessProbe.Exec.Command, "--fail", "exec probe should include --fail for default images")
+				} else {
+					assert.NotContains(t, httpdContainer.LivenessProbe.Exec.Command, "--fail", "exec probe should not include --fail for custom images")
+				}
 			}
 
 			if tc.ExpectCustomReadinessProbe {
@@ -896,6 +905,11 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 			} else if tc.ExpectExecProbe || tc.ExpectExecReadinessProbe {
 				assert.NotNil(t, httpdContainer.ReadinessProbe.Exec, "should have exec readiness probe")
 				assert.Nil(t, httpdContainer.ReadinessProbe.HTTPGet, "should not have HTTPGet readiness probe")
+				if tc.ExpectCurlFail {
+					assert.Contains(t, httpdContainer.ReadinessProbe.Exec.Command, "--fail", "exec readiness probe should include --fail for default images")
+				} else {
+					assert.NotContains(t, httpdContainer.ReadinessProbe.Exec.Command, "--fail", "exec readiness probe should not include --fail for custom images")
+				}
 			}
 		})
 	}
