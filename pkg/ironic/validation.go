@@ -4,9 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"net/url"
 	"reflect"
+	"strings"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
+)
+
+const (
+	protoFile = "file"
+	protoOCI  = "oci"
 )
 
 func validateIP(ip string) error {
@@ -33,6 +40,75 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 
 	if !prefix.Contains(parsed) {
 		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+	}
+
+	return nil
+}
+
+func validateURL(urlStr string, fieldName string) error {
+	urlStr = strings.TrimSpace(urlStr)
+	if urlStr == "" {
+		return fmt.Errorf("%s: URL must not be empty", fieldName)
+	}
+
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("%s: invalid URL format: %w", fieldName, err)
+	}
+
+	switch parsed.Scheme {
+	case protoFile:
+		if parsed.Host != "" {
+			return fmt.Errorf("%s: file URL must use an absolute path (file:///...)", fieldName)
+		}
+		if parsed.Path == "" || parsed.Path[0] != '/' {
+			return fmt.Errorf("%s: file URL must use an absolute path (file:///...)", fieldName)
+		}
+	case protoHTTP, protoHTTPS:
+		if parsed.Host == "" {
+			return fmt.Errorf("%s: %s URL must include a host", fieldName, parsed.Scheme)
+		}
+	case protoOCI:
+		if parsed.Host == "" {
+			return fmt.Errorf("%s: oci URL must include a registry host", fieldName)
+		}
+	default:
+		return fmt.Errorf("%s: unsupported protocol %q (must be file://, http://, https://, or oci://)", fieldName, parsed.Scheme)
+	}
+
+	return nil
+}
+
+func validateAgentImages(images []metal3api.AgentImages) error {
+	if len(images) == 0 {
+		return nil
+	}
+
+	seenArchitectures := make(map[metal3api.CPUArchitecture]bool)
+
+	for i, img := range images {
+		if strings.TrimSpace(img.Kernel) == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: kernel is required", i)
+		}
+		if strings.TrimSpace(img.Initramfs) == "" {
+			return fmt.Errorf("overrides.agentImages[%d]: initramfs is required", i)
+		}
+
+		if err := validateURL(img.Kernel, fmt.Sprintf("overrides.agentImages[%d].kernel", i)); err != nil {
+			return err
+		}
+
+		if err := validateURL(img.Initramfs, fmt.Sprintf("overrides.agentImages[%d].initramfs", i)); err != nil {
+			return err
+		}
+
+		if seenArchitectures[img.Architecture] {
+			if img.Architecture == "" {
+				return errors.New("overrides.agentImages: duplicate default (empty architecture) entry")
+			}
+			return fmt.Errorf("overrides.agentImages: duplicate architecture %q", img.Architecture)
+		}
+		seenArchitectures[img.Architecture] = true
 	}
 
 	return nil
@@ -149,6 +225,12 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Version != "" {
 		if err := metal3api.ValidateVersion(ironic.Version); err != nil {
+			return err
+		}
+	}
+
+	if ironic.Overrides != nil {
+		if err := validateAgentImages(ironic.Overrides.AgentImages); err != nil {
 			return err
 		}
 	}

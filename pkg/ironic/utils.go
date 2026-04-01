@@ -25,11 +25,15 @@ const (
 	probeTimeout          = 5
 	probeFailureThreshold = 12
 
-	dataDir        = "/data"
-	confDir        = "/conf"
-	tmpDir         = "/tmp"
-	dataVolumeName = "ironic-data"
-	tmpVolumeName  = "ironic-tmp"
+	dataDir          = "/data"
+	confDir          = "/conf"
+	tmpDir           = "/tmp"
+	dataVolumeName   = "ironic-data"
+	tmpVolumeName    = "ironic-tmp"
+	protoHTTP        = "http"
+	protoHTTPS       = "https"
+	httpDefaultPort  = 80
+	httpsDefaultPort = 443
 )
 
 //nolint:containedctx // Context is intentionally stored for use throughout the controller lifecycle
@@ -206,7 +210,7 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 	portString := strconv.Itoa(port)
 	for _, ip := range ips {
 		var endpoint string
-		if (includeProto == "https" && port == 443) || (includeProto == "http" && port == 80) {
+		if (includeProto == protoHTTPS && port == httpsDefaultPort) || (includeProto == protoHTTP && port == httpDefaultPort) {
 			if strings.Contains(ip, ":") {
 				endpoint = fmt.Sprintf("%s://[%s]", includeProto, ip) // IPv6
 			} else {
@@ -231,10 +235,17 @@ func updateProbe(current *corev1.Probe, handler corev1.ProbeHandler) *corev1.Pro
 	}
 	current.ProbeHandler = handler
 	// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
-	// Also be conservative about failing the pod since Ironic restars are not cheap (the database is wiped).
-	current.InitialDelaySeconds = probeInitialDelay
-	current.TimeoutSeconds = probeTimeout
-	current.FailureThreshold = probeFailureThreshold
+	// Also be conservative about failing the pod since Ironic restarts are not cheap (the database is wiped).
+	// Only apply defaults for fields the user has not explicitly set (zero value = not set).
+	if current.InitialDelaySeconds == 0 {
+		current.InitialDelaySeconds = probeInitialDelay
+	}
+	if current.TimeoutSeconds == 0 {
+		current.TimeoutSeconds = probeTimeout
+	}
+	if current.FailureThreshold == 0 {
+		current.FailureThreshold = probeFailureThreshold
+	}
 	return current
 }
 
