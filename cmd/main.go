@@ -28,6 +28,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme" //nolint:goimports // blank import with comment causes formatter conflict
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -203,13 +204,14 @@ func main() {
 	}
 
 	if err = (&controller.IronicReconciler{
-		Client:      mgr.GetClient(),
-		KubeClient:  kubeClient,
-		APIReader:   mgr.GetAPIReader(),
-		Scheme:      mgr.GetScheme(),
-		Log:         ctrl.Log.WithName("controllers").WithName("Ironic"),
-		Domain:      clusterDomain,
-		VersionInfo: versionInfo,
+		Client:        mgr.GetClient(),
+		KubeClient:    kubeClient,
+		APIReader:     mgr.GetAPIReader(),
+		Scheme:        mgr.GetScheme(),
+		Log:           ctrl.Log.WithName("controllers").WithName("Ironic"),
+		Domain:        clusterDomain,
+		VersionInfo:   versionInfo,
+		EventRecorder: mgr.GetEventRecorderFor("ironic-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Ironic")
 		os.Exit(1)

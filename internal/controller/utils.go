@@ -115,6 +115,12 @@ func setConditionsFromStatus(cctx ironic.ControllerContext, status ironic.Status
 	setCondition(conditions, generation, true, metal3api.IronicReasonAvailable, message)
 }
 
+// isStatusReady checks if the Ironic status indicates it's ready by looking at the Ready condition.
+func isStatusReady(status *metal3api.IronicStatus) bool {
+	condition := meta.FindStatusCondition(status.Conditions, string(metal3api.IronicStatusReady))
+	return condition != nil && condition.Status == metav1.ConditionTrue
+}
+
 func clusterHasCRD(mgr ctrl.Manager, obj runtime.Object) (bool, error) {
 	gvk, err := apiutil.GVKForObject(obj, mgr.GetScheme())
 	if err != nil {
