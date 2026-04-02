@@ -1,7 +1,14 @@
 # Run controller locally on kind
 
-Use this flow when developing the controller while targeting a local Kubernetes
-cluster created with [kind](https://kind.sigs.k8s.io/).
+Use this flow when you want a **fast feedback loop** while developing the
+controller (e.g. debugging reconciliation logic, iterating on controller code,
+watching logs/events) against a local Kubernetes cluster created with
+[kind](https://kind.sigs.k8s.io/).
+
+For full end-to-end coverage, use the functional test harness
+(`./test/prepare.sh` + `./test/run.sh`). That path deploys IrSO into the cluster
+and also installs extra dependencies (e.g. cert-manager, MariaDB operator),
+which is great for E2E but typically much slower to iterate on.
 
 ## Prerequisites
 
