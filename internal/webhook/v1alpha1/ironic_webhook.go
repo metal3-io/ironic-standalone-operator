@@ -18,9 +18,7 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -33,8 +31,7 @@ import (
 var ironiclog = logf.Log.WithName("webhooks").WithName("Ironic")
 
 func SetupIronicWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&metal3api.Ironic{}).
+	return ctrl.NewWebhookManagedBy(mgr, &metal3api.Ironic{}).
 		WithValidator(&IronicCustomValidator{}).
 		Complete()
 }
@@ -44,33 +41,18 @@ func SetupIronicWebhookWithManager(mgr ctrl.Manager) error {
 type IronicCustomValidator struct{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *IronicCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	ironic, ok := obj.(*metal3api.Ironic)
-	if !ok {
-		return nil, fmt.Errorf("expected an Ironic, got %T", obj)
-	}
-
+func (r *IronicCustomValidator) ValidateCreate(_ context.Context, ironic *metal3api.Ironic) (admission.Warnings, error) {
 	ironiclog.Info("validate create", "name", ironic.Name)
 	return nil, validation.ValidateIronic(&ironic.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *IronicCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	ironic, ok := newObj.(*metal3api.Ironic)
-	if !ok {
-		return nil, fmt.Errorf("expected an Ironic for newObj, got %T", newObj)
-	}
-
-	oldIronic, ok := oldObj.(*metal3api.Ironic)
-	if !ok {
-		return nil, fmt.Errorf("expected an Ironic for oldObj, got %T", oldObj)
-	}
-
+func (r *IronicCustomValidator) ValidateUpdate(_ context.Context, oldIronic, ironic *metal3api.Ironic) (admission.Warnings, error) {
 	ironiclog.Info("validate update", "name", ironic.Name)
 	return nil, validation.ValidateIronic(&ironic.Spec, &oldIronic.Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *IronicCustomValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (r *IronicCustomValidator) ValidateDelete(_ context.Context, _ *metal3api.Ironic) (admission.Warnings, error) {
 	return nil, nil
 }
