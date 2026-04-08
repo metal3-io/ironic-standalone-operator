@@ -15,6 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 func checkValidUser(user string) error {
@@ -135,6 +137,10 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*c
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-%s-", owner.Name, name),
 			Namespace:    owner.Namespace,
+			Labels: map[string]string{
+				// Add the environment label so the secret is included in the filtered cache
+				metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+			},
 		},
 		Data: map[string][]byte{
 			corev1.BasicAuthUsernameKey: []byte(owner.Name),

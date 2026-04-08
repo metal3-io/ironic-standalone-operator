@@ -11,11 +11,29 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-// SecretManager is a type for fetching Secrets whether or not they are in the
-// client cache, labelling so that they will be included in the client cache,
-// and optionally setting an owner reference.
+// MissingLabelError is returned when a resource does not have the required
+// environment label. This error requires user intervention to add the label
+// to the resource before the operator will use it.
+type MissingLabelError struct {
+	ObjectType string
+	Namespace  string
+	Name       string
+}
+
+func (e *MissingLabelError) Error() string {
+	return fmt.Sprintf(
+		"%s %s/%s does not have the required label %s=%s",
+		e.ObjectType, e.Namespace, e.Name,
+		metal3api.LabelEnvironmentName, metal3api.LabelEnvironmentValue)
+}
+
+// SecretManager is a type for fetching Secrets and ConfigMaps whether or not
+// they are in the client cache, verifying that they carry the required
+// environment label, and optionally setting an owner reference.
 //
 //nolint:containedctx // Context is intentionally stored for use throughout the manager lifecycle
 type SecretManager struct {
@@ -66,22 +84,24 @@ func (sm *SecretManager) findObject(key types.NamespacedName, object client.Obje
 	return nil
 }
 
-// claimObject ensures that the object has a label that will ensure it is
-// present in the cache (and that we can watch for changes), and optionally
-// that it has a particular owner reference.
+// claimObject ensures that the object has the required environment label
+// (which must be set by the user for user-provided resources, or by the
+// operator for resources it creates), and optionally sets an owner reference.
 func (sm *SecretManager) claimObject(object client.Object, owner client.Object, scheme *runtime.Scheme) error {
 	log := sm.log.WithValues(objectType(object), object.GetName(), "namespace", object.GetNamespace())
 	needsUpdate := false
 
+	// Require the environment label to already be present. For user-provided
+	// resources this acts as an opt-in: the user must label the resource before
+	// the operator will use it. Operator-created resources are labelled at
+	// creation time.
 	currentLabels := object.GetLabels()
-	if _, found := currentLabels[LabelEnvironmentName]; !found {
-		log.Info("setting environment label")
-		if currentLabels == nil {
-			currentLabels = make(map[string]string, 1)
+	if currentLabels[metal3api.LabelEnvironmentName] != metal3api.LabelEnvironmentValue {
+		return &MissingLabelError{
+			ObjectType: objectType(object),
+			Namespace:  object.GetNamespace(),
+			Name:       object.GetName(),
 		}
-		currentLabels[LabelEnvironmentName] = LabelEnvironmentValue
-		object.SetLabels(currentLabels)
-		needsUpdate = true
 	}
 
 	if owner != nil && scheme != nil {
@@ -116,9 +136,8 @@ func (sm *SecretManager) claimObject(object client.Object, owner client.Object, 
 	return nil
 }
 
-// AcquireSecret retrieves a Secret and ensures that it has a label that will
-// ensure it is present in the cache (and that we can watch for changes), and
-// that it has a particular owner reference.
+// AcquireSecret retrieves a Secret, verifies it carries the required
+// environment label, and ensures it has a particular owner reference.
 func (sm *SecretManager) AcquireSecret(key types.NamespacedName, owner client.Object, scheme *runtime.Scheme) (*corev1.Secret, error) {
 	secret := &corev1.Secret{}
 	err := sm.findObject(key, secret)
