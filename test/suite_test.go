@@ -467,15 +467,20 @@ func verifyConductorList(ctx context.Context, cli *gophercloud.ServiceClient, as
 }
 
 func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string) {
-	By("checking ironic-prometheus-exporter")
+	By("checking ironic-prometheus-exporter is not accessible via node IP (localhost binding)")
 
-	httpClient := helpers.NewHTTPClient()
-
-	// NOTE(dtantsur): each Ironic replica has its own exporter, so verify them all independently
+	// The prometheus exporter binds to localhost (127.0.0.1) for security,
+	// so the metrics endpoint must NOT be reachable via the node's external IP.
+	// NOTE(dtantsur): each Ironic replica has its own exporter, so verify them all independently.
 	for _, ironicIP := range currentIronicIPs {
-		testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(ironicIP, "9608"))
-		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
-		Expect(statusCode).To(Equal(200))
+		addr := net.JoinHostPort(ironicIP, "9608")
+		dialer := &net.Dialer{}
+		conn, err := dialer.DialContext(ctx, "tcp", addr)
+		if conn != nil {
+			conn.Close()
+		}
+		Expect(err).To(HaveOccurred(),
+			"metrics endpoint should not be accessible via node IP %s (expected connection refused due to localhost binding)", ironicIP)
 	}
 }
 

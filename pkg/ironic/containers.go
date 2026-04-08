@@ -679,6 +679,12 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 		Command: []string{"/bin/runironic-exporter"},
 		Env: []corev1.EnvVar{
 			{
+				// Bind to localhost to prevent unauthenticated access from the
+				// network when the pod runs with hostNetwork: true.
+				Name:  "FLASK_RUN_HOST",
+				Value: "127.0.0.1",
+			},
+			{
 				Name:  "FLASK_RUN_PORT",
 				Value: strconv.Itoa(int(port)),
 			},

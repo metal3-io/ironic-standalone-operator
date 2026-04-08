@@ -580,9 +580,11 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			require.NotNil(t, ironicContainer, "ironic container not found")
 			if expectExporter {
 				require.NotNil(t, exporterContainer, "ironic-prometheus-exporter container not found")
-				assert.Len(t, exporterContainer.Env, 1)
-				assert.Equal(t, "FLASK_RUN_PORT", exporterContainer.Env[0].Name)
-				assert.Equal(t, "9608", exporterContainer.Env[0].Value)
+				assert.Len(t, exporterContainer.Env, 2)
+				assert.Equal(t, "FLASK_RUN_HOST", exporterContainer.Env[0].Name)
+				assert.Equal(t, "127.0.0.1", exporterContainer.Env[0].Value)
+				assert.Equal(t, "FLASK_RUN_PORT", exporterContainer.Env[1].Name)
+				assert.Equal(t, "9608", exporterContainer.Env[1].Value)
 				assert.Len(t, exporterContainer.Ports, 1)
 				assert.Equal(t, int32(9608), exporterContainer.Ports[0].ContainerPort)
 			}

@@ -41,6 +41,10 @@ func ensureServiceMonitor(cctx ControllerContext, ironic *metal3api.Ironic) (Sta
 			{
 				Port: metricsPortName,
 				// TODO(dtantsur): TLS support?
+				// NOTE: The ironic-prometheus-exporter binds to localhost (127.0.0.1) by default
+				// to prevent unauthenticated access from the host network. This means that
+				// ServiceMonitor-based scraping from a remote Prometheus instance will NOT work
+				// unless the exporter is explicitly configured to listen on all interfaces.
 				Scheme: ptr.To(monitoringv1.SchemeHTTP),
 				Path:   "/metrics",
 			},
