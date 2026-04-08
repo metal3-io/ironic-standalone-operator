@@ -38,6 +38,11 @@ Run these locally before submitting PRs:
 | `./hack/manifestlint.sh` | Kubernetes manifest validation (kubeconform) |
 | `./hack/shellcheck.sh` | Shell script linting (shellcheck) |
 
+> **Container runtime:** Scripts and make targets that uses a container runtime
+can be configured to use either podman or docker by setting `CONTAINER_RUNTIME`.
+Check what is available in your environment and set `CONTAINER_RUNTIME`
+accordingly (e.g. `make manifests CONTAINER_RUNTIME=docker`).
+
 ## Code Conventions
 
 - **Go**: Linting rules in `.golangci.yaml`, license headers in `hack/boilerplate.go.txt`
