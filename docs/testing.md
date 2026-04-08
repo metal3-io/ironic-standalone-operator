@@ -91,8 +91,7 @@ Use the `LABEL_FILTER` environment variable to select tests by label:
 LABEL_FILTER="tls" ./test/run.sh
 ```
 
-Available labels: `no-params`, `tls`, `upgrade`, `ha`, `database`,
-`keepalived-dnsmasq`.
+To see all available labels, search for `Label(` in `test/suite_test.go`.
 
 ### Configuration
 
@@ -108,3 +107,72 @@ After a test run, collect diagnostic logs with:
 ```bash
 ./test/collect-logs.sh
 ```
+
+### Extending the test suite
+
+Functional tests live in `test/suite_test.go` and use
+[Ginkgo v2](https://onsi.github.io/ginkgo/) with
+[Gomega](https://onsi.github.io/gomega/). Helper utilities are in
+`test/helpers/`.
+
+#### Test structure
+
+All tests are defined inside a single `Describe("Ironic object tests")` block.
+Each `It` block must have a unique **label** as its first `Label(...)` argument.
+The `BeforeEach` creates a Kubernetes namespace named `test-<first-label>`,
+so every test runs in isolation.
+
+A typical test follows this pattern:
+
+```go
+It("creates Ironic with my feature", Label("my-feature"), func() {
+    name := types.NamespacedName{
+        Name:      "test-ironic",
+        Namespace: namespace,
+    }
+
+    ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+        // Set the fields relevant to your feature
+    })
+    DeferCleanup(func() {
+        CollectLogs(namespace)
+        DeleteAndWait(ironic)
+    })
+
+    ironic = WaitForIronic(name)
+    VerifyIronic(ironic, TestAssumptions{
+        // Enable the checks relevant to your feature
+    })
+})
+```
+
+#### Key helpers
+
+| Function / Type | Location | Purpose |
+|-----------------|----------|---------|
+| `helpers.NewIronic` | `test/helpers/resources.go` | Create an Ironic CR with the given spec |
+| `helpers.NewAuthSecret` | `test/helpers/resources.go` | Create a BasicAuth secret |
+| `helpers.NewTLSSecret` | `test/helpers/resources.go` | Create a TLS secret |
+| `helpers.CreateDatabase` | `test/helpers/database.go` | Set up MariaDB database, user, and grant |
+| `WaitForIronic` | `test/suite_test.go` | Poll until the Ironic CR reaches Ready |
+| `WaitForUpgrade` | `test/suite_test.go` | Poll until an upgrade completes |
+| `WaitForIronicFailure` | `test/suite_test.go` | Poll until the Ready condition reports a specific error |
+| `VerifyIronic` | `test/suite_test.go` | Run verification checks against a running Ironic |
+| `DeleteAndWait` | `test/suite_test.go` | Delete an Ironic CR and wait for it to be gone |
+| `CollectLogs` | `test/suite_test.go` | Save pod logs and resource YAML to `$LOGDIR` |
+| `TestAssumptions` | `test/suite_test.go` | Struct controlling which checks `VerifyIronic` runs |
+
+#### Adding a new test
+
+1. Add a new `It` block inside the existing `Describe` in
+   `test/suite_test.go`. Give it a descriptive name and a unique label.
+1. If your test needs new verification logic, add fields to the
+   `TestAssumptions` struct and handle them in `VerifyIronic` (or in
+   dedicated `verify*` functions).
+1. If you need reusable resource creation (new Secret types, ConfigMaps,
+   etc.), add helpers to `test/helpers/`.
+1. Run your test in isolation first:
+
+   ```bash
+   LABEL_FILTER="my-feature" ./test/run.sh
+   ```
