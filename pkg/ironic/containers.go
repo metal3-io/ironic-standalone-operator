@@ -32,7 +32,8 @@ const (
 	certsDir  = "/certs"
 	sharedDir = "/shared"
 
-	metricsPort = 9608
+	metricsPort            = 9608
+	defaultMetricsBindAddr = "0.0.0.0"
 
 	knownExistingPath = "/images/ironic-python-agent.kernel"
 
@@ -667,6 +668,13 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 	}
 }
 
+func flaskRunHost(ironic *metal3api.Ironic) string {
+	if ironic.Spec.PrometheusExporter != nil && ironic.Spec.PrometheusExporter.BindAddress != "" {
+		return ironic.Spec.PrometheusExporter.BindAddress
+	}
+	return defaultMetricsBindAddr
+}
+
 func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.Ironic, volumeMount corev1.VolumeMount) corev1.Container {
 	port := int32(metricsPort)
 	if ironic.Spec.Networking.PrometheusExporterPort != 0 {
@@ -679,10 +687,11 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 		Command: []string{"/bin/runironic-exporter"},
 		Env: []corev1.EnvVar{
 			{
-				// Bind to localhost to prevent unauthenticated access from the
-				// network when the pod runs with hostNetwork: true.
+				// Bind address for the metrics endpoint. Defaults to "0.0.0.0" (all interfaces).
+				// Can be overridden via spec.prometheusExporter.bindAddress, e.g. to
+				// "127.0.0.1" to restrict access to the local host only.
 				Name:  "FLASK_RUN_HOST",
-				Value: "127.0.0.1",
+				Value: flaskRunHost(ironic),
 			},
 			{
 				Name:  "FLASK_RUN_PORT",

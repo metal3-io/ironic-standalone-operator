@@ -511,6 +511,7 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 		prometheusExporter     *metal3api.PrometheusExporter
 		expectedSendSensorData string
 		expectedSensorInterval string
+		expectedFlaskRunHost   string
 	}{
 		{
 			name: "PrometheusExporter enabled with default interval",
@@ -520,6 +521,7 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			},
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "60",
+			expectedFlaskRunHost:   "0.0.0.0",
 		},
 		{
 			name: "PrometheusExporter enabled with custom interval",
@@ -529,6 +531,36 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			},
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "120",
+			expectedFlaskRunHost:   "0.0.0.0",
+		},
+		{
+			name: "PrometheusExporter enabled with bindAddress 0.0.0.0",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled:     true,
+				BindAddress: "0.0.0.0",
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "60",
+			expectedFlaskRunHost:   "0.0.0.0",
+		},
+		{
+			name: "PrometheusExporter enabled with custom bindAddress",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled:     true,
+				BindAddress: "192.168.1.10",
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "60",
+			expectedFlaskRunHost:   "192.168.1.10",
+		},
+		{
+			name: "PrometheusExporter enabled with empty bindAddress defaults to wildcard",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled: true,
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "60",
+			expectedFlaskRunHost:   "0.0.0.0",
 		},
 		{
 			name: "PrometheusExporter disabled",
@@ -582,7 +614,7 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 				require.NotNil(t, exporterContainer, "ironic-prometheus-exporter container not found")
 				assert.Len(t, exporterContainer.Env, 2)
 				assert.Equal(t, "FLASK_RUN_HOST", exporterContainer.Env[0].Name)
-				assert.Equal(t, "127.0.0.1", exporterContainer.Env[0].Value)
+				assert.Equal(t, tc.expectedFlaskRunHost, exporterContainer.Env[0].Value)
 				assert.Equal(t, "FLASK_RUN_PORT", exporterContainer.Env[1].Name)
 				assert.Equal(t, "9608", exporterContainer.Env[1].Value)
 				assert.Len(t, exporterContainer.Ports, 1)

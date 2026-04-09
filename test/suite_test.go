@@ -334,6 +334,9 @@ type TestAssumptions struct {
 
 	// Assume presence of ironic-prometheus-exporter
 	withPrometheusExporter bool
+
+	// The bind address used for the prometheus exporter (empty means default 127.0.0.1)
+	exporterBindAddress string
 }
 
 func verifyAPIVersion(ctx context.Context, cli *gophercloud.ServiceClient, assumptions TestAssumptions) {
@@ -466,21 +469,55 @@ func verifyConductorList(ctx context.Context, cli *gophercloud.ServiceClient, as
 	}
 }
 
-func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string) {
-	By("checking ironic-prometheus-exporter is not accessible via node IP (localhost binding)")
+func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string, bindAddress string) {
+	// Resolve empty to the default (0.0.0.0) so the classification below is unambiguous.
+	if bindAddress == "" {
+		bindAddress = "0.0.0.0"
+	}
+	parsedBind := net.ParseIP(bindAddress)
+	isLoopback := parsedBind != nil && parsedBind.IsLoopback()
+	// Wildcard means the exporter is reachable on all interfaces including the node IP.
+	isWildcard := bindAddress == "0.0.0.0" || bindAddress == "::"
 
-	// The prometheus exporter binds to localhost (127.0.0.1) for security,
-	// so the metrics endpoint must NOT be reachable via the node's external IP.
-	// NOTE(dtantsur): each Ironic replica has its own exporter, so verify them all independently.
-	for _, ironicIP := range currentIronicIPs {
-		addr := net.JoinHostPort(ironicIP, "9608")
-		dialer := &net.Dialer{}
-		conn, err := dialer.DialContext(ctx, "tcp", addr)
-		if conn != nil {
-			conn.Close()
+	switch {
+	case isLoopback:
+		By("checking ironic-prometheus-exporter is not accessible via node IP (localhost binding)")
+
+		// The prometheus exporter binds to localhost by default for security, so the
+		// metrics endpoint must NOT be reachable via the node's external IP.
+		// NOTE(dtantsur): each Ironic replica has its own exporter, verify them all independently.
+		for _, ironicIP := range currentIronicIPs {
+			addr := net.JoinHostPort(ironicIP, "9608")
+			dialer := &net.Dialer{}
+			conn, err := dialer.DialContext(ctx, "tcp", addr)
+			if conn != nil {
+				conn.Close()
+			}
+			Expect(err).To(HaveOccurred(),
+				"metrics endpoint should not be accessible via node IP %s (expected connection refused due to localhost binding)", ironicIP)
 		}
-		Expect(err).To(HaveOccurred(),
-			"metrics endpoint should not be accessible via node IP %s (expected connection refused due to localhost binding)", ironicIP)
+
+	case isWildcard:
+		By(fmt.Sprintf("checking ironic-prometheus-exporter is accessible via node IP (bindAddress=%s)", bindAddress))
+
+		httpClient := helpers.NewHTTPClient()
+
+		// NOTE(dtantsur): each Ironic replica has its own exporter, verify them all independently.
+		for _, ironicIP := range currentIronicIPs {
+			testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(ironicIP, "9608"))
+			statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
+			Expect(statusCode).To(Equal(200))
+		}
+
+	default:
+		// bindAddress is a specific non-loopback IP (e.g. a provisioning network IP).
+		// Probe that exact address rather than iterating node IPs, which may differ.
+		By("checking ironic-prometheus-exporter is accessible via specific bindAddress " + bindAddress)
+
+		httpClient := helpers.NewHTTPClient()
+		testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(bindAddress, "9608"))
+		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
+		Expect(statusCode).To(Equal(200))
 	}
 }
 
@@ -562,7 +599,7 @@ func VerifyIronic(ironic *metal3api.Ironic, assumptions TestAssumptions) {
 	}
 
 	if assumptions.withPrometheusExporter {
-		verifyPrometheusExporter(withTimeout, currentIronicIPs)
+		verifyPrometheusExporter(withTimeout, currentIronicIPs, assumptions.exporterBindAddress)
 	}
 
 	clients := make([]*gophercloud.ServiceClient, 0, len(ironicURLs))
@@ -1190,8 +1227,9 @@ var _ = Describe("Ironic object tests", func() {
 
 		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
 			PrometheusExporter: &metal3api.PrometheusExporter{
-				DisableServiceMonitor: os.Getenv("HAS_SERVICE_MONITOR") != "true",
+				DisableServiceMonitor: true,
 				Enabled:               true,
+				BindAddress:           "0.0.0.0",
 			},
 		})
 		DeferCleanup(func() {
@@ -1200,7 +1238,41 @@ var _ = Describe("Ironic object tests", func() {
 		})
 
 		ironic = WaitForIronic(name)
-		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true})
+		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true, exporterBindAddress: "0.0.0.0"})
+	})
+
+	It("creates Ironic with prometheus exporter bound to specific node IP", Label("prometheus-exporter-specific-ip"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		// ironicIPs[0] is the Kubernetes node InternalIP, populated in BeforeSuite
+		// from the control-plane node list. In a single-node Minikube cluster this
+		// is identical to pod.Status.HostIP, so the exporter can bind to it and
+		// the test runner can reach it directly.
+		Expect(ironicIPs).NotTo(BeEmpty(), "ironicIPs must be populated before this test runs")
+		specificIP := ironicIPs[0]
+		parsedIP := net.ParseIP(specificIP)
+		Expect(parsedIP).NotTo(BeNil(), "ironicIPs[0] must be a valid IP address")
+		Expect(parsedIP.IsLoopback()).To(BeFalse(), "ironicIPs[0] must be a non-loopback address for this test to be meaningful")
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			PrometheusExporter: &metal3api.PrometheusExporter{
+				DisableServiceMonitor: true,
+				Enabled:               true,
+				// Bind only to the node's specific external IP, not to all interfaces.
+				// verifyPrometheusExporter will probe this address directly.
+				BindAddress: specificIP,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true, exporterBindAddress: specificIP})
 	})
 })
 

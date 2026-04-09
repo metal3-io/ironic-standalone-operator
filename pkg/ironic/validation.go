@@ -3,6 +3,7 @@ package ironic
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"net/url"
 	"reflect"
@@ -213,6 +214,24 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.HighAvailability && ironic.PrometheusExporter != nil && !ironic.PrometheusExporter.DisableServiceMonitor {
 		return errors.New("ServiceMonitor support is currently incompatible with the highly available architecture")
+	}
+
+	if ironic.PrometheusExporter != nil && ironic.PrometheusExporter.BindAddress != "" {
+		ip := net.ParseIP(ironic.PrometheusExporter.BindAddress)
+		if ip == nil {
+			return fmt.Errorf("prometheusExporter: bindAddress %q is not a valid IP address", ironic.PrometheusExporter.BindAddress)
+		}
+	}
+
+	if ironic.PrometheusExporter != nil && ironic.PrometheusExporter.Enabled && !ironic.PrometheusExporter.DisableServiceMonitor {
+		bindAddr := ironic.PrometheusExporter.BindAddress
+		if bindAddr == "" {
+			bindAddr = defaultMetricsBindAddr
+		}
+		ip := net.ParseIP(bindAddr)
+		if ip != nil && ip.IsLoopback() {
+			return fmt.Errorf("ServiceMonitor is not compatible with a loopback bindAddress %q, since the metrics endpoint is not reachable from remote Prometheus instances; set a non-loopback bindAddress or set disableServiceMonitor to true", bindAddr)
+		}
 	}
 
 	if ironic.HighAvailability && !metal3api.CurrentFeatureGate.Enabled(metal3api.FeatureHighAvailability) {
