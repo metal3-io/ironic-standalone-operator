@@ -28,6 +28,7 @@ Run these locally before submitting PRs:
 | `make generate` | Regenerate DeepCopy methods |
 | `make manifests` | Regenerate CRDs, RBAC, webhooks, API docs |
 | `make lint` | Go linting via golangci-lint (all modules) |
+| `make lint-fix` | Run golangci-lint auto-fixers (all modules) |
 | `make modules` | Verify go.mod is tidy (all 3 modules) |
 
 **Hack scripts** (auto-containerized, match CI exactly):
