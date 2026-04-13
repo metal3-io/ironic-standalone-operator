@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -89,13 +90,9 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// Record event for reconciliation start
-	r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "Reconciling", "Starting reconciliation")
-
 	changed, err := r.handleIronic(cctx, ironicConf)
 	if err != nil {
 		cctx.Logger.Error(err, "reconcile failed, will retry")
-		r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "ReconcileFailed", fmt.Sprintf("Reconciliation failed: %v", err))
 		return ctrl.Result{}, err
 	}
 	if changed {
@@ -103,7 +100,6 @@ func (r *IronicReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	logger.Info("object has been fully reconciled")
-	r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "Reconciled", "Object has been fully reconciled")
 	return ctrl.Result{}, nil
 }
 
@@ -167,9 +163,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 
 	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicConf)
 	if requeue || err != nil {
-		if err != nil {
-			r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "APISecretError", fmt.Sprintf("Failed to ensure API secret: %v", err))
-		}
 		return requeue, err
 	}
 
@@ -226,7 +219,6 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	status, err := ironic.EnsureIronic(cctx, resources)
 	if err != nil {
 		cctx.Logger.Error(err, "potentially transient error, will retry")
-		r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "EnsureIronicFailed", fmt.Sprintf("Failed to ensure Ironic resources: %v", err))
 		return requeue, err
 	}
 
@@ -244,15 +236,15 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		ironicConf.Status = *newStatus
 		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 		if err == nil {
-			// Record events for status changes
 			if newReady && !oldReady {
 				r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "IronicReady", "Ironic deployment is now ready")
 			} else if !newReady && oldReady {
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "IronicNotReady", status.String())
-			} else if status.IsError() {
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "IronicError", status.String())
-			} else if !status.IsReady() {
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "IronicInProgress", status.String())
+				readyCond := meta.FindStatusCondition(newStatus.Conditions, string(metal3api.IronicStatusReady))
+				msg := status.String()
+				if readyCond != nil {
+					msg = readyCond.Message
+				}
+				r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "IronicNotReady", msg)
 			}
 		}
 	}
