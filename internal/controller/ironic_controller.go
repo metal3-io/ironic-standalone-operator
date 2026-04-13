@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +52,7 @@ type IronicReconciler struct {
 	Log           logr.Logger
 	Domain        string
 	VersionInfo   ironic.VersionInfo
-	EventRecorder record.EventRecorder
+	EventRecorder events.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=ironic.metal3.io,resources=ironics,verbs=get;list;watch;create;update;patch;delete
@@ -128,7 +128,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 	if err != nil {
 		// This condition requires a user's intervention
 		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
-		r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "VersionError", fmt.Sprintf("Failed to process version: %v", err))
+		r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "VersionError", "VersionError", "Failed to process version: %v", err)
 		return true, err
 	}
 	cctx.VersionInfo = versionInfo
@@ -148,7 +148,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 			if !parsedVersion.IsLatest() && cctx.VersionInfo.InstalledVersion.Compare(parsedVersion) < 0 {
 				cctx.Logger.Info("refusing to downgrade Ironic", "InstalledVersion", ironicConf.Status.InstalledVersion, "RequestedVersion", actuallyRequestedVersion)
 				_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, "Ironic does not support downgrades with an external database")
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "DowngradeRejected", fmt.Sprintf("Downgrade from %s to %s is not supported with external database", ironicConf.Status.InstalledVersion, actuallyRequestedVersion))
+				r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "DowngradeRejected", "DowngradeRejected", "Downgrade from %s to %s is not supported with external database", ironicConf.Status.InstalledVersion, actuallyRequestedVersion)
 				return false, nil
 			}
 		}
@@ -158,7 +158,7 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		if err != nil {
 			return requeue, err
 		}
-		r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "VersionChange", fmt.Sprintf("Version change requested from %s to %s", ironicConf.Status.InstalledVersion, actuallyRequestedVersion))
+		r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeNormal, "VersionChange", "VersionChange", "Version change requested from %s to %s", ironicConf.Status.InstalledVersion, actuallyRequestedVersion)
 	}
 
 	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicConf)
@@ -237,14 +237,14 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
 		if err == nil {
 			if newReady && !oldReady {
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "IronicReady", "Ironic deployment is now ready")
+				r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeNormal, "IronicReady", "IronicReady", "Ironic deployment is now ready")
 			} else if !newReady && oldReady {
 				readyCond := meta.FindStatusCondition(newStatus.Conditions, string(metal3api.IronicStatusReady))
 				msg := status.String()
 				if readyCond != nil {
 					msg = readyCond.Message
 				}
-				r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "IronicNotReady", msg)
+				r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "IronicNotReady", "IronicNotReady", "%s", msg)
 			}
 		}
 	}
@@ -269,7 +269,7 @@ func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, iro
 			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, wrappedErr.Error())
 		}
 		if k8serrors.IsNotFound(err) {
-			r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "SecretNotFound", fmt.Sprintf("secret %s/%s not found", ironicConf.Namespace, secretName))
+			r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "SecretNotFound", "SecretNotFound", "secret %s/%s not found", ironicConf.Namespace, secretName)
 		}
 		return nil, true, wrappedErr
 	}
@@ -294,7 +294,7 @@ func (r *IronicReconciler) getConfigMap(cctx ironic.ControllerContext, ironicCon
 			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, wrappedErr.Error())
 		}
 		if k8serrors.IsNotFound(err) {
-			r.EventRecorder.Event(ironicConf, corev1.EventTypeWarning, "ConfigMapNotFound", fmt.Sprintf("configmap %s/%s not found", ironicConf.Namespace, configMapName))
+			r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "ConfigMapNotFound", "ConfigMapNotFound", "configmap %s/%s not found", ironicConf.Namespace, configMapName)
 		}
 		return nil, true, wrappedErr
 	}
@@ -317,7 +317,7 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 			// Considering this a transient error
 			return nil, true, fmt.Errorf("cannot update the new API credentials secret: %w", err)
 		}
-		r.EventRecorder.Event(ironicConf, corev1.EventTypeNormal, "APISecretCreated", fmt.Sprintf("Created new API credentials secret: %s", apiSecret.Name))
+		r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeNormal, "APISecretCreated", "APISecretCreated", "Created new API credentials secret: %s", apiSecret.Name)
 
 		requeue = true
 		return apiSecret, requeue, err
