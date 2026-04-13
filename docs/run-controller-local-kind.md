@@ -58,7 +58,7 @@ which is great for E2E but typically much slower to iterate on.
    ```
 
    To stop the controller, press `Ctrl+C` in the terminal where `make run` is
-running. 
+running.
 
 1. Delete the kind cluster:
 
