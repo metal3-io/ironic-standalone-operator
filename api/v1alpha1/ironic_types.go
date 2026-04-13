@@ -104,6 +104,38 @@ const (
 	IPAddressManagerKeepalived IPAddressManager = "keepalived"
 )
 
+// KeepalivedIP defines a virtual IP address to be managed by Keepalived.
+type KeepalivedIP struct {
+	// IPAddress is the virtual IP address to manage.
+	// +kubebuilder:validation:MinLength=1
+	IPAddress string `json:"ipAddress"`
+
+	// Interface is the Linux network interface on which to manage the IP.
+	// +kubebuilder:validation:MinLength=1
+	Interface string `json:"interface"`
+
+	// Prefix is the prefix length of the IP address (e.g. 24 for a /24 subnet).
+	// When not set, keepalived uses /32 for IPv4 and /128 for IPv6.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=128
+	// +optional
+	Prefix *int32 `json:"prefix,omitempty"`
+}
+
+// KeepalivedConfig defines the Keepalived configuration for managing virtual IPs.
+type KeepalivedConfig struct {
+	// Enabled indicates whether Keepalived should be started to manage the virtual IP.
+	// When enabled, the main ipAddress and interface from the networking configuration
+	// are always included automatically.
+	Enabled bool `json:"enabled"`
+
+	// AdditionalVIPs is a list of additional virtual IPs to be managed by Keepalived,
+	// beyond the main ipAddress/interface from the networking configuration.
+	// Use this when you need Keepalived to manage IPs on additional network interfaces.
+	// +optional
+	AdditionalVIPs []KeepalivedIP `json:"additionalVIPs,omitempty"`
+}
+
 // Networking defines networking settings for Ironic.
 type Networking struct {
 	// APIPort is the public port used for Ironic.
@@ -132,6 +164,13 @@ type Networking struct {
 	// +optional
 	ImageServerPort int32 `json:"imageServerPort,omitempty"`
 
+	// ImageServerIPAddress is the IP address from which BMCs will access the image server
+	// for virtual media. Use this when BMCs live on a separate network (e.g., out-of-band management)
+	// and need to access virtual media images through a different IP than the main provisioning IP.
+	// When not set, the main IPAddress (or ExternalIP if set) is used.
+	// +optional
+	ImageServerIPAddress string `json:"imageServerIPAddress,omitempty"`
+
 	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
 	// +kubebuilder:default=6183
 	// +kubebuilder:validation:Minimum=1
@@ -152,9 +191,19 @@ type Networking struct {
 	// By default, the IP address is expected to be already present.
 	// Use "keepalived" to start a Keepalived container managing the IP address.
 	// Warning: keepalived is not compatible with the highly available architecture.
+	//
+	// Deprecated: Use the keepalived field instead.
 	// +kubebuilder:validation:Enum="";keepalived
 	// +optional
 	IPAddressManager IPAddressManager `json:"ipAddressManager,omitempty"`
+
+	// Keepalived configures Keepalived to manage virtual IPs on the specified interfaces.
+	// When enabled, a Keepalived container will be started to manage the main ipAddress
+	// on the main interface, plus any additional VIPs listed in additionalVIPs.
+	// Cannot be used together with ipAddressManager.
+	// Warning: keepalived is not compatible with the highly available architecture.
+	// +optional
+	Keepalived *KeepalivedConfig `json:"keepalived,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.

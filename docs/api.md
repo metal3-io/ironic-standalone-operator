@@ -472,6 +472,16 @@ This settings only applies to virtual media deployments. The IP will not be acce
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>imageServerIPAddress</b></td>
+        <td>string</td>
+        <td>
+          ImageServerIPAddress is the IP address from which BMCs will access the image server
+for virtual media. Use this when BMCs live on a separate network (e.g., out-of-band management)
+and need to access virtual media images through a different IP than the main provisioning IP.
+When not set, the main IPAddress (or ExternalIP if set) is used.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>imageServerPort</b></td>
         <td>integer</td>
         <td>
@@ -516,9 +526,22 @@ Detected from Interface if missing. Cannot be provided for a highly available ar
           Configures the way the provided IP address will be managed on the provided interface.
 By default, the IP address is expected to be already present.
 Use "keepalived" to start a Keepalived container managing the IP address.
-Warning: keepalived is not compatible with the highly available architecture.<br/>
+Warning: keepalived is not compatible with the highly available architecture.
+
+Deprecated: Use the keepalived field instead.<br/>
           <br/>
             <i>Enum</i>: , keepalived<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingkeepalived">keepalived</a></b></td>
+        <td>object</td>
+        <td>
+          Keepalived configures Keepalived to manage virtual IPs on the specified interfaces.
+When enabled, a Keepalived container will be started to manage the main ipAddress
+on the main interface, plus any additional VIPs listed in additionalVIPs.
+Cannot be used together with ipAddressManager.
+Warning: keepalived is not compatible with the highly available architecture.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -635,6 +658,94 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.keepalived
+<sup><sup>[↩ Parent](#ironicspecnetworking)</sup></sup>
+
+
+
+Keepalived configures Keepalived to manage virtual IPs on the specified interfaces.
+When enabled, a Keepalived container will be started to manage the main ipAddress
+on the main interface, plus any additional VIPs listed in additionalVIPs.
+Cannot be used together with ipAddressManager.
+Warning: keepalived is not compatible with the highly available architecture.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether Keepalived should be started to manage the virtual IP.
+When enabled, the main ipAddress and interface from the networking configuration
+are always included automatically.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingkeepalivedadditionalvipsindex">additionalVIPs</a></b></td>
+        <td>[]object</td>
+        <td>
+          AdditionalVIPs is a list of additional virtual IPs to be managed by Keepalived,
+beyond the main ipAddress/interface from the networking configuration.
+Use this when you need Keepalived to manage IPs on additional network interfaces.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.keepalived.additionalVIPs[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingkeepalived)</sup></sup>
+
+
+
+KeepalivedIP defines a virtual IP address to be managed by Keepalived.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>interface</b></td>
+        <td>string</td>
+        <td>
+          Interface is the Linux network interface on which to manage the IP.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>ipAddress</b></td>
+        <td>string</td>
+        <td>
+          IPAddress is the virtual IP address to manage.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>prefix</b></td>
+        <td>integer</td>
+        <td>
+          Prefix is the prefix length of the IP address (e.g. 24 for a /24 subnet).
+When not set, keepalived uses /32 for IPv4 and /128 for IPv6.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Minimum</i>: 0<br/>
+            <i>Maximum</i>: 128<br/>
         </td>
         <td>false</td>
       </tr></tbody>

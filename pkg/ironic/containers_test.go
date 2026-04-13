@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -58,6 +59,23 @@ func TestExpectedContainers(t *testing.T) {
 				},
 			},
 			ExpectedContainerNames:     []string{"dnsmasq", "httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
+		{
+			Scenario: "Keepalived with additional VIPs",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1"},
+						},
+					},
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
 			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
 		},
 		{
@@ -1046,6 +1064,290 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
 			assert.Equal(t, expectedPath, envVars[0].Value, "WEBSERVER_CACERT_FILE value mismatch")
 			assert.Equal(t, expectedPath, envVars[1].Value, "IRONIC_CACERT_FILE value mismatch")
+		})
+	}
+}
+
+func TestKeepalivedEnvVars(t *testing.T) {
+	testCases := []struct {
+		name                     string
+		ironic                   metal3api.IronicSpec
+		expectedKeepalivedVIPEnv string
+		expectedProvisioningIP   string
+		expectedProvInterface    string
+	}{
+		{
+			name: "legacy single-IP mode",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+				},
+			},
+			expectedProvisioningIP: "192.0.2.2",
+			expectedProvInterface:  "eth0",
+		},
+		{
+			name: "keepalived enabled with additional VIPs",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1"},
+						},
+					},
+				},
+			},
+			expectedKeepalivedVIPEnv: "192.0.2.2,eth0 192.168.1.50,eth1",
+		},
+		{
+			name: "keepalived with DHCP: main IP prefix derived from NetworkCIDR",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.0.2.0/24",
+						RangeBegin:  "192.0.2.10",
+						RangeEnd:    "192.0.2.200",
+					},
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			expectedKeepalivedVIPEnv: "192.0.2.2,eth0,24",
+		},
+		{
+			name: "keepalived with DHCP and additional VIP with explicit prefix",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.0.2.0/24",
+						RangeBegin:  "192.0.2.10",
+						RangeEnd:    "192.0.2.200",
+					},
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1", Prefix: ptr.To(int32(25))},
+						},
+					},
+				},
+			},
+			expectedKeepalivedVIPEnv: "192.0.2.2,eth0,24 192.168.1.50,eth1,25",
+		},
+		{
+			name: "keepalived without DHCP, additional VIP with explicit prefix",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "fd00::100", Interface: "eth1", Prefix: ptr.To(int32(64))},
+						},
+					},
+				},
+			},
+			expectedKeepalivedVIPEnv: "192.0.2.2,eth0 fd00::100,eth1,64",
+		},
+		{
+			name: "keepalived enabled without additional VIPs",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			expectedKeepalivedVIPEnv: "192.0.2.2,eth0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: tc.ironic,
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var keepalivedContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "keepalived" {
+					keepalivedContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, keepalivedContainer, "keepalived container should exist")
+
+			envMap := make(map[string]string)
+			for _, env := range keepalivedContainer.Env {
+				envMap[env.Name] = env.Value
+			}
+
+			if tc.expectedKeepalivedVIPEnv != "" {
+				assert.Equal(t, tc.expectedKeepalivedVIPEnv, envMap["KEEPALIVED_VIRTUAL_IPS"])
+				assert.Empty(t, envMap["PROVISIONING_IP"], "PROVISIONING_IP should not be set in multi-IP mode")
+				assert.Empty(t, envMap["PROVISIONING_INTERFACE"], "PROVISIONING_INTERFACE should not be set in multi-IP mode")
+			} else {
+				assert.Equal(t, tc.expectedProvisioningIP, envMap["PROVISIONING_IP"])
+				assert.Equal(t, tc.expectedProvInterface, envMap["PROVISIONING_INTERFACE"])
+				assert.Empty(t, envMap["KEEPALIVED_VIRTUAL_IPS"], "KEEPALIVED_VIRTUAL_IPS should not be set in legacy mode")
+			}
+		})
+	}
+}
+
+func TestImageServerIPAddress(t *testing.T) {
+	testCases := []struct {
+		name            string
+		ironic          metal3api.IronicSpec
+		expectedHTTPURL string
+		expectNoHTTPURL bool
+	}{
+		{
+			name: "not set",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "192.0.2.2",
+				},
+			},
+			expectNoHTTPURL: true,
+		},
+		{
+			name: "set without TLS",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress:            "192.0.2.2",
+					ImageServerIPAddress: "192.168.1.50",
+					ImageServerPort:      6180,
+				},
+			},
+			expectedHTTPURL: "http://192.168.1.50:6180",
+		},
+		{
+			name: "set with TLS",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress:            "192.0.2.2",
+					ImageServerIPAddress: "192.168.1.50",
+					ImageServerTLSPort:   6183,
+				},
+				TLS: metal3api.TLS{
+					CertificateName: "ironic-tls",
+				},
+			},
+			expectedHTTPURL: "https://192.168.1.50:6183",
+		},
+		{
+			name: "set with TLS but virtual media TLS disabled",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress:            "192.0.2.2",
+					ImageServerIPAddress: "192.168.1.50",
+					ImageServerPort:      6180,
+				},
+				TLS: metal3api.TLS{
+					CertificateName:        "ironic-tls",
+					DisableVirtualMediaTLS: true,
+				},
+			},
+			expectedHTTPURL: "http://192.168.1.50:6180",
+		},
+		{
+			name: "set with IPv6 address",
+			ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress:            "192.0.2.2",
+					ImageServerIPAddress: "fd00::1",
+					ImageServerPort:      6180,
+				},
+			},
+			expectedHTTPURL: "http://[fd00::1]:6180",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: tc.ironic,
+			}
+
+			var tlsSecret *corev1.Secret
+			if tc.ironic.TLS.CertificateName != "" {
+				tlsSecret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: tc.ironic.TLS.CertificateName,
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte("cert"),
+						"tls.key": []byte("key"),
+					},
+				}
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret, TLSSecret: tlsSecret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer, "ironic container should exist")
+
+			var httpURL string
+			var foundHTTPURL bool
+			for _, env := range ironicContainer.Env {
+				if env.Name == "IRONIC_HTTP_URL" {
+					foundHTTPURL = true
+					httpURL = env.Value
+					break
+				}
+			}
+
+			if tc.expectNoHTTPURL {
+				assert.False(t, foundHTTPURL, "IRONIC_HTTP_URL should not be set")
+			} else {
+				assert.True(t, foundHTTPURL, "IRONIC_HTTP_URL should be set")
+				assert.Equal(t, tc.expectedHTTPURL, httpURL)
+			}
 		})
 	}
 }
