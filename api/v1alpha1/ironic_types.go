@@ -104,6 +104,17 @@ const (
 	IPAddressManagerKeepalived IPAddressManager = "keepalived"
 )
 
+// KeepalivedIP defines a virtual IP address to be managed by Keepalived.
+type KeepalivedIP struct {
+	// IPAddress is the virtual IP address to manage.
+	// +kubebuilder:validation:MinLength=1
+	IPAddress string `json:"ipAddress"`
+
+	// Interface is the Linux network interface on which to manage the IP.
+	// +kubebuilder:validation:MinLength=1
+	Interface string `json:"interface"`
+}
+
 // Networking defines networking settings for Ironic.
 type Networking struct {
 	// APIPort is the public port used for Ironic.
@@ -132,6 +143,13 @@ type Networking struct {
 	// +optional
 	ImageServerPort int32 `json:"imageServerPort,omitempty"`
 
+	// ImageServerIPAddress is the IP address from which BMCs will access the image server
+	// for virtual media. Use this when BMCs live on a separate network (e.g., out-of-band management)
+	// and need to access virtual media images through a different IP than the main provisioning IP.
+	// When not set, the main IPAddress (or ExternalIP if set) is used.
+	// +optional
+	ImageServerIPAddress string `json:"imageServerIPAddress,omitempty"`
+
 	// ImageServerTLSPort is the public port used for serving virtual media images over TLS.
 	// +kubebuilder:default=6183
 	// +kubebuilder:validation:Minimum=1
@@ -151,10 +169,19 @@ type Networking struct {
 	// Configures the way the provided IP address will be managed on the provided interface.
 	// By default, the IP address is expected to be already present.
 	// Use "keepalived" to start a Keepalived container managing the IP address.
+	// Also see the keepalived field for an alternative with more advanced options.
 	// Warning: keepalived is not compatible with the highly available architecture.
 	// +kubebuilder:validation:Enum="";keepalived
 	// +optional
 	IPAddressManager IPAddressManager `json:"ipAddressManager,omitempty"`
+
+	// Keepalived is a list of virtual IPs to be managed by Keepalived.
+	// When set, a Keepalived container will be started to manage these IPs.
+	// The first entry's interface is used as the primary VRRP interface.
+	// Cannot be used together with ipAddressManager.
+	// Warning: keepalived is not compatible with the highly available architecture.
+	// +optional
+	Keepalived []KeepalivedIP `json:"keepalived,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.

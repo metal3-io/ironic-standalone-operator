@@ -242,6 +242,13 @@ spec:
                       ExternalIP is used for accessing API and the image server from remote hosts.
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
                     type: string
+                  imageServerIPAddress:
+                    description: |-
+                      ImageServerIPAddress is the IP address from which BMCs will access the image server
+                      for virtual media. Use this when BMCs live on a separate network (e.g., out-of-band management)
+                      and need to access virtual media images through a different IP than the main provisioning IP.
+                      When not set, the main IPAddress (or ExternalIP if set) is used.
+                    type: string
                   imageServerPort:
                     default: 6180
                     description: ImageServerPort is the public port used for serving
@@ -271,11 +278,37 @@ spec:
                       Configures the way the provided IP address will be managed on the provided interface.
                       By default, the IP address is expected to be already present.
                       Use "keepalived" to start a Keepalived container managing the IP address.
+                      Also see the keepalived field for an alternative with more advanced options.
                       Warning: keepalived is not compatible with the highly available architecture.
                     enum:
                     - ""
                     - keepalived
                     type: string
+                  keepalived:
+                    description: |-
+                      Keepalived is a list of virtual IPs to be managed by Keepalived.
+                      When set, a Keepalived container will be started to manage these IPs.
+                      The first entry's interface is used as the primary VRRP interface.
+                      Cannot be used together with ipAddressManager.
+                      Warning: keepalived is not compatible with the highly available architecture.
+                    items:
+                      description: KeepalivedIP defines a virtual IP address to be
+                        managed by Keepalived.
+                      properties:
+                        interface:
+                          description: Interface is the Linux network interface on
+                            which to manage the IP.
+                          minLength: 1
+                          type: string
+                        ipAddress:
+                          description: IPAddress is the virtual IP address to manage.
+                          minLength: 1
+                          type: string
+                      required:
+                      - interface
+                      - ipAddress
+                      type: object
+                    type: array
                   macAddresses:
                     description: |-
                       MACAddresses can be provided to make the start script pick the interface matching any of these addresses.

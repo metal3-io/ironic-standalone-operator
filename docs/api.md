@@ -472,6 +472,16 @@ This settings only applies to virtual media deployments. The IP will not be acce
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>imageServerIPAddress</b></td>
+        <td>string</td>
+        <td>
+          ImageServerIPAddress is the IP address from which BMCs will access the image server
+for virtual media. Use this when BMCs live on a separate network (e.g., out-of-band management)
+and need to access virtual media images through a different IP than the main provisioning IP.
+When not set, the main IPAddress (or ExternalIP if set) is used.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>imageServerPort</b></td>
         <td>integer</td>
         <td>
@@ -516,9 +526,21 @@ Detected from Interface if missing. Cannot be provided for a highly available ar
           Configures the way the provided IP address will be managed on the provided interface.
 By default, the IP address is expected to be already present.
 Use "keepalived" to start a Keepalived container managing the IP address.
+Also see the keepalived field for an alternative with more advanced options.
 Warning: keepalived is not compatible with the highly available architecture.<br/>
           <br/>
             <i>Enum</i>: , keepalived<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingkeepalivedindex">keepalived</a></b></td>
+        <td>[]object</td>
+        <td>
+          Keepalived is a list of virtual IPs to be managed by Keepalived.
+When set, a Keepalived container will be started to manage these IPs.
+The first entry's interface is used as the primary VRRP interface.
+Cannot be used together with ipAddressManager.
+Warning: keepalived is not compatible with the highly available architecture.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -637,6 +659,40 @@ There is no API-side validation. Most users will leave this unset.<br/>
 Must not be set together with DNSAddress.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.keepalived[index]
+<sup><sup>[↩ Parent](#ironicspecnetworking)</sup></sup>
+
+
+
+KeepalivedIP defines a virtual IP address to be managed by Keepalived.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>interface</b></td>
+        <td>string</td>
+        <td>
+          Interface is the Linux network interface on which to manage the IP.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>ipAddress</b></td>
+        <td>string</td>
+        <td>
+          IPAddress is the virtual IP address to manage.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 

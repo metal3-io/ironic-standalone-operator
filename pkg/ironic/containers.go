@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
 	"os"
 	"slices"
@@ -342,6 +343,10 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 
 	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
 
+	if resources.Ironic.Spec.Networking.ImageServerIPAddress != "" {
+		result = append(result, buildImageServerURLEnvVar(resources.Ironic)...)
+	}
+
 	// Add sensor data environment variables when PrometheusExporter is enabled
 	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled {
 		result = append(result, corev1.EnvVar{
@@ -359,6 +364,27 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	}
 
 	return result
+}
+
+func buildImageServerURLEnvVar(ironic *metal3api.Ironic) []corev1.EnvVar {
+	ip := ironic.Spec.Networking.ImageServerIPAddress
+
+	var scheme string
+	var port int32
+	if ironic.Spec.TLS.CertificateName != "" && !ironic.Spec.TLS.DisableVirtualMediaTLS {
+		scheme = "https"
+		port = ironic.Spec.Networking.ImageServerTLSPort
+	} else {
+		scheme = "http"
+		port = ironic.Spec.Networking.ImageServerPort
+	}
+
+	return []corev1.EnvVar{
+		{
+			Name:  "IRONIC_HTTP_URL",
+			Value: scheme + "://" + net.JoinHostPort(ip, strconv.Itoa(int(port))),
+		},
+	}
 }
 
 func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
@@ -639,15 +665,28 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 }
 
 func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
-	envVars := []corev1.EnvVar{
-		{
+	var envVars []corev1.EnvVar
+
+	if len(ironic.Spec.Networking.Keepalived) > 0 {
+		// New multi-IP mode: use KEEPALIVED_VIRTUAL_IPS env var.
+		// Format: space-separated "ip,interface" entries.
+		entries := make([]string, 0, len(ironic.Spec.Networking.Keepalived))
+		for _, vip := range ironic.Spec.Networking.Keepalived {
+			entries = append(entries, fmt.Sprintf("%s,%s", vip.IPAddress, vip.Interface))
+		}
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "KEEPALIVED_VIRTUAL_IPS",
+			Value: strings.Join(entries, " "),
+		})
+	} else {
+		// Legacy single-IP mode
+		envVars = append(envVars, corev1.EnvVar{
 			Name:  "PROVISIONING_IP",
 			Value: ironic.Spec.Networking.IPAddress,
-		},
-		{
+		}, corev1.EnvVar{
 			Name:  "PROVISIONING_INTERFACE",
 			Value: ironic.Spec.Networking.Interface,
-		},
+		})
 	}
 
 	return corev1.Container{
@@ -826,7 +865,8 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		containers = append(containers, dnsmasqContainer)
 	}
 
-	if resources.Ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
+	if resources.Ironic.Spec.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived ||
+		len(resources.Ironic.Spec.Networking.Keepalived) > 0 {
 		containers = append(containers, newKeepalivedContainer(cctx.VersionInfo, resources.Ironic))
 	}
 
