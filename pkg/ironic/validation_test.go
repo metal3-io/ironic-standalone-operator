@@ -200,6 +200,172 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "ipAddress makes no sense with highly available architecture",
 		},
 		{
+			Scenario: "valid Keepalived enabled without additional VIPs",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+		},
+		{
+			Scenario: "valid Keepalived enabled with additional VIPs",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "Keepalived and ipAddressManager are mutually exclusive",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			ExpectedError: "keepalived and ipAddressManager cannot be used together",
+		},
+		{
+			Scenario: "Keepalived incompatible with HA",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
+				HighAvailability: true,
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			ExpectedError: "ipAddress makes no sense with highly available architecture",
+		},
+		{
+			Scenario: "Keepalived incompatible with HA - no ipAddress",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic",
+				},
+				HighAvailability: true,
+				Networking: metal3api.Networking{
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			ExpectedError: "keepalived is not compatible with the highly available architecture",
+		},
+		{
+			Scenario: "Keepalived requires ipAddress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			ExpectedError: "keepalived requires specifying both ipAddress and interface",
+		},
+		{
+			Scenario: "Keepalived requires interface",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+					},
+				},
+			},
+			ExpectedError: "keepalived requires specifying both ipAddress and interface",
+		},
+		{
+			Scenario: "Keepalived additionalVIPs entry missing ipAddress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{Interface: "eth1"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0]: ipAddress is required",
+		},
+		{
+			Scenario: "Keepalived additionalVIPs entry with invalid IP",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "not-an-ip", Interface: "eth1"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0]: not-an-ip is not a valid IP address",
+		},
+		{
+			Scenario: "Keepalived additionalVIPs entry missing interface",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0]: interface is required",
+		},
+		{
+			Scenario: "valid imageServerIPAddress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerIPAddress: "192.168.1.50",
+				},
+			},
+		},
+		{
+			Scenario: "invalid imageServerIPAddress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerIPAddress: "not-an-ip",
+				},
+			},
+			ExpectedError: "not-an-ip is not a valid IP address",
+		},
+		{
 			Scenario: "with version",
 			Ironic: metal3api.IronicSpec{
 				Version: "32.0",
