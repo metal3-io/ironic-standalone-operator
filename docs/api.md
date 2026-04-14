@@ -671,6 +671,64 @@ Must not be set together with DNSAddress.<br/>
 </table>
 
 
+### Ironic.spec.networking.dhcp.ranges[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingdhcp)</sup></sup>
+
+
+
+DHCPRange defines a single DHCP address range with per-range options.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>networkCIDR</b></td>
+        <td>string</td>
+        <td>
+          NetworkCIDR is the CIDR of the provisioning network for this range.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeBegin</b></td>
+        <td>string</td>
+        <td>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeEnd</b></td>
+        <td>string</td>
+        <td>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>gatewayAddress</b></td>
+        <td>string</td>
+        <td>
+          GatewayAddress is the IPv4 gateway advertised to clients in this range.
+Must be inside NetworkCIDR when set. IPv6 gateways are not supported here.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is used as a dnsmasq tag for per-range options. Required when
+multiple ranges are defined; auto-generated as `range_<i+1>` otherwise.
+Must match [A-Za-z0-9_.-]+.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Ironic.spec.networking.ingress
 <sup><sup>[↩ Parent](#ironicspecnetworking)</sup></sup>
 
