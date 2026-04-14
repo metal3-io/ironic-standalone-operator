@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -1346,6 +1347,26 @@ func TestKeepalivedEnvVars(t *testing.T) {
 				assert.Equal(t, tc.expectedProvInterface, envMap["PROVISIONING_INTERFACE"])
 				assert.Empty(t, envMap["KEEPALIVED_VIRTUAL_IPS"], "KEEPALIVED_VIRTUAL_IPS should not be set in legacy mode")
 			}
+		})
+	}
+}
+
+func TestPrefixToNetmask(t *testing.T) {
+	testCases := []struct {
+		CIDR     string
+		Expected string
+	}{
+		{"192.168.1.0/24", "255.255.255.0"},
+		{"10.0.0.0/16", "255.255.0.0"},
+		{"10.0.0.0/8", "255.0.0.0"},
+		{"192.168.1.0/32", "255.255.255.255"},
+		{"fd69:158d:692a:1::/64", "64"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.CIDR, func(t *testing.T) {
+			prefix, err := netip.ParsePrefix(tc.CIDR)
+			require.NoError(t, err)
+			assert.Equal(t, tc.Expected, prefixToNetmask(prefix))
 		})
 	}
 }
