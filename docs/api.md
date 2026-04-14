@@ -587,7 +587,8 @@ Must not be set together with ServeDNS.<br/>
         <td><b>gatewayAddress</b></td>
         <td>string</td>
         <td>
-          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.<br/>
+          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+Not used when Ranges is set; use per-range GatewayAddress instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -612,7 +613,7 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network. Required when Ranges is not set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -630,11 +631,80 @@ There is no API-side validation. Most users will leave this unset.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecnetworkingdhcprangesindex">ranges</a></b></td>
+        <td>[]object</td>
+        <td>
+          Ranges is a list of DHCP address ranges for multi-subnet support.
+Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
+and GatewayAddress fields — both are concatenated into the dnsmasq configuration.
+Each range can have its own CIDR, gateway, and dnsmasq tag name.
+The provisioning IP (networking.ipAddress) does not need to be in any range's
+CIDR, enabling DHCP relay scenarios.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>serveDNS</b></td>
         <td>boolean</td>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.dhcp.ranges[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingdhcp)</sup></sup>
+
+
+
+DHCPRange defines a single DHCP address range with per-range options.
+Used in the Ranges field for multi-subnet DHCP support.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>networkCIDR</b></td>
+        <td>string</td>
+        <td>
+          NetworkCIDR is the CIDR of the provisioning network for this range.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeBegin</b></td>
+        <td>string</td>
+        <td>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeEnd</b></td>
+        <td>string</td>
+        <td>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>gatewayAddress</b></td>
+        <td>string</td>
+        <td>
+          GatewayAddress is the IP address of the gateway for this range.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is used as a dnsmasq tag for per-range options (e.g. gateway).
+Must be unique across ranges. Required when multiple ranges are defined.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

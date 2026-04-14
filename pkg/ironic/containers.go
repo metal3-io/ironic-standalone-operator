@@ -547,13 +547,48 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	return ironicPorts, httpdPorts
 }
 
+func prefixToNetmask(prefix netip.Prefix) string {
+	bits := prefix.Bits()
+	if prefix.Addr().Is6() {
+		return strconv.Itoa(bits) // IPv6 uses prefix length
+	}
+	// IPv4: convert prefix length to dotted netmask
+	mask := uint32(0xFFFFFFFF) << (32 - bits)
+	return fmt.Sprintf("%d.%d.%d.%d", mask>>24, (mask>>16)&0xFF, (mask>>8)&0xFF, mask&0xFF)
+}
+
 func buildDHCPRange(dhcp *metal3api.DHCP) string {
-	prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return "" // don't disable your webhooks people
+	var parts []string
+
+	// Primary range from flat fields (backward compatible)
+	if dhcp.NetworkCIDR != "" && dhcp.RangeBegin != "" && dhcp.RangeEnd != "" {
+		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err == nil {
+			if len(dhcp.Ranges) > 0 {
+				// When combined with Ranges, use netmask format for consistency
+				parts = append(parts, fmt.Sprintf("%s,%s,%s", dhcp.RangeBegin, dhcp.RangeEnd, prefixToNetmask(prefix)))
+			} else {
+				// Single-range: keep prefix length for ironic-image compatibility
+				return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+			}
+		}
 	}
 
-	return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+	// Additional ranges with optional tags
+	for _, r := range dhcp.Ranges {
+		prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+		if err != nil {
+			continue
+		}
+		netmask := prefixToNetmask(prefix)
+		if r.Name != "" {
+			parts = append(parts, fmt.Sprintf("set:%s,%s,%s,%s", r.Name, r.RangeBegin, r.RangeEnd, netmask))
+		} else {
+			parts = append(parts, fmt.Sprintf("%s,%s,%s", r.RangeBegin, r.RangeEnd, netmask))
+		}
+	}
+
+	return strings.Join(parts, ";")
 }
 
 func buildDNSIP(dhcp *metal3api.DHCP) string {

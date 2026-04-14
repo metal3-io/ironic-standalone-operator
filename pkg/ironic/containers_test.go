@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -1050,6 +1051,26 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 	}
 }
 
+func TestPrefixToNetmask(t *testing.T) {
+	testCases := []struct {
+		CIDR     string
+		Expected string
+	}{
+		{"192.168.1.0/24", "255.255.255.0"},
+		{"10.0.0.0/16", "255.255.0.0"},
+		{"10.0.0.0/8", "255.0.0.0"},
+		{"192.168.1.0/32", "255.255.255.255"},
+		{"fd69:158d:692a:1::/64", "64"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.CIDR, func(t *testing.T) {
+			prefix, err := netip.ParsePrefix(tc.CIDR)
+			require.NoError(t, err)
+			assert.Equal(t, tc.Expected, prefixToNetmask(prefix))
+		})
+	}
+}
+
 func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 	// Test that verifies the key selection logic directly
 	testCases := []struct {
@@ -1122,6 +1143,75 @@ func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 			assert.Equal(t, expectedPath, envVars[0].Value)
 			assert.Equal(t, "IRONIC_CACERT_FILE", envVars[1].Name)
 			assert.Equal(t, expectedPath, envVars[1].Value)
+		})
+	}
+}
+
+func TestBuildDHCPRange(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		DHCP     metal3api.DHCP
+		Expected string
+	}{
+		{
+			Scenario: "primary range only",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "192.168.1.0/24",
+				RangeBegin:  "192.168.1.10",
+				RangeEnd:    "192.168.1.200",
+			},
+			Expected: "192.168.1.10,192.168.1.200,24",
+		},
+		{
+			Scenario: "ranges only with tags",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "mgmt", NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100"},
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "set:mgmt,10.0.0.10,10.0.0.100,255.255.255.0;set:pxe,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "ranges only without tags",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "primary range combined with ranges",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "10.0.0.0/16",
+				RangeBegin:  "10.0.1.1",
+				RangeEnd:    "10.0.1.254",
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "10.0.1.1,10.0.1.254,255.255.0.0;set:pxe,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "IPv6 ranges",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "v6net1", NetworkCIDR: "fd69:158d:692a:1::/64", RangeBegin: "fd69:158d:692a:1::3000", RangeEnd: "fd69:158d:692a:1::3fff"},
+					{Name: "v6net2", NetworkCIDR: "fd69:158d:692a:2::/64", RangeBegin: "fd69:158d:692a:2::3000", RangeEnd: "fd69:158d:692a:2::3fff"},
+				},
+			},
+			Expected: "set:v6net1,fd69:158d:692a:1::3000,fd69:158d:692a:1::3fff,64;set:v6net2,fd69:158d:692a:2::3000,fd69:158d:692a:2::3fff,64",
+		},
+		{
+			Scenario: "empty DHCP",
+			DHCP:     metal3api.DHCP{},
+			Expected: "",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, buildDHCPRange(&tc.DHCP))
 		})
 	}
 }
