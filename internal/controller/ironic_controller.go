@@ -222,19 +222,23 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		return requeue, err
 	}
 
+	return r.updateIronicStatus(cctx, ironicConf, status, actuallyRequestedVersion)
+}
+
+func (r *IronicReconciler) updateIronicStatus(cctx ironic.ControllerContext, ironicConf *metal3api.Ironic, status ironic.Status, requestedVersion string) (bool, error) {
 	newStatus := ironicConf.Status.DeepCopy()
 	oldReady := isStatusReady(&ironicConf.Status)
 	setConditionsFromStatus(cctx, status, &newStatus.Conditions, ironicConf.Generation, "ironic")
-	requeue = status.NeedsRequeue()
+	requeue := status.NeedsRequeue()
 	if status.IsReady() {
-		newStatus.InstalledVersion = actuallyRequestedVersion
+		newStatus.InstalledVersion = requestedVersion
 	}
 	newReady := isStatusReady(newStatus)
 
 	if !apiequality.Semantic.DeepEqual(newStatus, &ironicConf.Status) {
 		cctx.Logger.Info("updating status", "Status", newStatus)
 		ironicConf.Status = *newStatus
-		err = cctx.Client.Status().Update(cctx.Context, ironicConf)
+		err := cctx.Client.Status().Update(cctx.Context, ironicConf)
 		if err == nil {
 			if newReady && !oldReady {
 				r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeNormal, "IronicReady", "IronicReady", "Ironic deployment is now ready")
@@ -247,8 +251,9 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 				r.EventRecorder.Eventf(ironicConf, nil, corev1.EventTypeWarning, "IronicNotReady", "IronicNotReady", "%s", msg)
 			}
 		}
+		return requeue, err
 	}
-	return requeue, err
+	return requeue, nil
 }
 
 // Get a secret and update its owner references using SecretManager.
