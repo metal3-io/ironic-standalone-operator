@@ -96,6 +96,11 @@ Focus on: `internal/controller/`, `pkg/ironic/`, `api/`, `internal/webhook/`.
 1. Add tests for new functionality
 1. Run `make lint` and `make test` before committing
 
+### Git Commits
+
+- Always include `Signed-off-by` in commit messages (use `git commit -s`)
+- When amending, use `git commit --amend -s`
+
 ### Security Requirements
 
 - Pin external dependencies by SHA (containers, GitHub Actions, binaries)
