@@ -199,8 +199,6 @@ func TestExpectedExtraEnvVars(t *testing.T) {
 		"OS_PXE__BOOT_RETRY_TIMEOUT":            "1200",
 		"OS_CONDUCTOR__DEPLOY_CALLBACK_TIMEOUT": "4800",
 		"OS_CONDUCTOR__INSPECT_TIMEOUT":         "1800",
-		// This is currently set unconditionally by IrSO itself and will eventually be replaced by a proper ironic-image variable.
-		"OS_JSON_RPC__PORT": "6189",
 	}
 
 	ironic := &metal3api.Ironic{
