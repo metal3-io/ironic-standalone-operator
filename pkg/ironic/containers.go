@@ -264,7 +264,11 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 
 	return []corev1.EnvVar{
 		{
-			Name:  "WEBSERVER_CACERT_FILE",
+			Name:  "WEBSERVER_CACERT_FILE", // CA for verifying image server TLS connections
+			Value: caPath,
+		},
+		{
+			Name:  "IRONIC_CACERT_FILE", // CA for verifying JSON-RPC TLS connections (e.g. ironic-networking)
 			Value: caPath,
 		},
 	}

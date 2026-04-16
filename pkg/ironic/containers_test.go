@@ -400,24 +400,31 @@ func TestTrustedCAConfigMap(t *testing.T) {
 			}
 			assert.Equal(t, tc.ExpectVolumeMount, foundMount, "Volume mount existence mismatch")
 
-			// Check environment variable (WEBSERVER_CACERT_FILE)
-			var foundWebserverCACert bool
-			var webserverCACertValue string
+			// Check environment variables (WEBSERVER_CACERT_FILE and IRONIC_CACERT_FILE)
+			var foundWebserverCACert, foundIronicCACert bool
+			var webserverCACertValue, ironicCACertValue string
 			for _, env := range ironicContainer.Env {
 				if env.Name == "WEBSERVER_CACERT_FILE" {
 					foundWebserverCACert = true
 					webserverCACertValue = env.Value
 				}
+				if env.Name == "IRONIC_CACERT_FILE" {
+					foundIronicCACert = true
+					ironicCACertValue = env.Value
+				}
 			}
 			assert.Equal(t, tc.ExpectEnvVar, foundWebserverCACert, "WEBSERVER_CACERT_FILE environment variable existence mismatch")
+			assert.Equal(t, tc.ExpectEnvVar, foundIronicCACert, "IRONIC_CACERT_FILE environment variable existence mismatch")
 
 			if tc.ExpectEnvVar {
 				if tc.ExpectedEnvVarValue != "" {
 					// Exact match for single key case
 					assert.Equal(t, tc.ExpectedEnvVarValue, webserverCACertValue, "WEBSERVER_CACERT_FILE value mismatch")
+					assert.Equal(t, tc.ExpectedEnvVarValue, ironicCACertValue, "IRONIC_CACERT_FILE value mismatch")
 				} else {
 					// For multiple keys case, just verify it starts with the correct prefix
 					assert.Contains(t, webserverCACertValue, "/certs/ca/trusted/", "WEBSERVER_CACERT_FILE should contain /certs/ca/trusted/")
+					assert.Contains(t, ironicCACertValue, "/certs/ca/trusted/", "IRONIC_CACERT_FILE should contain /certs/ca/trusted/")
 				}
 			}
 		})
@@ -1014,13 +1021,15 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 
 			envVars := buildTrustedCAEnvVars(cctx, resources)
 
-			// Should always return exactly one env var
-			require.Len(t, envVars, 1, "Should return exactly one environment variable")
+			// Should return WEBSERVER_CACERT_FILE and IRONIC_CACERT_FILE
+			require.Len(t, envVars, 2, "Should return two environment variables")
 			assert.Equal(t, "WEBSERVER_CACERT_FILE", envVars[0].Name)
+			assert.Equal(t, "IRONIC_CACERT_FILE", envVars[1].Name)
 
 			// Verify the path contains the expected key
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
-			assert.Equal(t, expectedPath, envVars[0].Value, "Environment variable value mismatch")
+			assert.Equal(t, expectedPath, envVars[0].Value, "WEBSERVER_CACERT_FILE value mismatch")
+			assert.Equal(t, expectedPath, envVars[1].Value, "IRONIC_CACERT_FILE value mismatch")
 		})
 	}
 }
@@ -1090,10 +1099,12 @@ func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 			}
 
 			envVars := buildTrustedCAEnvVars(cctx, resources)
-			require.Len(t, envVars, 1)
+			require.Len(t, envVars, 2)
 
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
 			assert.Equal(t, expectedPath, envVars[0].Value)
+			assert.Equal(t, "IRONIC_CACERT_FILE", envVars[1].Name)
+			assert.Equal(t, expectedPath, envVars[1].Value)
 		})
 	}
 }
