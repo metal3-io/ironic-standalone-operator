@@ -339,10 +339,114 @@ func TestValidateIronic(t *testing.T) {
 				},
 				HighAvailability: true,
 				PrometheusExporter: &metal3api.PrometheusExporter{
-					Enabled: true,
+					Enabled:     true,
+					BindAddress: "0.0.0.0",
 				},
 			},
 			ExpectedError: "ServiceMonitor support is currently incompatible with the highly available architecture",
+		},
+		{
+			// With the default bindAddress of "0.0.0.0", ServiceMonitor must be valid.
+			Scenario: "ServiceMonitor with default bindAddress is valid",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled: true,
+				},
+			},
+		},
+		{
+			Scenario: "ServiceMonitor incompatible with explicit loopback bindAddress",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     true,
+					BindAddress: "127.0.0.1",
+				},
+			},
+			ExpectedError: "ServiceMonitor is not compatible with a loopback bindAddress",
+		},
+		{
+			Scenario: "ServiceMonitor incompatible with IPv6 loopback bindAddress",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     true,
+					BindAddress: "::1",
+				},
+			},
+			ExpectedError: "ServiceMonitor is not compatible with a loopback bindAddress",
+		},
+		{
+			Scenario: "ServiceMonitor with bindAddress 0.0.0.0 is valid",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     true,
+					BindAddress: "0.0.0.0",
+				},
+			},
+		},
+		{
+			Scenario: "ServiceMonitor with specific IP bindAddress is valid",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     true,
+					BindAddress: "192.168.1.10",
+				},
+			},
+		},
+		{
+			// disableServiceMonitor must allow a loopback bindAddress that would otherwise
+			// be rejected when ServiceMonitor creation is enabled.
+			Scenario: "disableServiceMonitor bypasses loopback bindAddress requirement",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:               true,
+					DisableServiceMonitor: true,
+					BindAddress:           "127.0.0.1",
+				},
+			},
+		},
+		{
+			// Disabled exporter with default (loopback) bindAddress must pass validation
+			// even though DisableServiceMonitor defaults to false. The loopback restriction
+			// only applies when the exporter is actually enabled.
+			Scenario: "disabled exporter with default bindAddress passes validation",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled: false,
+				},
+			},
+		},
+		{
+			// Disabled exporter with explicit loopback bindAddress must also pass.
+			Scenario: "disabled exporter with loopback bindAddress passes validation",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     false,
+					BindAddress: "127.0.0.1",
+				},
+			},
+		},
+		{
+			// Disabled exporter with ServiceMonitor still enabled (disableServiceMonitor: false)
+			// and a loopback address must not be rejected – the combination is only invalid
+			// when the exporter is running and would actually be scraped.
+			Scenario: "disabled exporter with ServiceMonitor enabled and loopback bindAddress passes validation",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:               false,
+					DisableServiceMonitor: false,
+					BindAddress:           "127.0.0.1",
+				},
+			},
+		},
+		{
+			Scenario: "invalid bindAddress",
+			Ironic: metal3api.IronicSpec{
+				PrometheusExporter: &metal3api.PrometheusExporter{
+					Enabled:     true,
+					BindAddress: "not-an-ip",
+				},
+			},
+			ExpectedError: "bindAddress \"not-an-ip\" is not a valid IP address",
 		},
 		{
 			Scenario: "valid agent images single architecture x86_64",

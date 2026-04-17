@@ -380,6 +380,17 @@ type PrometheusExporter struct {
 	// ironic-prometheus-exporter container.
 	Enabled bool `json:"enabled"`
 
+	// BindAddress is the IP address the metrics endpoint listens on.
+	// Defaults to "0.0.0.0" to listen on all interfaces.
+	//
+	// Can be set to a specific IP address (e.g. the provisioning network IP)
+	// to limit exposure to a particular network interface, or to "127.0.0.1"
+	// to restrict access to the local host only (note: this makes
+	// ServiceMonitor-based scraping impossible).
+	// +kubebuilder:default="0.0.0.0"
+	// +optional
+	BindAddress string `json:"bindAddress,omitempty"`
+
 	// SensorCollectionInterval defines how often (in seconds) sensor data
 	// is collected from BMCs using Ironic. Must be at least 60 seconds.
 	// +kubebuilder:default=60

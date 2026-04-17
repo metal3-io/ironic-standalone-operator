@@ -7556,6 +7556,21 @@ ironic-prometheus-exporter container.<br/>
         </td>
         <td>true</td>
       </tr><tr>
+        <td><b>bindAddress</b></td>
+        <td>string</td>
+        <td>
+          BindAddress is the IP address the metrics endpoint listens on.
+Defaults to "0.0.0.0" to listen on all interfaces.
+
+Can be set to a specific IP address (e.g. the provisioning network IP)
+to limit exposure to a particular network interface, or to "127.0.0.1"
+to restrict access to the local host only (note: this makes
+ServiceMonitor-based scraping impossible).<br/>
+          <br/>
+            <i>Default</i>: 0.0.0.0<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>disableServiceMonitor</b></td>
         <td>boolean</td>
         <td>
