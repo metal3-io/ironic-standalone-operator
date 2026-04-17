@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1128,6 +1129,313 @@ func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
 			assert.Equal(t, expectedPath, envVars[0].Value)
+		})
+	}
+}
+
+func TestNetworkingServiceContainer(t *testing.T) {
+	testCases := []struct {
+		Scenario                string
+		NetworkingService       *metal3api.NetworkingService
+		ExpectNetworkingEnabled bool
+	}{
+		{
+			Scenario:                "networking service disabled",
+			ExpectNetworkingEnabled: false,
+		},
+		{
+			Scenario: "networking service enabled",
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+			},
+			ExpectNetworkingEnabled: true,
+		},
+		{
+			Scenario: "networking service with provider networks",
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+				ProviderNetworks: []metal3api.ProviderNetworkConfig{
+					{
+						Type:       "idle",
+						Mode:       metal3api.SwitchportModeAccess,
+						NativeVLAN: 100,
+					},
+					{
+						Type:       "inspection",
+						Mode:       metal3api.SwitchportModeTrunk,
+						NativeVLAN: 200,
+					},
+				},
+			},
+			ExpectNetworkingEnabled: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					NetworkingService: tc.NetworkingService,
+				},
+			}
+
+			resources := Resources{
+				Ironic:    ironic,
+				APISecret: secret,
+			}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			// Verify ironic-networking container does NOT exist in Ironic pod
+			// (it now runs in a separate deployment)
+			var networkingContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "ironic-networking" {
+					networkingContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			assert.Nil(t, networkingContainer, "Networking container should not be in Ironic pod (runs separately)")
+
+			// Verify switch-config volume does NOT exist in Ironic pod
+			var switchConfigVolume *corev1.Volume
+			for i := range podTemplate.Spec.Volumes {
+				if podTemplate.Spec.Volumes[i].Name == "switch-config" {
+					switchConfigVolume = &podTemplate.Spec.Volumes[i]
+					break
+				}
+			}
+			assert.Nil(t, switchConfigVolume, "switch-config volume should not be in Ironic pod (used by networking pod)")
+
+			// Find the ironic container
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "ironic" {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer, "Expected ironic container to exist")
+
+			// Build map of ironic container environment variables
+			ironicEnvVars := make(map[string]string)
+			for _, env := range ironicContainer.Env {
+				ironicEnvVars[env.Name] = env.Value
+			}
+
+			if tc.ExpectNetworkingEnabled {
+				// Verify ironic-auth volume mount at /auth/ironic-rpc is present
+				var foundAuthMount bool
+				for _, mount := range ironicContainer.VolumeMounts {
+					if mount.Name == "ironic-auth" && mount.MountPath == "/auth/ironic-rpc" {
+						foundAuthMount = true
+						break
+					}
+				}
+				assert.True(t, foundAuthMount, "Expected ironic-auth mount at /auth/ironic-rpc when networking is enabled")
+
+				// Verify that ironic container has networking service configuration
+				assert.Contains(t, ironicEnvVars, "IRONIC_NETWORKING_ENABLED")
+				assert.Equal(t, "test-networking-service.test.svc.cluster.local", ironicEnvVars["IRONIC_NETWORKING_JSON_RPC_HOST"])
+				assert.Equal(t, "6190", ironicEnvVars["IRONIC_NETWORKING_JSON_RPC_PORT"])
+
+				// If provider networks are configured, check those env vars
+				for _, pn := range tc.NetworkingService.ProviderNetworks {
+					envName := fmt.Sprintf("IRONIC_NETWORKING_%s_NETWORK", strings.ToUpper(string(pn.Type)))
+					assert.Contains(t, ironicEnvVars, envName)
+				}
+
+				// Check network driver is set on ironic container
+				assert.Equal(t, "ironic-networking", ironicEnvVars["IRONIC_DEFAULT_NETWORK_INTERFACE"])
+			} else {
+				// Networking service disabled - env vars should not be present
+				assert.NotContains(t, ironicEnvVars, "IRONIC_NETWORKING_ENABLED")
+				assert.NotContains(t, ironicEnvVars, "IRONIC_NETWORKING_JSON_RPC_HOST")
+			}
+		})
+	}
+}
+
+func TestFormatProviderNetwork(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Config   *metal3api.ProviderNetworkConfig
+		Expected string
+	}{
+		{
+			Scenario: "access mode",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 100,
+			},
+			Expected: "access/native_vlan=100",
+		},
+		{
+			Scenario: "trunk mode without allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeTrunk,
+				NativeVLAN: 200,
+			},
+			Expected: "trunk/native_vlan=200",
+		},
+		{
+			Scenario: "trunk mode with allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"200", "300", "400"},
+			},
+			Expected: "trunk/native_vlan=100/allowed_vlans=200,300,400",
+		},
+		{
+			Scenario: "trunk mode with VLAN ranges",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"200-210", "300", "400-500"},
+			},
+			Expected: "trunk/native_vlan=100/allowed_vlans=200-210,300,400-500",
+		},
+		{
+			Scenario: "hybrid mode with allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeHybrid,
+				NativeVLAN:   50,
+				AllowedVLANs: []string{"10"},
+			},
+			Expected: "hybrid/native_vlan=50/allowed_vlans=10",
+		},
+		{
+			Scenario: "access mode ignores allowedVLANs",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeAccess,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"200", "300"},
+			},
+			Expected: "access/native_vlan=100",
+		},
+		{
+			Scenario: "access mode with MTU",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 100,
+				MTU:        1500,
+			},
+			Expected: "access/native_vlan=100/mtu=1500",
+		},
+		{
+			Scenario: "trunk mode with allowedVLANs and MTU",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:         metal3api.SwitchportModeTrunk,
+				NativeVLAN:   100,
+				AllowedVLANs: []string{"200-210"},
+				MTU:          9000,
+			},
+			Expected: "trunk/native_vlan=100/allowed_vlans=200-210/mtu=9000",
+		},
+		{
+			Scenario: "MTU zero is omitted",
+			Config: &metal3api.ProviderNetworkConfig{
+				Mode:       metal3api.SwitchportModeAccess,
+				NativeVLAN: 100,
+				MTU:        0,
+			},
+			Expected: "access/native_vlan=100",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result := formatProviderNetwork(tc.Config)
+			assert.Equal(t, tc.Expected, result)
+		})
+	}
+}
+
+func TestIsAuthVolumeRequired(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Ironic   *metal3api.Ironic
+		Expected bool
+	}{
+		{
+			Scenario: "standard (no HA, no networking)",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "HA enabled",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					HighAvailability: true,
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "networking service enabled",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					NetworkingService: &metal3api.NetworkingService{
+						Enabled: true,
+					},
+				},
+			},
+			Expected: true,
+		},
+		{
+			Scenario: "networking service disabled",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					NetworkingService: &metal3api.NetworkingService{
+						Enabled: false,
+					},
+				},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "networking service nil",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					NetworkingService: nil,
+				},
+			},
+			Expected: false,
+		},
+		{
+			Scenario: "both HA and networking enabled",
+			Ironic: &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					HighAvailability: true,
+					NetworkingService: &metal3api.NetworkingService{
+						Enabled: true,
+					},
+				},
+			},
+			Expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			resources := Resources{
+				Ironic: tc.Ironic,
+			}
+			result := isAuthVolumeRequired(resources)
+			assert.Equal(t, tc.Expected, result)
 		})
 	}
 }

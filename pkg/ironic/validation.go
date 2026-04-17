@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -15,6 +16,11 @@ import (
 const (
 	protoFile = "file"
 	protoOCI  = "oci"
+)
+
+const (
+	minVLAN = 1
+	maxVLAN = 4094
 )
 
 func validateIP(ip string) error {
@@ -259,6 +265,84 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
+	if ironic.NetworkingService != nil && ironic.NetworkingService.Enabled {
+		if err := validateNetworkingService(ironic); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateNetworkingService(ironic *metal3api.IronicSpec) error {
+	// Validate provider network configs if provided
+	seenTypes := make(map[metal3api.ProviderNetworkType]bool)
+	for i := range ironic.NetworkingService.ProviderNetworks {
+		pn := &ironic.NetworkingService.ProviderNetworks[i]
+		if seenTypes[pn.Type] {
+			return fmt.Errorf("duplicate provider network type %q", pn.Type)
+		}
+		seenTypes[pn.Type] = true
+		if err := validateProviderNetwork(pn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateProviderNetwork(sn *metal3api.ProviderNetworkConfig) error {
+	// Validate mode-specific requirements
+	switch sn.Mode {
+	case metal3api.SwitchportModeAccess:
+		if len(sn.AllowedVLANs) > 0 {
+			return errors.New("allowedVLANs cannot be set in access mode")
+		}
+	case metal3api.SwitchportModeTrunk, metal3api.SwitchportModeHybrid:
+		if len(sn.AllowedVLANs) == 0 {
+			return fmt.Errorf("allowedVLANs required for %s mode", sn.Mode)
+		}
+	default:
+		return fmt.Errorf("invalid switchport mode: %s", sn.Mode)
+	}
+
+	for _, entry := range sn.AllowedVLANs {
+		if err := validateAllowedVLANEntry(entry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateVLANID(s string) (int, error) {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("%q is not a valid VLAN ID", s)
+	}
+	if v < minVLAN || v > maxVLAN {
+		return 0, fmt.Errorf("VLAN ID %d is out of range (%d-%d)", v, minVLAN, maxVLAN)
+	}
+	return v, nil
+}
+
+func validateAllowedVLANEntry(entry string) error {
+	parts := strings.SplitN(entry, "-", 2)
+	if len(parts) == 1 {
+		_, err := validateVLANID(strings.TrimSpace(parts[0]))
+		return err
+	}
+	start, err := validateVLANID(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return fmt.Errorf("invalid range %q: %w", entry, err)
+	}
+	end, err := validateVLANID(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return fmt.Errorf("invalid range %q: %w", entry, err)
+	}
+	if start >= end {
+		return fmt.Errorf("invalid range %q: start (%d) must be less than end (%d)", entry, start, end)
+	}
 	return nil
 }
 
