@@ -287,9 +287,6 @@ func TestTrustedCAConfigMap(t *testing.T) {
 	testCases := []struct {
 		Scenario                string
 		TrustedCAConfigMap      *corev1.ConfigMap
-		ExpectVolume            bool
-		ExpectVolumeMount       bool
-		ExpectEnvVar            bool
 		ExpectedVolumeMountPath string
 		ExpectedEnvVarValue     string
 	}{
@@ -304,9 +301,6 @@ func TestTrustedCAConfigMap(t *testing.T) {
 					"ca-bundle.crt": "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
 				},
 			},
-			ExpectVolume:            true,
-			ExpectVolumeMount:       true,
-			ExpectEnvVar:            true,
 			ExpectedVolumeMountPath: "/certs/ca/trusted",
 			ExpectedEnvVarValue:     "/certs/ca/trusted/ca-bundle.crt",
 		},
@@ -322,18 +316,12 @@ func TestTrustedCAConfigMap(t *testing.T) {
 					"extra-ca.crt":  "-----BEGIN CERTIFICATE-----\nextra\n-----END CERTIFICATE-----",
 				},
 			},
-			ExpectVolume:            true,
-			ExpectVolumeMount:       true,
-			ExpectEnvVar:            true,
 			ExpectedVolumeMountPath: "/certs/ca/trusted",
 			ExpectedEnvVarValue:     "/certs/ca/trusted/ca-bundle.crt", // keys are sorted, ca-bundle.crt comes first
 		},
 		{
 			Scenario:           "without TrustedCAConfigMap",
 			TrustedCAConfigMap: nil,
-			ExpectVolume:       false,
-			ExpectVolumeMount:  false,
-			ExpectEnvVar:       false,
 		},
 	}
 
@@ -362,19 +350,21 @@ func TestTrustedCAConfigMap(t *testing.T) {
 			podTemplate, err := newIronicPodTemplate(cctx, resources)
 			require.NoError(t, err)
 
+			expectTrustedCA := tc.ExpectedEnvVarValue != ""
+
 			// Check volume
 			var foundVolume bool
 			for _, vol := range podTemplate.Spec.Volumes {
 				if vol.Name == "trusted-ca" {
 					foundVolume = true
-					if tc.ExpectVolume {
+					if expectTrustedCA {
 						assert.NotNil(t, vol.ConfigMap)
 						assert.Equal(t, tc.TrustedCAConfigMap.Name, vol.ConfigMap.Name)
 					}
 					break
 				}
 			}
-			assert.Equal(t, tc.ExpectVolume, foundVolume, "Volume existence mismatch")
+			assert.Equal(t, expectTrustedCA, foundVolume, "Volume existence mismatch")
 
 			// Check volume mount on ironic container
 			var ironicContainer *corev1.Container
@@ -390,14 +380,14 @@ func TestTrustedCAConfigMap(t *testing.T) {
 			for _, mount := range ironicContainer.VolumeMounts {
 				if mount.Name == "trusted-ca" {
 					foundMount = true
-					if tc.ExpectVolumeMount {
+					if expectTrustedCA {
 						assert.Equal(t, tc.ExpectedVolumeMountPath, mount.MountPath)
 						assert.True(t, mount.ReadOnly)
 					}
 					break
 				}
 			}
-			assert.Equal(t, tc.ExpectVolumeMount, foundMount, "Volume mount existence mismatch")
+			assert.Equal(t, expectTrustedCA, foundMount, "Volume mount existence mismatch")
 
 			// Check environment variables (WEBSERVER_CACERT_FILE and IRONIC_CACERT_FILE)
 			var foundWebserverCACert, foundIronicCACert bool
@@ -412,19 +402,12 @@ func TestTrustedCAConfigMap(t *testing.T) {
 					ironicCACertValue = env.Value
 				}
 			}
-			assert.Equal(t, tc.ExpectEnvVar, foundWebserverCACert, "WEBSERVER_CACERT_FILE environment variable existence mismatch")
-			assert.Equal(t, tc.ExpectEnvVar, foundIronicCACert, "IRONIC_CACERT_FILE environment variable existence mismatch")
+			assert.Equal(t, expectTrustedCA, foundWebserverCACert, "WEBSERVER_CACERT_FILE environment variable existence mismatch")
+			assert.Equal(t, expectTrustedCA, foundIronicCACert, "IRONIC_CACERT_FILE environment variable existence mismatch")
 
-			if tc.ExpectEnvVar {
-				if tc.ExpectedEnvVarValue != "" {
-					// Exact match for single key case
-					assert.Equal(t, tc.ExpectedEnvVarValue, webserverCACertValue, "WEBSERVER_CACERT_FILE value mismatch")
-					assert.Equal(t, tc.ExpectedEnvVarValue, ironicCACertValue, "IRONIC_CACERT_FILE value mismatch")
-				} else {
-					// For multiple keys case, just verify it starts with the correct prefix
-					assert.True(t, strings.HasPrefix(webserverCACertValue, "/certs/ca/trusted/"), "WEBSERVER_CACERT_FILE should start with /certs/ca/trusted/")
-					assert.True(t, strings.HasPrefix(ironicCACertValue, "/certs/ca/trusted/"), "IRONIC_CACERT_FILE should start with /certs/ca/trusted/")
-				}
+			if expectTrustedCA {
+				assert.Equal(t, tc.ExpectedEnvVarValue, webserverCACertValue, "WEBSERVER_CACERT_FILE value mismatch")
+				assert.Equal(t, tc.ExpectedEnvVarValue, ironicCACertValue, "IRONIC_CACERT_FILE value mismatch")
 			}
 		})
 	}
