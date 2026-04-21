@@ -4,7 +4,32 @@ This document describes how to test IrSO locally before submitting a pull
 request. All checks listed under [mandatory](#mandatory-checks) are enforced
 by CI and must pass before a PR can be merged.
 
-## Container runtime
+## Testing policy
+
+This document outlines the testing strategy applied in IrSO. All developers
+should follow those guidelines to ensure uniformity and quality in the tests.
+
+### Code coverage
+
+The minimum code coverage required for the `api`, `internal` and `pkg` folders
+is **80%**. Any PR introducing new code should include tests for the new code
+and the developers should verify that the code coverage did not decrease due to
+their PR. The generated code should be excluded from the coverage (files
+starting with `zz_generated.`).
+
+### Testing files
+
+For each file in each package, a test file should be created, named after the
+original file `<filename>_test.go`, containing the unit tests for the functions
+defined in the file.
+
+Additionally, a functional test should be added for any user-visible feature
+that can be reasonably tested without access to physical hardware. See
+[functional tests](#functional-tests) for details.
+
+## Running tests
+
+### Container runtime
 
 Several commands require a container runtime. Set `CONTAINER_RUNTIME` to
 `podman` or `docker` depending on what is available in your environment:
@@ -13,7 +38,7 @@ Several commands require a container runtime. Set `CONTAINER_RUNTIME` to
 export CONTAINER_RUNTIME=podman
 ```
 
-## Mandatory checks
+### Mandatory checks
 
 Run these before every pull request:
 
@@ -23,7 +48,8 @@ make lint          # golangci-lint across all modules
 ```
 
 `make test` regenerates auto-generated code and manifests, checks formatting,
-runs `go vet`, and executes the unit test suite.
+runs `go vet`, and executes the unit test suite. It then creates a coverage
+profile in the file called `cover.out`.
 
 If you have changed anything under `api/`, you can separately update the
 manifests with:
@@ -42,7 +68,7 @@ across all three Go modules. Run this locally if you changed dependencies:
 make modules
 ```
 
-## Optional linters
+### Optional linters
 
 These linters run in CI but are only relevant when you modify the
 corresponding file types:
