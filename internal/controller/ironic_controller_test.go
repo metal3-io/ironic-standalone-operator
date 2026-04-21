@@ -1,6 +1,4 @@
 /*
-Copyright 2023.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -26,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -60,10 +59,12 @@ func newTestIronic() *metal3api.Ironic {
 	}
 }
 
-func newTestControllerContext(t *testing.T, scheme *runtime.Scheme, r *IronicReconciler) ironic.ControllerContext {
+func newTestControllerContext(t *testing.T, scheme *runtime.Scheme, cl client.Client) ironic.ControllerContext {
+	t.Helper()
+
 	return ironic.ControllerContext{
 		Context: t.Context(),
-		Client:  r.Client,
+		Client:  cl,
 		Scheme:  scheme,
 		Logger:  logr.Discard(),
 	}
@@ -93,7 +94,7 @@ func TestGetAndUpdateSecret_NotFound_EmitsSecretNotFoundEvent(t *testing.T) {
 	ironicObj := newTestIronic()
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	_, requeue, err := r.getAndUpdateSecret(cctx, ironicObj, "missing-secret")
 
@@ -125,7 +126,7 @@ func TestGetAndUpdateSecret_Found_NoEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	result, requeue, err := r.getAndUpdateSecret(cctx, ironicObj, "existing-secret")
 
@@ -137,7 +138,7 @@ func TestGetAndUpdateSecret_Found_NoEvent(t *testing.T) {
 	assert.Empty(t, evts, "no events should be emitted for a found secret")
 }
 
-func TestGetAndUpdateSecret_MissingLabel_NoSecretNotFoundEvent(t *testing.T) {
+func TestGetAndUpdateSecret_MissingLabel_EmitsInvalidLinkedResourceEvent(t *testing.T) {
 	scheme := newTestScheme()
 	recorder := events.NewFakeRecorder(10)
 	ironicObj := newTestIronic()
@@ -151,7 +152,7 @@ func TestGetAndUpdateSecret_MissingLabel_NoSecretNotFoundEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(secret, ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	_, requeue, err := r.getAndUpdateSecret(cctx, ironicObj, "unlabeled-secret")
 
@@ -159,10 +160,14 @@ func TestGetAndUpdateSecret_MissingLabel_NoSecretNotFoundEvent(t *testing.T) {
 	assert.True(t, requeue)
 
 	evts := drainEvents(recorder)
+	assert.NotEmpty(t, evts, "InvalidLinkedResource should be emitted for label errors")
+	foundInvalid := false
 	for _, evt := range evts {
-		assert.NotContains(t, evt, "SecretNotFound",
-			"SecretNotFound must not be emitted for label errors (not a NotFound error)")
+		assert.Contains(t, evt, "InvalidLinkedResource", "invalid linked resource reason must be emitted")
+		foundInvalid = true
+		break
 	}
+	assert.True(t, foundInvalid, "InvalidLinkedResource event should be present")
 }
 
 func TestGetConfigMap_NotFound_EmitsConfigMapNotFoundEvent(t *testing.T) {
@@ -171,7 +176,7 @@ func TestGetConfigMap_NotFound_EmitsConfigMapNotFoundEvent(t *testing.T) {
 	ironicObj := newTestIronic()
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	_, requeue, err := r.getConfigMap(cctx, ironicObj, "missing-configmap")
 
@@ -200,7 +205,7 @@ func TestGetConfigMap_Found_NoEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap, ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	result, requeue, err := r.getConfigMap(cctx, ironicObj, "existing-cm")
 
@@ -212,7 +217,7 @@ func TestGetConfigMap_Found_NoEvent(t *testing.T) {
 	assert.Empty(t, evts, "no events should be emitted for a found configmap")
 }
 
-func TestGetConfigMap_MissingLabel_NoConfigMapNotFoundEvent(t *testing.T) {
+func TestGetConfigMap_MissingLabel_EmitsInvalidLinkedResourceEvent(t *testing.T) {
 	scheme := newTestScheme()
 	recorder := events.NewFakeRecorder(10)
 	ironicObj := newTestIronic()
@@ -226,7 +231,7 @@ func TestGetConfigMap_MissingLabel_NoConfigMapNotFoundEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(configMap, ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	_, requeue, err := r.getConfigMap(cctx, ironicObj, "unlabeled-cm")
 
@@ -234,10 +239,14 @@ func TestGetConfigMap_MissingLabel_NoConfigMapNotFoundEvent(t *testing.T) {
 	assert.True(t, requeue)
 
 	evts := drainEvents(recorder)
+	assert.NotEmpty(t, evts, "InvalidLinkedResource should be emitted for label errors")
+	foundInvalid := false
 	for _, evt := range evts {
-		assert.NotContains(t, evt, "ConfigMapNotFound",
-			"ConfigMapNotFound must not be emitted for label errors (not a NotFound error)")
+		assert.Contains(t, evt, "InvalidLinkedResource", "invalid linked resource reason must be emitted")
+		foundInvalid = true
+		break
 	}
+	assert.True(t, foundInvalid, "InvalidLinkedResource event should be present")
 }
 
 func TestEnsureAPISecret_GeneratesSecret_EmitsAPISecretCreatedEvent(t *testing.T) {
@@ -246,7 +255,7 @@ func TestEnsureAPISecret_GeneratesSecret_EmitsAPISecretCreatedEvent(t *testing.T
 	ironicObj := newTestIronic()
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	apiSecret, requeue, err := r.ensureAPISecret(cctx, ironicObj)
 
@@ -267,7 +276,7 @@ func TestUpdateIronicStatus_TransitionToReady_EmitsIronicReadyEvent(t *testing.T
 	ironicObj := newTestIronic()
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	readyStatus := ironic.Status{Ready: true}
 	requeue, err := r.updateIronicStatus(cctx, ironicObj, readyStatus, "latest")
@@ -296,7 +305,7 @@ func TestUpdateIronicStatus_TransitionToNotReady_EmitsIronicNotReadyEvent(t *tes
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	notReadyStatus := ironic.Status{Message: "deployment not available yet"}
 	requeue, err := r.updateIronicStatus(cctx, ironicObj, notReadyStatus, "latest")
@@ -325,7 +334,7 @@ func TestUpdateIronicStatus_AlreadyReady_NoEvent(t *testing.T) {
 	ironicObj.Status.InstalledVersion = "latest"
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	readyStatus := ironic.Status{Ready: true}
 	requeue, err := r.updateIronicStatus(cctx, ironicObj, readyStatus, "latest")
@@ -352,7 +361,7 @@ func TestUpdateIronicStatus_AlreadyNotReady_NoEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(ironicObj).WithObjects(ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	notReadyStatus := ironic.Status{Message: "deployment not available yet"}
 	requeue, err := r.updateIronicStatus(cctx, ironicObj, notReadyStatus, "latest")
@@ -384,7 +393,7 @@ func TestEnsureAPISecret_ExistingSecret_NoAPISecretCreatedEvent(t *testing.T) {
 	}
 
 	r := newTestReconciler(scheme, fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret, ironicObj), recorder)
-	cctx := newTestControllerContext(t, scheme, r)
+	cctx := newTestControllerContext(t, scheme, r.Client)
 
 	result, _, err := r.ensureAPISecret(cctx, ironicObj)
 
