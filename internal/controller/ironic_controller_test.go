@@ -1,4 +1,6 @@
 /*
+Copyright 2026 The Kubernetes Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -88,7 +90,7 @@ func drainEvents(recorder *events.FakeRecorder) []string {
 	}
 }
 
-func TestGetAndUpdateSecret_NotFound_EmitsSecretNotFoundEvent(t *testing.T) {
+func TestGetAndUpdateSecret_NotFound_EmitsInvalidLinkedResourceEvent(t *testing.T) {
 	scheme := newTestScheme()
 	recorder := events.NewFakeRecorder(10)
 	ironicObj := newTestIronic()
@@ -104,7 +106,7 @@ func TestGetAndUpdateSecret_NotFound_EmitsSecretNotFoundEvent(t *testing.T) {
 
 	evts := drainEvents(recorder)
 	require.Len(t, evts, 1)
-	assert.Contains(t, evts[0], "SecretNotFound")
+	assert.Contains(t, evts[0], "InvalidLinkedResource")
 	assert.Contains(t, evts[0], "secret test-ns/missing-secret not found")
 }
 
@@ -170,7 +172,7 @@ func TestGetAndUpdateSecret_MissingLabel_EmitsInvalidLinkedResourceEvent(t *test
 	assert.True(t, foundInvalid, "InvalidLinkedResource event should be present")
 }
 
-func TestGetConfigMap_NotFound_EmitsConfigMapNotFoundEvent(t *testing.T) {
+func TestGetConfigMap_NotFound_EmitsInvalidLinkedResourceEvent(t *testing.T) {
 	scheme := newTestScheme()
 	recorder := events.NewFakeRecorder(10)
 	ironicObj := newTestIronic()
@@ -186,7 +188,7 @@ func TestGetConfigMap_NotFound_EmitsConfigMapNotFoundEvent(t *testing.T) {
 
 	evts := drainEvents(recorder)
 	require.Len(t, evts, 1)
-	assert.Contains(t, evts[0], "ConfigMapNotFound")
+	assert.Contains(t, evts[0], "InvalidLinkedResource")
 	assert.Contains(t, evts[0], "configmap test-ns/missing-configmap not found")
 }
 
