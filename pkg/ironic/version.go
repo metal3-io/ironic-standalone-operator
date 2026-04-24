@@ -18,7 +18,7 @@ var (
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
 
-	versionBMCCA = metal3api.Version320
+	versionBMCCA = metal3api.Version330
 )
 
 type VersionInfo struct {
@@ -114,7 +114,7 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 
 func checkVersion(resources Resources, version metal3api.Version) error {
 	if (resources.BMCCASecret != nil || resources.BMCCAConfigMap != nil) && version.Compare(versionBMCCA) < 0 {
-		return errors.New("using tls.bmcCA or tls.bmcCAName is only possible for Ironic 32.0 or newer")
+		return errors.New("using tls.bmcCA or tls.bmcCAName is only possible for Ironic 33.0 or newer")
 	}
 
 	return nil

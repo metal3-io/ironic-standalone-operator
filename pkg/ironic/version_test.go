@@ -129,12 +129,6 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "PrometheusExporter with version 32.0",
-			version:       metal3api.Version320,
-			enabled:       true,
-			expectedError: "",
-		},
-		{
 			name:          "PrometheusExporter with version 33.0",
 			version:       metal3api.Version330,
 			enabled:       true,
@@ -213,11 +207,6 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		{
 			name:          "BMCCA with version 33.0",
 			version:       metal3api.Version330,
-			expectedError: "",
-		},
-		{
-			name:          "BMCCA with version 32.0",
-			version:       metal3api.Version320,
 			expectedError: "",
 		},
 		{
