@@ -33,7 +33,6 @@ var (
 	Version350    = Version{Major: 35, Minor: 0}
 	Version340    = Version{Major: 34, Minor: 0}
 	Version330    = Version{Major: 33, Minor: 0}
-	Version320    = Version{Major: 32, Minor: 0}
 )
 
 // SupportedVersions is a mapping of supported versions to container image tags.
@@ -46,7 +45,6 @@ var SupportedVersions = map[Version]string{
 	Version350:    "release-35.0",
 	Version340:    "release-34.0",
 	Version330:    "release-33.0",
-	Version320:    "release-32.0",
 }
 
 // Inspection defines inspection settings.
