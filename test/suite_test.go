@@ -66,7 +66,8 @@ const (
 	apiVersionIn340 = "1.109"
 	apiVersionIn350 = "1.111"
 	// Update this periodically to make sure we're installing the latest version by default.
-	knownAPIMinorVersion = 112
+	// But in case of a release, keep this same as the release supported api version.
+	knownAPIMinorVersion = 111
 
 	numberOfNodes = 100
 
