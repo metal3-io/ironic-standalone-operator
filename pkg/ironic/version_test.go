@@ -188,6 +188,76 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 	}
 }
 
+func TestMultiRangeDHCPVersionCheck(t *testing.T) {
+	testCases := []struct {
+		name          string
+		version       metal3api.Version
+		dhcp          *metal3api.DHCP
+		expectedError string
+	}{
+		{
+			name:    "no DHCP at all",
+			version: metal3api.Version350,
+		},
+		{
+			name:    "DHCP without Ranges on older version (allowed)",
+			version: metal3api.Version350,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+			},
+		},
+		{
+			name:    "Ranges on latest version",
+			version: metal3api.VersionLatest,
+			dhcp: &metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.0.2.0/24", RangeBegin: "192.0.2.10", RangeEnd: "192.0.2.100"},
+				},
+			},
+		},
+		{
+			name:    "Ranges on 35.0 is rejected",
+			version: metal3api.Version350,
+			dhcp: &metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.0.2.0/24", RangeBegin: "192.0.2.10", RangeEnd: "192.0.2.100"},
+				},
+			},
+			expectedError: "networking.dhcp.ranges requires Ironic newer than 35.0",
+		},
+		{
+			name:    "Ranges on 34.0 is rejected",
+			version: metal3api.Version340,
+			dhcp: &metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.0.2.0/24", RangeBegin: "192.0.2.10", RangeEnd: "192.0.2.100"},
+				},
+			},
+			expectedError: "networking.dhcp.ranges requires Ironic newer than 35.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{DHCP: tc.dhcp},
+				},
+			}
+			err := CheckVersion(Resources{Ironic: ironic}, tc.version)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestBMCCAVersionCheck(t *testing.T) {
 	testCases := []struct {
 		name          string

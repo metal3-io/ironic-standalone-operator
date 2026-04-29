@@ -1882,3 +1882,176 @@ func TestIsAuthVolumeRequired(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildDHCPRange(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		DHCP     metal3api.DHCP
+		Expected string
+	}{
+		{
+			Scenario: "flat range only (unchanged legacy output)",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "192.168.1.0/24",
+				RangeBegin:  "192.168.1.10",
+				RangeEnd:    "192.168.1.200",
+			},
+			Expected: "192.168.1.10,192.168.1.200,24",
+		},
+		{
+			Scenario: "two IPv4 ranges render as tagged set: entries",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "mgmt", NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			Expected: "set:mgmt,10.0.0.10,10.0.0.100,255.255.255.0;set:pxe,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "IPv6 ranges render with prefix length and no gateway options",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "v6net1", NetworkCIDR: "fd69:158d:692a:1::/64", RangeBegin: "fd69:158d:692a:1::3000", RangeEnd: "fd69:158d:692a:1::3fff"},
+					{Name: "v6net2", NetworkCIDR: "fd69:158d:692a:2::/64", RangeBegin: "fd69:158d:692a:2::3000", RangeEnd: "fd69:158d:692a:2::3fff"},
+				},
+			},
+			Expected: "set:v6net1,fd69:158d:692a:1::3000,fd69:158d:692a:1::3fff,64;set:v6net2,fd69:158d:692a:2::3000,fd69:158d:692a:2::3fff,64",
+		},
+		{
+			Scenario: "flat range plus tagged range concatenate",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "10.0.0.0/16",
+				RangeBegin:  "10.0.1.1",
+				RangeEnd:    "10.0.1.254",
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "10.0.1.1,10.0.1.254,255.255.0.0;set:pxe,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, buildDHCPRange(&tc.DHCP))
+		})
+	}
+}
+
+func TestBuildDHCPOptions(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		DHCP     metal3api.DHCP
+		Expected string
+	}{
+		{
+			Scenario: "flat-only DHCP emits no per-range options",
+			DHCP:     metal3api.DHCP{GatewayAddress: "10.0.0.1"},
+			Expected: "",
+		},
+		{
+			Scenario: "two named ranges with gateways",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "mgmt", NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			Expected: "tag:mgmt,option:router,10.0.0.1;tag:pxe,option:router,192.168.1.1",
+		},
+		{
+			Scenario: "range without gateway emits nothing",
+			DHCP: metal3api.DHCP{
+				Ranges: []metal3api.DHCPRange{
+					{Name: "mgmt", NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "tag:mgmt,option:router,10.0.0.1",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, buildDHCPOptions(&tc.DHCP))
+		})
+	}
+}
+
+// TestRelayOnlyZerosGatewayIP asserts that in relay-only mode (Ranges only,
+// no flat NetworkCIDR), a stray top-level GatewayAddress does not leak into
+// GATEWAY_IP — it would render as an untagged fallback router.
+func TestRelayOnlyZerosGatewayIP(t *testing.T) {
+	testCases := []struct {
+		Scenario       string
+		DHCP           metal3api.DHCP
+		ExpectGateway  string
+		ExpectEmptyEnv bool
+	}{
+		{
+			Scenario: "flat range with gateway: GATEWAY_IP set",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR:    "10.0.0.0/24",
+				RangeBegin:     "10.0.0.10",
+				RangeEnd:       "10.0.0.100",
+				GatewayAddress: "10.0.0.1",
+			},
+			ExpectGateway: "10.0.0.1",
+		},
+		{
+			Scenario: "flat + ranges with gateway: GATEWAY_IP still set (flat clients need it)",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR:    "10.0.0.0/24",
+				RangeBegin:     "10.0.0.10",
+				RangeEnd:       "10.0.0.100",
+				GatewayAddress: "10.0.0.1",
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			ExpectGateway: "10.0.0.1",
+		},
+		{
+			Scenario: "relay-only (no flat) with stray GatewayAddress: GATEWAY_IP zeroed",
+			DHCP: metal3api.DHCP{
+				GatewayAddress: "10.0.0.1", // legacy / leftover — must NOT leak
+				Ranges: []metal3api.DHCPRange{
+					{Name: "pxe", NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			ExpectEmptyEnv: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						Interface: "eth0",
+						IPAddress: "10.0.0.5",
+						DHCP:      &tc.DHCP,
+					},
+				},
+			}
+			c := newDnsmasqContainer(VersionInfo{}, ironic)
+			gotEnv := ""
+			gotSet := false
+			for _, e := range c.Env {
+				if e.Name == "GATEWAY_IP" {
+					gotEnv = e.Value
+					gotSet = true
+					break
+				}
+			}
+			if tc.ExpectEmptyEnv {
+				if gotSet {
+					t.Fatalf("expected GATEWAY_IP to be absent or empty, got %q (set=%v)", gotEnv, gotSet)
+				}
+				return
+			}
+			if gotEnv != tc.ExpectGateway {
+				t.Fatalf("GATEWAY_IP = %q, want %q", gotEnv, tc.ExpectGateway)
+			}
+		})
+	}
+}

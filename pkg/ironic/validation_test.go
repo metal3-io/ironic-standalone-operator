@@ -641,6 +641,38 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "ranges[0].rangeBegin",
 		},
 		{
+			Scenario: "multi-range: per-range gatewayAddress outside its CIDR is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						Ranges: []metal3api.DHCPRange{
+							{Name: "pxe", NetworkCIDR: "192.168.141.0/27", RangeBegin: "192.168.141.2", RangeEnd: "192.168.141.29", GatewayAddress: "10.0.0.1"},
+						},
+					},
+				},
+			},
+			ExpectedError: "ranges[0].gatewayAddress",
+		},
+		{
+			Scenario: "multi-range: flat CIDR with provIP NOT in it is rejected even when Ranges is set",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "192.168.140.100",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.14.0/24",
+						RangeBegin:  "192.168.14.101",
+						RangeEnd:    "192.168.14.250",
+						Ranges: []metal3api.DHCPRange{
+							{Name: "pxe", NetworkCIDR: "192.168.141.0/27", RangeBegin: "192.168.141.2", RangeEnd: "192.168.141.29"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.networkCIDR must contain networking.ipAddress",
+		},
+		{
 			Scenario: "DHCP with no primary range and no ranges",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
@@ -649,6 +681,40 @@ func TestValidateIronic(t *testing.T) {
 				},
 			},
 			ExpectedError: "networking.dhcp.networkCIDR is required",
+		},
+		{
+			Scenario: "multi-range: IPv6 per-range gateway is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						Ranges: []metal3api.DHCPRange{
+							{
+								Name:           "v6net",
+								NetworkCIDR:    "fd69:158d:692a:1::/64",
+								RangeBegin:     "fd69:158d:692a:1::3000",
+								RangeEnd:       "fd69:158d:692a:1::3fff",
+								GatewayAddress: "fd69:158d:692a:1::1",
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: "IPv6 per-range gateway is not supported",
+		},
+		{
+			Scenario: "multi-range: invalid range name characters rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						Ranges: []metal3api.DHCPRange{
+							{Name: "pxe,inject", NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100"},
+						},
+					},
+				},
+			},
+			ExpectedError: "must match",
 		},
 		{
 			Scenario: "HA incompatible with ServiceMonitor",

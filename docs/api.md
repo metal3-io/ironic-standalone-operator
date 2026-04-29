@@ -617,7 +617,11 @@ Must not be set together with ServeDNS.<br/>
         <td><b>gatewayAddress</b></td>
         <td>string</td>
         <td>
-          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.<br/>
+          GatewayAddress is the default router advertised to clients in the flat
+range. Ignored in relay-only mode (no flat range); use per-range
+gatewayAddress on Ranges entries instead.
+
+Deprecated: use Ranges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -642,21 +646,36 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network. Required when Ranges is not set.
+
+Deprecated: use Ranges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeBegin</b></td>
         <td>string</td>
         <td>
-          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use Ranges instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeEnd</b></td>
         <td>string</td>
         <td>
-          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+
+Deprecated: use Ranges instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingdhcprangesindex">ranges</a></b></td>
+        <td>[]object</td>
+        <td>
+          Ranges is a list of DHCP address ranges for multi-subnet support.
+Can be combined with the top-level flat range. When only Ranges is set,
+the provisioning IP need not be in any range's CIDR (DHCP relay).<br/>
         </td>
         <td>false</td>
       </tr><tr>
