@@ -62,14 +62,10 @@ type Inspection struct {
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
-// DHCPRange defines a single DHCP address range with per-range options.
-// Used in the Ranges field for multi-subnet DHCP support.
+// DHCPRange defines a single additional DHCP address range with per-range options.
+// Each range is assigned an auto-generated dnsmasq tag `range_N`, where N is
+// its 1-based position in the extraRanges list.
 type DHCPRange struct {
-	// Name is used as a dnsmasq tag for per-range options (e.g. gateway).
-	// Must be unique across ranges. Required when multiple ranges are defined.
-	// +optional
-	Name string `json:"name,omitempty"`
-
 	// NetworkCIDR is the CIDR of the provisioning network for this range.
 	NetworkCIDR string `json:"networkCIDR"`
 
@@ -79,7 +75,9 @@ type DHCPRange struct {
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
 	RangeEnd string `json:"rangeEnd"`
 
-	// GatewayAddress is the IP address of the gateway for this range.
+	// GatewayAddress is the IPv4 gateway advertised to clients in this range.
+	// When unset, no router is advertised to this range. Must be inside
+	// NetworkCIDR when set. IPv6 gateways are not supported here.
 	// +optional
 	GatewayAddress string `json:"gatewayAddress,omitempty"`
 }
@@ -90,7 +88,16 @@ type DHCP struct {
 	// +optional
 	DNSAddress string `json:"dnsAddress,omitempty"`
 
+	// ExtraRanges is a list of additional DHCP address ranges served alongside
+	// the main range, e.g. for subnets reached via a DHCP relay. When set, the
+	// main networkCIDR/rangeBegin/rangeEnd fields become optional: leave them
+	// unset to serve only these ranges. Requires Ironic 37.0 or newer.
+	// +optional
+	ExtraRanges []DHCPRange `json:"extraRanges,omitempty"`
+
 	// GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+	// It only applies to the main range: each ExtraRanges entry advertises a
+	// router only when its own gatewayAddress is set.
 	// +optional
 	GatewayAddress string `json:"gatewayAddress,omitempty"`
 
@@ -106,23 +113,21 @@ type DHCP struct {
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
 
-	// NetworkCIDR is a CIDR of the provisioning network. Required when Ranges is not set.
+	// NetworkCIDR is a CIDR of the provisioning network. Required unless
+	// extraRanges is set, in which case it must be set together with
+	// rangeBegin and rangeEnd or left unset to serve only extraRanges.
+	// +optional
 	NetworkCIDR string `json:"networkCIDR,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	// Required unless extraRanges is set. Must be set together with networkCIDR and rangeEnd.
+	// +optional
 	RangeBegin string `json:"rangeBegin,omitempty"`
 
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
-	RangeEnd string `json:"rangeEnd,omitempty"`
-
-	// Ranges is a list of DHCP address ranges for multi-subnet support.
-	// Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
-	// fields — both are concatenated into the dnsmasq configuration.
-	// Each range can have its own CIDR and dnsmasq tag name.
-	// The provisioning IP (networking.ipAddress) does not need to be in any range's
-	// CIDR, enabling DHCP relay scenarios.
+	// Required unless extraRanges is set. Must be set together with networkCIDR and rangeBegin.
 	// +optional
-	Ranges []DHCPRange `json:"ranges,omitempty"`
+	RangeEnd string `json:"rangeEnd,omitempty"`
 
 	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 	// Must not be set together with DNSAddress.

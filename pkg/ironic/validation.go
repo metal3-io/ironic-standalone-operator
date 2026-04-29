@@ -35,7 +35,7 @@ func validateIP(ip string) error {
 	return nil
 }
 
-func validateIPinPrefix(ip string, prefix netip.Prefix) error {
+func validateIPinPrefix(ip string, prefix netip.Prefix, cidrField string) error {
 	if ip == "" {
 		return nil
 	}
@@ -46,7 +46,7 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	}
 
 	if !prefix.Contains(parsed) {
-		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+		return fmt.Errorf("%s is not in %s", ip, cidrField)
 	}
 
 	return nil
@@ -121,8 +121,19 @@ func validateAgentImages(images []metal3api.AgentImages) error {
 	return nil
 }
 
+// validateRangeOrder rejects reversed DHCP ranges, which dnsmasq refuses at
+// startup. Both IPs are expected to be already validated.
+func validateRangeOrder(beginStr, endStr string) error {
+	begin, beginErr := netip.ParseAddr(beginStr)
+	end, endErr := netip.ParseAddr(endStr)
+	if beginErr == nil && endErr == nil && begin.Compare(end) > 0 {
+		return errors.New("rangeBegin must not be after rangeEnd")
+	}
+	return nil
+}
+
 func validateDHCPRange(r metal3api.DHCPRange, idx int) error {
-	prefix := fmt.Sprintf("networking.dhcp.ranges[%d]", idx)
+	prefix := fmt.Sprintf("networking.dhcp.extraRanges[%d]", idx)
 
 	if r.NetworkCIDR == "" {
 		return fmt.Errorf("%s.networkCIDR is required", prefix)
@@ -133,20 +144,35 @@ func validateDHCPRange(r metal3api.DHCPRange, idx int) error {
 		return fmt.Errorf("%s.networkCIDR is invalid: %w", prefix, err)
 	}
 
+	if cidr.Bits() == 0 {
+		return fmt.Errorf("%s.networkCIDR must have a non-zero prefix length", prefix)
+	}
+
 	if r.RangeBegin == "" || r.RangeEnd == "" {
 		return fmt.Errorf("%s: rangeBegin and rangeEnd are required", prefix)
 	}
 
-	if err := validateIPinPrefix(r.RangeBegin, cidr); err != nil {
+	cidrField := prefix + ".networkCIDR"
+
+	if err := validateIPinPrefix(r.RangeBegin, cidr, cidrField); err != nil {
 		return fmt.Errorf("%s.rangeBegin: %w", prefix, err)
 	}
 
-	if err := validateIPinPrefix(r.RangeEnd, cidr); err != nil {
+	if err := validateIPinPrefix(r.RangeEnd, cidr, cidrField); err != nil {
 		return fmt.Errorf("%s.rangeEnd: %w", prefix, err)
 	}
 
-	if err := validateIP(r.GatewayAddress); err != nil {
-		return fmt.Errorf("%s.gatewayAddress: %w", prefix, err)
+	if err := validateRangeOrder(r.RangeBegin, r.RangeEnd); err != nil {
+		return fmt.Errorf("%s: %w", prefix, err)
+	}
+
+	if r.GatewayAddress != "" {
+		if cidr.Addr().Is6() {
+			return fmt.Errorf("%s.gatewayAddress: IPv6 per-range gateway is not supported", prefix)
+		}
+		if err := validateIPinPrefix(r.GatewayAddress, cidr, cidrField); err != nil {
+			return fmt.Errorf("%s.gatewayAddress: %w", prefix, err)
+		}
 	}
 
 	return nil
@@ -166,41 +192,51 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		return err
 	}
 
-	hasPrimaryRange := dhcp.NetworkCIDR != "" || dhcp.RangeBegin != "" || dhcp.RangeEnd != ""
-	hasRanges := len(dhcp.Ranges) > 0
-
-	if !hasPrimaryRange && !hasRanges {
-		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
+	if err := validateIP(dhcp.GatewayAddress); err != nil {
+		return err
 	}
 
-	// Validate primary (flat) fields if present
-	if hasPrimaryRange {
-		if dhcp.NetworkCIDR == "" {
-			return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
+	// The main range fields are all-or-nothing: leaving networkCIDR,
+	// rangeBegin and rangeEnd unset disables the main range so only
+	// extraRanges are served (e.g. a relay-only deployment). At least one
+	// range - main or extra - must be configured.
+	mainFieldsSet := 0
+	for _, f := range []string{dhcp.NetworkCIDR, dhcp.RangeBegin, dhcp.RangeEnd} {
+		if f != "" {
+			mainFieldsSet++
 		}
-		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-			return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
-		}
+	}
+	hasMainRange := mainFieldsSet == 3
 
+	switch {
+	case mainFieldsSet != 0 && !hasMainRange:
+		return errors.New("networking.dhcp: networkCIDR, rangeBegin and rangeEnd must be set together")
+	case !hasMainRange && len(dhcp.ExtraRanges) == 0:
+		return errors.New("networking.dhcp: networkCIDR, rangeBegin and rangeEnd are required unless extraRanges is set")
+	}
+
+	if hasMainRange {
 		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
 		if err != nil {
 			return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
 		}
 
-		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
+		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR, "networking.dhcp.networkCIDR"); err != nil {
 			return err
 		}
 
-		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
+		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR, "networking.dhcp.networkCIDR"); err != nil {
 			return err
 		}
 
-		if err := validateIP(dhcp.GatewayAddress); err != nil {
-			return err
+		if err := validateRangeOrder(dhcp.RangeBegin, dhcp.RangeEnd); err != nil {
+			return fmt.Errorf("networking.dhcp: %w", err)
 		}
 
-		// Check that the provisioning IP is in the flat CIDR (skip when Ranges is also used, enabling relay scenarios)
-		if !hasRanges && ironic.Networking.IPAddress != "" {
+		// The main range is a direct-attached subnet by definition, so the
+		// provisioning IP must live in it. Subnets reached via a DHCP relay
+		// belong in extraRanges.
+		if ironic.Networking.IPAddress != "" {
 			provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
 			if !provCIDR.Contains(provIP) {
 				return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
@@ -208,21 +244,46 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		}
 	}
 
-	// Validate additional ranges
-	if hasRanges {
-		names := make(map[string]bool)
-		for i, r := range dhcp.Ranges {
-			if len(dhcp.Ranges) > 1 && r.Name == "" {
-				return fmt.Errorf("networking.dhcp.ranges[%d].name is required when multiple ranges are defined", i)
-			}
-			if r.Name != "" {
-				if names[r.Name] {
-					return fmt.Errorf("networking.dhcp.ranges: duplicate name %q", r.Name)
-				}
-				names[r.Name] = true
-			}
-			if err := validateDHCPRange(r, i); err != nil {
-				return err
+	for i, r := range dhcp.ExtraRanges {
+		if err := validateDHCPRange(r, i); err != nil {
+			return err
+		}
+	}
+
+	return validateNoPoolOverlap(dhcp)
+}
+
+// validateNoPoolOverlap rejects DHCP address pools (main and extra ranges)
+// that overlap each other: dnsmasq either refuses to start or allocates
+// leases ambiguously between the overlapping pools.
+func validateNoPoolOverlap(dhcp *metal3api.DHCP) error {
+	type pool struct {
+		begin, end netip.Addr
+		field      string
+	}
+
+	pools := make([]pool, 0, len(dhcp.ExtraRanges)+1)
+	addPool := func(beginStr, endStr, field string) {
+		begin, err := netip.ParseAddr(beginStr)
+		if err != nil {
+			return
+		}
+		end, err := netip.ParseAddr(endStr)
+		if err != nil {
+			return
+		}
+		pools = append(pools, pool{begin: begin, end: end, field: field})
+	}
+
+	addPool(dhcp.RangeBegin, dhcp.RangeEnd, "networking.dhcp")
+	for i, r := range dhcp.ExtraRanges {
+		addPool(r.RangeBegin, r.RangeEnd, fmt.Sprintf("networking.dhcp.extraRanges[%d]", i))
+	}
+
+	for i := 1; i < len(pools); i++ {
+		for j := range i {
+			if pools[i].begin.Compare(pools[j].end) <= 0 && pools[j].begin.Compare(pools[i].end) <= 0 {
+				return fmt.Errorf("DHCP pools of %s and %s overlap", pools[j].field, pools[i].field)
 			}
 		}
 	}

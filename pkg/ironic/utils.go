@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -209,6 +210,19 @@ func getJobStatus(cctx ControllerContext, job *batchv1.Job, jobType string) (Sta
 	messageWithType := jobType + " job not complete yet"
 	cctx.Logger.Info(messageWithType, "Job", job.Name, "Conditions", job.Status.Conditions)
 	return inProgress(messageWithType)
+}
+
+// prefixToNetmask renders a netip.Prefix as the netmask notation dnsmasq
+// expects in a DHCP_RANGE entry: a dotted-quad mask for IPv4 (e.g. /24 ->
+// 255.255.255.0) and a plain prefix length for IPv6.
+func prefixToNetmask(prefix netip.Prefix) string {
+	bits := prefix.Bits()
+	if prefix.Addr().Is6() {
+		return strconv.Itoa(bits) // IPv6 uses prefix length
+	}
+	// IPv4: convert prefix length to dotted netmask
+	mask := uint32(0xFFFFFFFF) << (32 - bits)
+	return fmt.Sprintf("%d.%d.%d.%d", mask>>24, (mask>>16)&0xFF, (mask>>8)&0xFF, mask&0xFF)
 }
 
 func buildEndpoints(ips []string, port int, includeProto string) (endpoints []string) {

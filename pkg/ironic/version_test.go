@@ -194,6 +194,97 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 	}
 }
 
+func TestMultiRangeDHCPVersionCheck(t *testing.T) {
+	testCases := []struct {
+		name          string
+		version       metal3api.Version
+		dhcp          *metal3api.DHCP
+		expectedError string
+	}{
+		{
+			name:    "no DHCP at all",
+			version: metal3api.Version350,
+		},
+		{
+			name:    "DHCP without ExtraRanges on older version (allowed)",
+			version: metal3api.Version350,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+			},
+		},
+		{
+			name:    "ExtraRanges on latest version",
+			version: metal3api.VersionLatest,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "198.51.100.0/24", RangeBegin: "198.51.100.10", RangeEnd: "198.51.100.100"},
+				},
+			},
+		},
+		{
+			name:    "ExtraRanges on 37.0 is allowed",
+			version: metal3api.Version370,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "198.51.100.0/24", RangeBegin: "198.51.100.10", RangeEnd: "198.51.100.100"},
+				},
+			},
+		},
+		{
+			name:    "ExtraRanges on 35.0 is rejected",
+			version: metal3api.Version350,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "198.51.100.0/24", RangeBegin: "198.51.100.10", RangeEnd: "198.51.100.100"},
+				},
+			},
+			expectedError: "networking.dhcp.extraRanges requires Ironic 37.0 or newer",
+		},
+		{
+			name:    "ExtraRanges on 34.0 is rejected",
+			version: metal3api.Version340,
+			dhcp: &metal3api.DHCP{
+				NetworkCIDR: "192.0.2.0/24",
+				RangeBegin:  "192.0.2.10",
+				RangeEnd:    "192.0.2.100",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "198.51.100.0/24", RangeBegin: "198.51.100.10", RangeEnd: "198.51.100.100"},
+				},
+			},
+			expectedError: "networking.dhcp.extraRanges requires Ironic 37.0 or newer",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{DHCP: tc.dhcp},
+				},
+			}
+			err := CheckVersion(Resources{Ironic: ironic}, tc.version)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestBMCCAVersionCheck(t *testing.T) {
 	testCases := []struct {
 		name          string
