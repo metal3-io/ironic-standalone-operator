@@ -587,8 +587,7 @@ Must not be set together with ServeDNS.<br/>
         <td><b>gatewayAddress</b></td>
         <td>string</td>
         <td>
-          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
-Not used when Ranges is set; use per-range GatewayAddress instead.<br/>
+          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -636,8 +635,8 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           Ranges is a list of DHCP address ranges for multi-subnet support.
 Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
-and GatewayAddress fields — both are concatenated into the dnsmasq configuration.
-Each range can have its own CIDR, gateway, and dnsmasq tag name.
+fields — both are concatenated into the dnsmasq configuration.
+Each range can have its own CIDR and dnsmasq tag name.
 The provisioning IP (networking.ipAddress) does not need to be in any range's
 CIDR, enabling DHCP relay scenarios.<br/>
         </td>

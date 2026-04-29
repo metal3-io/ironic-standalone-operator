@@ -200,9 +200,8 @@ spec:
                           Must not be set together with ServeDNS.
                         type: string
                       gatewayAddress:
-                        description: |-
-                          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
-                          Not used when Ranges is set; use per-range GatewayAddress instead.
+                        description: GatewayAddress is the IP address of the gateway
+                          to pass to hosts via DHCP.
                         type: string
                       hosts:
                         description: |-
@@ -236,8 +235,8 @@ spec:
                         description: |-
                           Ranges is a list of DHCP address ranges for multi-subnet support.
                           Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
-                          and GatewayAddress fields — both are concatenated into the dnsmasq configuration.
-                          Each range can have its own CIDR, gateway, and dnsmasq tag name.
+                          fields — both are concatenated into the dnsmasq configuration.
+                          Each range can have its own CIDR and dnsmasq tag name.
                           The provisioning IP (networking.ipAddress) does not need to be in any range's
                           CIDR, enabling DHCP relay scenarios.
                         items:
