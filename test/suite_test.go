@@ -1274,6 +1274,383 @@ var _ = Describe("Ironic object tests", func() {
 		ironic = WaitForIronic(name)
 		VerifyIronic(ironic, TestAssumptions{withPrometheusExporter: true, exporterBindAddress: specificIP})
 	})
+
+	It("creates Ironic with networking service", Label("networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+
+		helpers.VerifyNetworkingDeploymentExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifyNetworkingServiceExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifySwitchConfigSecretExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifySwitchCredentialsSecretExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifyNetworkingEnvVarsOnIronic(ctx, clientset, namespace, name.Name)
+	})
+
+	It("networking service uses custom-named switch credentials secret", Label("networking-creds", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating the custom-named credentials secret")
+		customSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "custom-switch-credentials",
+				Namespace: namespace,
+				Labels: map[string]string{
+					metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+				},
+			},
+			Data: map[string][]byte{
+				"00-11-22-33-44-55.key": []byte("custom-key-data"),
+			},
+		}
+		err := k8sClient.Create(ctx, customSecret)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, customSecret)
+		})
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled:                     true,
+				SwitchCredentialsSecretName: "custom-switch-credentials",
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		By("verifying the operator did not add the managed label")
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, "custom-switch-credentials", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(secret.Labels).NotTo(HaveKey("ironic.metal3.io/managed"))
+		Expect(string(secret.Data["00-11-22-33-44-55.key"])).To(Equal("custom-key-data"))
+
+		By("verifying credentials volume mount on networking deployment")
+		deployName := name.Name + "-networking"
+		deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		var foundCredsMount bool
+		for _, mount := range deploy.Spec.Template.Spec.Containers[0].VolumeMounts {
+			if mount.Name == "switch-credentials" && mount.MountPath == "/etc/ironic/networking/credentials" {
+				foundCredsMount = true
+				break
+			}
+		}
+		Expect(foundCredsMount).To(BeTrue(), "Expected switch-credentials volume mount on networking pod")
+
+		var foundCredsVolume bool
+		for _, vol := range deploy.Spec.Template.Spec.Volumes {
+			if vol.Name == "switch-credentials" && vol.Secret != nil && vol.Secret.SecretName == "custom-switch-credentials" {
+				foundCredsVolume = true
+				break
+			}
+		}
+		Expect(foundCredsVolume).To(BeTrue(), "Expected switch-credentials volume to reference custom-switch-credentials secret")
+	})
+
+	It("networking service uses custom-named switch config secret", Label("networking-config", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating the custom-named config secret")
+		customSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "custom-switch-config",
+				Namespace: namespace,
+				Labels: map[string]string{
+					metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+				},
+			},
+			Data: map[string][]byte{
+				"switch-configs.conf": []byte("[switch.custom]\nip=10.0.0.50\n"),
+			},
+		}
+		err := k8sClient.Create(ctx, customSecret)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, customSecret)
+		})
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled:                true,
+				SwitchConfigSecretName: "custom-switch-config",
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		By("verifying the operator did not add the managed label")
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, "custom-switch-config", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(secret.Labels).NotTo(HaveKey("ironic.metal3.io/managed"))
+		Expect(string(secret.Data["switch-configs.conf"])).To(ContainSubstring("switch.custom"))
+
+		By("verifying switch-config volume on networking deployment")
+		deployName := name.Name + "-networking"
+		deploy, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deployName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		var foundConfigVolume bool
+		for _, vol := range deploy.Spec.Template.Spec.Volumes {
+			if vol.Name == "switch-config" && vol.Secret != nil && vol.Secret.SecretName == "custom-switch-config" {
+				foundConfigVolume = true
+				break
+			}
+		}
+		Expect(foundConfigVolume).To(BeTrue(), "Expected switch-config volume to reference custom-switch-config secret")
+	})
+
+	It("networking service uses user-provided switch secrets", Label("networking-user-secret", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating user-provided switch config secret with environment label")
+		userConfigSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name + "-switch-config",
+				Namespace: namespace,
+				Labels: map[string]string{
+					metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+				},
+			},
+			Data: map[string][]byte{
+				"switch-configs.conf": []byte("[switch.user-provided]\nip=10.0.0.99\n"),
+			},
+		}
+		err := k8sClient.Create(ctx, userConfigSecret)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, userConfigSecret)
+		})
+
+		By("creating user-provided switch credentials secret with environment label")
+		userCredsSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name + "-switch-credentials",
+				Namespace: namespace,
+				Labels: map[string]string{
+					metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+				},
+			},
+			Data: map[string][]byte{
+				"00-11-22-33-44-55.key": []byte("user-provided-ssh-key"),
+			},
+		}
+		err = k8sClient.Create(ctx, userCredsSecret)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, userCredsSecret)
+		})
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		By("verifying the operator did not overwrite user-provided config secret")
+		configSecret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name.Name+"-switch-config", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(configSecret.Data["switch-configs.conf"])).To(ContainSubstring("user-provided"))
+		Expect(configSecret.Labels).NotTo(HaveKey("ironic.metal3.io/managed"))
+
+		By("verifying the operator did not overwrite user-provided credentials secret")
+		credsSecret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name.Name+"-switch-credentials", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(credsSecret.Data["00-11-22-33-44-55.key"])).To(Equal("user-provided-ssh-key"))
+		Expect(credsSecret.Labels).NotTo(HaveKey("ironic.metal3.io/managed"))
+
+		By("disabling networking and verifying user-provided secrets survive")
+		patchObj := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.NetworkingService.Enabled = false
+		err = k8sClient.Patch(ctx, ironic, patchObj)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		helpers.VerifyNetworkingResourcesGone(ctx, clientset, namespace, name.Name)
+
+		// User-provided secrets should still exist
+		configSecret, err = clientset.CoreV1().Secrets(namespace).Get(ctx, name.Name+"-switch-config", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred(), "user-provided switch config secret should not be deleted")
+		Expect(string(configSecret.Data["switch-configs.conf"])).To(ContainSubstring("user-provided"))
+
+		credsSecret, err = clientset.CoreV1().Secrets(namespace).Get(ctx, name.Name+"-switch-credentials", metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred(), "user-provided switch credentials secret should not be deleted")
+		Expect(string(credsSecret.Data["00-11-22-33-44-55.key"])).To(Equal("user-provided-ssh-key"))
+	})
+
+	It("networking service reports missing label on user-provided secret", Label("networking-missing-label", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating a switch config secret without the environment label")
+		unlabeledSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name + "-switch-config",
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				"switch-configs.conf": []byte("[switch.test]\nip=10.0.0.1\n"),
+			},
+		}
+		err := k8sClient.Create(ctx, unlabeledSecret)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(ctx, unlabeledSecret)
+		})
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		By("verifying Ironic reports the missing label error")
+		WaitForIronicFailure(name, "does not have the required label", false)
+
+		By("adding the environment label to the secret")
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: unlabeledSecret.Name, Namespace: namespace}, unlabeledSecret)
+		Expect(err).NotTo(HaveOccurred())
+		if unlabeledSecret.Labels == nil {
+			unlabeledSecret.Labels = make(map[string]string)
+		}
+		unlabeledSecret.Labels[metal3api.LabelEnvironmentName] = metal3api.LabelEnvironmentValue
+		err = k8sClient.Update(ctx, unlabeledSecret)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verifying Ironic recovers")
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
+
+	It("networking service can be enabled and disabled", Label("networking-lifecycle", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		By("creating Ironic without networking")
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+		helpers.VerifyNetworkingDeploymentNotExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifyNetworkingServiceNotExists(ctx, clientset, namespace, name.Name)
+
+		By("enabling networking")
+		err := k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		patch := client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.NetworkingService = &metal3api.NetworkingService{
+			Enabled: true,
+		}
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		helpers.VerifyNetworkingDeploymentExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifyNetworkingServiceExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifySwitchConfigSecretExists(ctx, clientset, namespace, name.Name)
+		helpers.VerifySwitchCredentialsSecretExists(ctx, clientset, namespace, name.Name)
+
+		By("disabling networking")
+		err = k8sClient.Get(ctx, name, ironic)
+		Expect(err).NotTo(HaveOccurred())
+		patch = client.MergeFrom(ironic.DeepCopy())
+		ironic.Spec.NetworkingService.Enabled = false
+		err = k8sClient.Patch(ctx, ironic, patch)
+		Expect(err).NotTo(HaveOccurred())
+
+		ironic = WaitForIronic(name)
+		helpers.VerifyNetworkingResourcesGone(ctx, clientset, namespace, name.Name)
+		helpers.VerifySwitchSecretsGone(ctx, clientset, namespace, name.Name)
+	})
+
+	It("networking service restarts on switch config change", Label("networking-restart", "networking"), func() {
+		name := types.NamespacedName{
+			Name:      "test-ironic",
+			Namespace: namespace,
+		}
+
+		ironic := helpers.NewIronic(ctx, k8sClient, name, metal3api.IronicSpec{
+			NetworkingService: &metal3api.NetworkingService{
+				Enabled: true,
+			},
+		})
+		DeferCleanup(func() {
+			CollectLogs(namespace)
+			DeleteAndWait(ironic)
+		})
+
+		ironic = WaitForIronic(name)
+
+		By("recording initial switch config annotation")
+		initialAnnotation := helpers.GetNetworkingPodAnnotation(ctx, clientset, namespace, name.Name, "ironic.metal3.io/switch-config-version")
+		Expect(initialAnnotation).NotTo(BeEmpty())
+
+		By("updating switch config secret")
+		secretName := name.Name + "-switch-config"
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		secret.Data["switch-configs.conf"] = []byte("[switch.new]\nip=10.0.0.1\n")
+		_, err = clientset.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("waiting for annotation to change")
+		Eventually(func() string {
+			return helpers.GetNetworkingPodAnnotation(ctx, clientset, namespace, name.Name, "ironic.metal3.io/switch-config-version")
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).ShouldNot(Equal(initialAnnotation))
+
+		By("verifying Ironic is still healthy")
+		ironic = WaitForIronic(name)
+		VerifyIronic(ironic, TestAssumptions{})
+	})
 })
 
 var _ = AfterSuite(func() {

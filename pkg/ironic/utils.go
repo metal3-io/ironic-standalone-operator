@@ -49,13 +49,15 @@ type ControllerContext struct {
 }
 
 type Resources struct {
-	Ironic             *metal3api.Ironic
-	APISecret          *corev1.Secret
-	TLSSecret          *corev1.Secret
-	BMCCASecret        *corev1.Secret
-	BMCCAConfigMap     *corev1.ConfigMap
-	TrustedCASecret    *corev1.Secret
-	TrustedCAConfigMap *corev1.ConfigMap
+	Ironic                  *metal3api.Ironic
+	APISecret               *corev1.Secret
+	TLSSecret               *corev1.Secret
+	BMCCASecret             *corev1.Secret
+	BMCCAConfigMap          *corev1.ConfigMap
+	TrustedCASecret         *corev1.Secret
+	TrustedCAConfigMap      *corev1.ConfigMap
+	SwitchConfigSecret      *corev1.Secret
+	SwitchCredentialsSecret *corev1.Secret
 }
 
 func mergeContainers(target, source []corev1.Container) []corev1.Container {
