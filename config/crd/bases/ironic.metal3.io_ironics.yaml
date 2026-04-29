@@ -199,60 +199,23 @@ spec:
                           DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
                           Must not be set together with ServeDNS.
                         type: string
-                      gatewayAddress:
+                      extraRanges:
                         description: |-
-                          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
-                          Not used when Ranges is set; use per-range GatewayAddress instead.
-                        type: string
-                      hosts:
-                        description: |-
-                          Hosts is a set of DHCP host records to pass to dnsmasq.
-                          Check the dnsmasq documentation on dhcp-host for an explanation of the format.
-                          There is no API-side validation. Most users will leave this unset.
-                        items:
-                          type: string
-                        type: array
-                      ignore:
-                        description: |-
-                          Ignore is set of dnsmasq tags to ignore and not provide any DHCP.
-                          Check the dnsmasq documentation on dhcp-ignore for an explanation of the format.
-                          There is no API-side validation. Most users will leave this unset.
-                        items:
-                          type: string
-                        type: array
-                      networkCIDR:
-                        description: NetworkCIDR is a CIDR of the provisioning network.
-                          Required when Ranges is not set.
-                        type: string
-                      rangeBegin:
-                        description: RangeBegin is the first IP that can be given
-                          to hosts. Must be inside NetworkCIDR.
-                        type: string
-                      rangeEnd:
-                        description: RangeEnd is the last IP that can be given to
-                          hosts. Must be inside NetworkCIDR.
-                        type: string
-                      ranges:
-                        description: |-
-                          Ranges is a list of DHCP address ranges for multi-subnet support.
-                          Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
-                          and GatewayAddress fields — both are concatenated into the dnsmasq configuration.
-                          Each range can have its own CIDR, gateway, and dnsmasq tag name.
-                          The provisioning IP (networking.ipAddress) does not need to be in any range's
-                          CIDR, enabling DHCP relay scenarios.
+                          ExtraRanges is a list of additional DHCP address ranges served alongside
+                          the main range, e.g. for subnets reached via a DHCP relay. When set, the
+                          main networkCIDR/rangeBegin/rangeEnd fields become optional: leave them
+                          unset to serve only these ranges. Requires Ironic 37.0 or newer.
                         items:
                           description: |-
-                            DHCPRange defines a single DHCP address range with per-range options.
-                            Used in the Ranges field for multi-subnet DHCP support.
+                            DHCPRange defines a single additional DHCP address range with per-range options.
+                            Each range is assigned an auto-generated dnsmasq tag `range_N`, where N is
+                            its 1-based position in the extraRanges list.
                           properties:
                             gatewayAddress:
-                              description: GatewayAddress is the IP address of the
-                                gateway for this range.
-                              type: string
-                            name:
                               description: |-
-                                Name is used as a dnsmasq tag for per-range options (e.g. gateway).
-                                Must be unique across ranges. Required when multiple ranges are defined.
+                                GatewayAddress is the IPv4 gateway advertised to clients in this range.
+                                When unset, no router is advertised to this range. Must be inside
+                                NetworkCIDR when set. IPv6 gateways are not supported here.
                               type: string
                             networkCIDR:
                               description: NetworkCIDR is the CIDR of the provisioning
@@ -272,6 +235,44 @@ spec:
                           - rangeEnd
                           type: object
                         type: array
+                      gatewayAddress:
+                        description: |-
+                          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+                          It only applies to the main range: each ExtraRanges entry advertises a
+                          router only when its own gatewayAddress is set.
+                        type: string
+                      hosts:
+                        description: |-
+                          Hosts is a set of DHCP host records to pass to dnsmasq.
+                          Check the dnsmasq documentation on dhcp-host for an explanation of the format.
+                          There is no API-side validation. Most users will leave this unset.
+                        items:
+                          type: string
+                        type: array
+                      ignore:
+                        description: |-
+                          Ignore is set of dnsmasq tags to ignore and not provide any DHCP.
+                          Check the dnsmasq documentation on dhcp-ignore for an explanation of the format.
+                          There is no API-side validation. Most users will leave this unset.
+                        items:
+                          type: string
+                        type: array
+                      networkCIDR:
+                        description: |-
+                          NetworkCIDR is a CIDR of the provisioning network. Required unless
+                          extraRanges is set, in which case it must be set together with
+                          rangeBegin and rangeEnd or left unset to serve only extraRanges.
+                        type: string
+                      rangeBegin:
+                        description: |-
+                          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+                          Required unless extraRanges is set. Must be set together with networkCIDR and rangeEnd.
+                        type: string
+                      rangeEnd:
+                        description: |-
+                          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+                          Required unless extraRanges is set. Must be set together with networkCIDR and rangeBegin.
+                        type: string
                       serveDNS:
                         description: |-
                           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
