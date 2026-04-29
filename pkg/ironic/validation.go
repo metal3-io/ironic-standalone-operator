@@ -189,6 +189,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return err
 	}
 
+	if err := validateIP(ironic.Networking.ImageServerIPAddress); err != nil {
+		return err
+	}
+
 	if ironic.HighAvailability && ironic.Networking.IPAddress != "" {
 		return errors.New("networking.ipAddress makes no sense with highly available architecture")
 	}
@@ -203,12 +207,35 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
-	if ironic.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived {
+	if ironic.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived { //nolint:staticcheck // backward compat
 		if ironic.HighAvailability {
 			return errors.New("networking: keepalived is not compatible with the highly available architecture")
 		}
 		if ironic.Networking.IPAddress == "" || ironic.Networking.Interface == "" {
 			return errors.New("networking: keepalived requires specifying both ipAddress and interface")
+		}
+	}
+
+	if ironic.Networking.Keepalived != nil && ironic.Networking.Keepalived.Enabled {
+		if ironic.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived { //nolint:staticcheck // backward compat
+			return errors.New("networking: keepalived and ipAddressManager cannot be used together")
+		}
+		if ironic.HighAvailability {
+			return errors.New("networking: keepalived is not compatible with the highly available architecture")
+		}
+		if ironic.Networking.IPAddress == "" || ironic.Networking.Interface == "" {
+			return errors.New("networking: keepalived requires specifying both ipAddress and interface")
+		}
+		for i, entry := range ironic.Networking.Keepalived.AdditionalVIPs {
+			if entry.IPAddress == "" {
+				return fmt.Errorf("networking.keepalived.additionalVIPs[%d]: ipAddress is required", i)
+			}
+			if err := validateIP(entry.IPAddress); err != nil {
+				return fmt.Errorf("networking.keepalived.additionalVIPs[%d]: %w", i, err)
+			}
+			if entry.Interface == "" {
+				return fmt.Errorf("networking.keepalived.additionalVIPs[%d]: interface is required", i)
+			}
 		}
 	}
 
