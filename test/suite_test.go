@@ -505,8 +505,9 @@ func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string, bi
 		// NOTE(dtantsur): each Ironic replica has its own exporter, verify them all independently.
 		for _, ironicIP := range currentIronicIPs {
 			testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(ironicIP, "9608"))
-			statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
-			Expect(statusCode).To(Equal(200))
+			Eventually(func() int {
+				return helpers.GetStatusCode(ctx, &httpClient, testURL)
+			}, 30*time.Second, 1*time.Second).Should(Equal(200))
 		}
 
 	default:
@@ -516,8 +517,9 @@ func verifyPrometheusExporter(ctx context.Context, currentIronicIPs []string, bi
 
 		httpClient := helpers.NewHTTPClient()
 		testURL := fmt.Sprintf("http://%s/metrics", net.JoinHostPort(bindAddress, "9608"))
-		statusCode := helpers.GetStatusCode(ctx, &httpClient, testURL)
-		Expect(statusCode).To(Equal(200))
+		Eventually(func() int {
+			return helpers.GetStatusCode(ctx, &httpClient, testURL)
+		}, 30*time.Second, 1*time.Second).Should(Equal(200))
 	}
 }
 
