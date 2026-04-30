@@ -48,10 +48,16 @@ func NewHTTPClient() http.Client {
 
 func GetStatusCode(ctx context.Context, httpClient *http.Client, url string) int {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		// Return 0 to allow Eventually to retry on errors
+		return 0
+	}
 
 	resp, err := httpClient.Do(req) //nolint:gosec // URL is controlled by test infrastructure
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		// Return 0 to allow Eventually to retry on connection errors
+		return 0
+	}
 	defer resp.Body.Close()
 
 	return resp.StatusCode
