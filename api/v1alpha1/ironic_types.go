@@ -97,6 +97,29 @@ type DHCP struct {
 	ServeDNS bool `json:"serveDNS,omitempty"`
 }
 
+// Ingress defines ingress resource for Ironic services
+type Ingress struct {
+	// IngressClass of Ingress resource
+	IngressClassName string `json:"ingressClassName,omitempty"`
+
+	// Host of the Ingress
+	Host string `json:"host,omitempty"`
+
+	// Annotations to be added to Ingress resource
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Ironic API Path
+	// +kubebuilder:default=/
+	// +optional
+	APIPath string `json:"apiPath,omitempty"`
+
+	// Image server Path
+	// +kubebuilder:default=/(redfish|images)
+	// +optional
+	ImageServerPath string `json:"imageServerPath,omitempty"`
+}
+
 type IPAddressManager string
 
 const (
@@ -120,6 +143,10 @@ type Networking struct {
 	// The service is only deployed when this is set.
 	// This setting is currently incompatible with the highly available architecture.
 	DHCP *DHCP `json:"dhcp,omitempty"`
+
+	// Configure Ingress resource for Ironic services
+	// +optional
+	Ingress *Ingress `json:"ingress,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.

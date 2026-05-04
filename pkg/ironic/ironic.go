@@ -2,9 +2,11 @@ package ironic
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -15,8 +17,9 @@ import (
 )
 
 const (
-	defaultExposedPort = 80
-	httpsExposedPort   = 443
+	defaultExposedPort      = 80
+	httpsExposedPort        = 443
+	defaultImageExposedPort = 8080
 )
 
 func ironicDeploymentName(ironic *metal3api.Ironic) string {
@@ -133,6 +136,17 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 				TargetPort: intstr.FromString(ironicPortName),
 			},
 		}
+		if ironic.Spec.HighAvailability {
+			ports = append(
+				ports,
+				corev1.ServicePort{
+					Name:       imagesPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       defaultImageExposedPort,
+					TargetPort: intstr.FromString(imagesPortName),
+				},
+			)
+		}
 
 		// Add metrics port when PrometheusExporter is enabled
 		if ironic.Spec.PrometheusExporter != nil && ironic.Spec.PrometheusExporter.Enabled {
@@ -162,6 +176,76 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 	}
 
 	return getServiceStatus(service)
+}
+
+func ensureIronicIngress(cctx ControllerContext, ironic *metal3api.Ironic) (Status, error) {
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: ironic.Name, Namespace: ironic.Namespace},
+	}
+	ingressSettings := ironic.Spec.Networking.Ingress
+	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, ingress, func() error {
+		if ingress.Labels == nil {
+			cctx.Logger.Info("creating an ingress resource")
+			ingress.Labels = make(map[string]string, 2)
+		}
+		ingress.Labels[metal3api.IronicServiceLabel] = ironic.Name
+		ingress.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
+
+		if ingressSettings.Annotations != nil {
+			ingress.SetAnnotations(ingressSettings.Annotations)
+		}
+		ingress.Spec.IngressClassName = &ingressSettings.IngressClassName
+		ingress.Spec.TLS = append(ingress.Spec.TLS, networkingv1.IngressTLS{
+			Hosts:      []string{ingressSettings.Host},
+			SecretName: fmt.Sprintf("%s-ingress-tls"),
+		})
+
+		pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
+		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1.IngressRule{
+			Host: ingressSettings.Host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						networkingv1.HTTPIngressPath{
+							Path:     ingressSettings.APIPath,
+							PathType: &pathTypeImplementationSpecific,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: ironicPortName,
+									Port: networkingv1.ServiceBackendPort{
+										Number: defaultExposedPort,
+									},
+								},
+							},
+						},
+						networkingv1.HTTPIngressPath{
+							Path:     ingressSettings.ImageServerPath,
+							PathType: &pathTypeImplementationSpecific,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: imagesPortName,
+									Port: networkingv1.ServiceBackendPort{
+										Number: defaultImageExposedPort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		return controllerutil.SetControllerReference(ironic, ingress, cctx.Scheme)
+	})
+	if result != controllerutil.OperationResultNone {
+		cctx.Logger.Info("ironic ingress", "Ingress", ingress.Name, "Status", result)
+		return updated()
+	}
+	if err != nil {
+		return transientError(err)
+	}
+
+	return ready()
 }
 
 func removeIronicDaemonSet(cctx ControllerContext, ironic *metal3api.Ironic) error {
@@ -219,6 +303,13 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 	serviceStatus, err := ensureIronicService(cctx, resources.Ironic)
 	if err != nil || !serviceStatus.IsReady() {
 		return serviceStatus, err
+	}
+
+	if resources.Ironic.Spec.Networking.Ingress != nil {
+		ingressStatus, err := ensureIronicIngress(cctx, resources.Ironic)
+		if err != nil || !ingressStatus.IsReady() {
+			return ingressStatus, err
+		}
 	}
 
 	if resources.Ironic.Spec.Database != nil {

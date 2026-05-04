@@ -494,6 +494,13 @@ This settings only applies to virtual media deployments. The IP will not be acce
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecnetworkingingress">ingress</a></b></td>
+        <td>object</td>
+        <td>
+          Configure Ingress resource for Ironic services<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>interface</b></td>
         <td>string</td>
         <td>
@@ -635,6 +642,65 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.ingress
+<sup><sup>[↩ Parent](#ironicspecnetworking)</sup></sup>
+
+
+
+Configure Ingress resource for Ironic services
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          Annotations to be added to Ingress resource<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>apiPath</b></td>
+        <td>string</td>
+        <td>
+          Ironic API Path<br/>
+          <br/>
+            <i>Default</i>: /<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Host of the Ingress<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>imageServerPath</b></td>
+        <td>string</td>
+        <td>
+          Image server Path<br/>
+          <br/>
+            <i>Default</i>: /(redfish|images)<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ingressClassName</b></td>
+        <td>string</td>
+        <td>
+          IngressClass of Ingress resource<br/>
         </td>
         <td>false</td>
       </tr></tbody>

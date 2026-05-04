@@ -256,6 +256,29 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  ingress:
+                    description: Configure Ingress resource for Ironic services
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to be added to Ingress resource
+                        type: object
+                      apiPath:
+                        default: /
+                        description: Ironic API Path
+                        type: string
+                      host:
+                        description: Host of the Ingress
+                        type: string
+                      imageServerPath:
+                        default: /(redfish|images)
+                        description: Image server Path
+                        type: string
+                      ingressClassName:
+                        description: IngressClass of Ingress resource
+                        type: string
+                    type: object
                   interface:
                     description: |-
                       Interface is a Linux network device to listen on.
