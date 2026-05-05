@@ -499,6 +499,8 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 		expectedSendSensorData string
 		expectedSensorInterval string
 		expectedFlaskRunHost   string
+		expectReadinessProbe   bool
+		expectedProbeHost      string
 	}{
 		{
 			name: "PrometheusExporter enabled with default interval",
@@ -509,6 +511,8 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "60",
 			expectedFlaskRunHost:   "0.0.0.0",
+			expectReadinessProbe:   true,
+			expectedProbeHost:      "127.0.0.1",
 		},
 		{
 			name: "PrometheusExporter enabled with custom interval",
@@ -519,6 +523,8 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "120",
 			expectedFlaskRunHost:   "0.0.0.0",
+			expectReadinessProbe:   true,
+			expectedProbeHost:      "127.0.0.1",
 		},
 		{
 			name: "PrometheusExporter enabled with bindAddress 0.0.0.0",
@@ -529,6 +535,8 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "60",
 			expectedFlaskRunHost:   "0.0.0.0",
+			expectReadinessProbe:   true,
+			expectedProbeHost:      "127.0.0.1",
 		},
 		{
 			name: "PrometheusExporter enabled with custom bindAddress",
@@ -539,6 +547,19 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "60",
 			expectedFlaskRunHost:   "192.168.1.10",
+			expectReadinessProbe:   true,
+			expectedProbeHost:      "192.168.1.10", // Specific IP probes itself
+		},
+		{
+			name: "PrometheusExporter enabled with localhost bindAddress",
+			prometheusExporter: &metal3api.PrometheusExporter{
+				Enabled:     true,
+				BindAddress: "127.0.0.1",
+			},
+			expectedSendSensorData: "true",
+			expectedSensorInterval: "60",
+			expectedFlaskRunHost:   "127.0.0.1",
+			expectReadinessProbe:   false, // No HTTP probe for localhost binding
 		},
 		{
 			name: "PrometheusExporter enabled with empty bindAddress defaults to wildcard",
@@ -548,6 +569,8 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 			expectedSendSensorData: "true",
 			expectedSensorInterval: "60",
 			expectedFlaskRunHost:   "0.0.0.0",
+			expectReadinessProbe:   true,
+			expectedProbeHost:      "127.0.0.1",
 		},
 		{
 			name: "PrometheusExporter disabled",
@@ -606,6 +629,20 @@ func TestPrometheusExporterEnvVars(t *testing.T) {
 				assert.Equal(t, "9608", exporterContainer.Env[1].Value)
 				assert.Len(t, exporterContainer.Ports, 1)
 				assert.Equal(t, int32(9608), exporterContainer.Ports[0].ContainerPort)
+
+				// Verify readiness probe is configured based on bind address
+				if tc.expectReadinessProbe {
+					require.NotNil(t, exporterContainer.ReadinessProbe, "readiness probe should be set for non-localhost binding")
+					require.NotNil(t, exporterContainer.ReadinessProbe.HTTPGet, "HTTPGet probe should be set")
+					assert.Equal(t, "/metrics", exporterContainer.ReadinessProbe.HTTPGet.Path)
+					assert.Equal(t, intstr.FromInt32(9608), exporterContainer.ReadinessProbe.HTTPGet.Port)
+					assert.Equal(t, corev1.URISchemeHTTP, exporterContainer.ReadinessProbe.HTTPGet.Scheme)
+					assert.Equal(t, tc.expectedProbeHost, exporterContainer.ReadinessProbe.HTTPGet.Host)
+					assert.Equal(t, int32(5), exporterContainer.ReadinessProbe.InitialDelaySeconds)
+					assert.Equal(t, int32(10), exporterContainer.ReadinessProbe.PeriodSeconds)
+				} else {
+					assert.Nil(t, exporterContainer.ReadinessProbe, "readiness probe should not be set for localhost binding")
+				}
 			}
 
 			// Check for SEND_SENSOR_DATA env var

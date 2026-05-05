@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"net/netip"
 	"os"
 	"slices"
@@ -12,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -683,7 +685,9 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 		port = ironic.Spec.Networking.PrometheusExporterPort
 	}
 
-	return corev1.Container{
+	bindAddress := flaskRunHost(ironic)
+
+	container := corev1.Container{
 		Name:    "ironic-prometheus-exporter",
 		Image:   versionInfo.IronicImage,
 		Command: []string{"/bin/runironic-exporter"},
@@ -693,7 +697,7 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 				// Can be overridden via spec.prometheusExporter.bindAddress, e.g. to
 				// "127.0.0.1" to restrict access to the local host only.
 				Name:  "FLASK_RUN_HOST",
-				Value: flaskRunHost(ironic),
+				Value: bindAddress,
 			},
 			{
 				Name:  "FLASK_RUN_PORT",
@@ -716,6 +720,42 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 			},
 		},
 	}
+
+	// Add readiness probe, handling different bind address scenarios.
+	// With HostNetwork: true, kubelet probes use PodIP (the node's primary IP),
+	// which may differ from bindAddress when set to a specific interface IP.
+	// We must set HTTPGet.Host to ensure the probe reaches the correct address.
+	parsedIP := net.ParseIP(bindAddress)
+	isLoopback := parsedIP != nil && parsedIP.IsLoopback()
+
+	if !isLoopback {
+		// Determine the host to use in the probe.
+		// For wildcard addresses (0.0.0.0 or ::), probe localhost.
+		// For specific IPs, probe that specific address.
+		probeHost := bindAddress
+		isWildcard := bindAddress == "0.0.0.0" || bindAddress == "::"
+		if isWildcard {
+			probeHost = "127.0.0.1"
+		}
+
+		container.ReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/metrics",
+					Port:   intstr.FromInt32(port),
+					Host:   probeHost,
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       10,
+			TimeoutSeconds:      5,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		}
+	}
+
+	return container
 }
 
 func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.PodTemplateSpec, error) {
