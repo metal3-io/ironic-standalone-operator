@@ -1253,6 +1253,9 @@ var _ = Describe("Ironic object tests", func() {
 		// is identical to pod.Status.HostIP, so the exporter can bind to it and
 		// the test runner can reach it directly.
 		Expect(ironicIPs).NotTo(BeEmpty(), "ironicIPs must be populated before this test runs")
+		if len(ironicIPs) > 1 {
+			Skip("this test relies on a single-node cluster")
+		}
 		specificIP := ironicIPs[0]
 		parsedIP := net.ParseIP(specificIP)
 		Expect(parsedIP).NotTo(BeNil(), "ironicIPs[0] must be a valid IP address")
