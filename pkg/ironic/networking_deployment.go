@@ -129,8 +129,9 @@ func buildNetworkingContainer(cctx ControllerContext, resources Resources, mount
 		},
 		VolumeMounts: mounts,
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  ptr.To(ironicUser),
-			RunAsGroup: ptr.To(ironicGroup),
+			RunAsUser:              ptr.To(ironicUser),
+			RunAsGroup:             ptr.To(ironicGroup),
+			ReadOnlyRootFilesystem: ptr.To(true),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 			},
@@ -236,6 +237,20 @@ func buildNetworkingDeployment(cctx ControllerContext, resources Resources) *app
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
+	podTemplate := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      labels,
+			Annotations: annotations,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				buildNetworkingContainer(cctx, resources, mounts),
+			},
+			Volumes:      volumes,
+			NodeSelector: resources.Ironic.Spec.NodeSelector,
+		},
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      NetworkingDeploymentName(resources.Ironic),
@@ -247,19 +262,7 @@ func buildNetworkingDeployment(cctx ControllerContext, resources Resources) *app
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
-					Annotations: annotations,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						buildNetworkingContainer(cctx, resources, mounts),
-					},
-					Volumes:      volumes,
-					NodeSelector: resources.Ironic.Spec.NodeSelector,
-				},
-			},
+			Template: addDataVolumes(podTemplate),
 		},
 	}
 

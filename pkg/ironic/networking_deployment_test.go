@@ -546,6 +546,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 					},
 				},
 			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
+				},
+			},
 			ExpectedEnvs: map[string]string{
 				"IRONIC_NETWORKING_ENABLED":                "true",
 				"IRONIC_NETWORKING_JSON_RPC_PORT":          "6190",
@@ -566,6 +571,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 					},
 				},
 			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
+				},
+			},
 			ExpectedEnvs: map[string]string{
 				"IRONIC_IP": "192.168.1.100",
 			},
@@ -580,6 +590,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 					TLS: metal3api.TLS{
 						CertificateName: "test-cert",
 					},
+				},
+			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
 				},
 			},
 			TLSSecret: &corev1.Secret{
@@ -599,6 +614,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 						CertificateName: "test-cert",
 						InsecureRPC:     ptr.To(true),
 					},
+				},
+			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
 				},
 			},
 			TLSSecret: &corev1.Secret{
@@ -623,6 +643,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 					},
 				},
 			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
+				},
+			},
 			TLSSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cert",
@@ -640,6 +665,11 @@ func TestBuildNetworkingContainerEnv(t *testing.T) {
 					TLS: metal3api.TLS{
 						InsecureRPC: ptr.To(true),
 					},
+				},
+			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-secret",
 				},
 			},
 			NotExpectedEnvs: []string{"IRONIC_INSECURE"},
