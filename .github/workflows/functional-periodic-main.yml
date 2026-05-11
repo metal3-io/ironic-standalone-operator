@@ -1,0 +1,20 @@
+name: Periodic Functional Tests
+
+on:
+  schedule:
+  # Run every day at 02:20 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '20 2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  functional-tests:
+    if: github.repository == 'metal3-io/ironic-standalone-operator'
+    uses: ./.github/workflows/functional-tests.yml
+    with:
+      ref: main
+      fail-fast: false
+    permissions:
+      checks: write
+      contents: read

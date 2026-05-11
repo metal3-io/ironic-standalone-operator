@@ -1,8 +1,16 @@
 name: Functional Tests
 
 on:
-  pull_request:
-    types: [ opened, edited, reopened, synchronize, ready_for_review ]
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to check out (branch, tag or SHA). Defaults to the calling workflow ref.'
+        type: string
+        default: ${{ github.ref }}
+      fail-fast:
+        description: 'Cancel all in-progress matrix jobs if any job fails'
+        type: boolean
+        default: true
 
 permissions: {}
 
@@ -17,6 +25,7 @@ jobs:
       LOGDIR: /tmp/logs
       JUNIT_OUTPUT: /tmp/logs/report.xml
     strategy:
+      fail-fast: ${{ inputs.fail-fast }}
       matrix:
         include:
         - name: "regular"
@@ -31,6 +40,7 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
+        ref: ${{ inputs.ref }}
         persist-credentials: false
     - name: Calculate go version
       id: vars
