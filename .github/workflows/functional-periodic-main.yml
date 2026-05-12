@@ -11,7 +11,7 @@ permissions: {}
 jobs:
   functional-tests:
     if: github.repository == 'metal3-io/ironic-standalone-operator'
-    uses: ./.github/workflows/functional-tests.yml
+    uses: ./.github/workflows/functional.yml
     with:
       ref: main
       fail-fast: false
