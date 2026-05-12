@@ -45,6 +45,9 @@ func NewTLSSecret(ctx context.Context, k8sClient client.Client, namespace, name 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels: map[string]string{
+				metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+			},
 		},
 		Data: map[string][]byte{
 			corev1.TLSCertKey:       ironicCertPEM,
@@ -62,6 +65,9 @@ func NewAuthSecret(ctx context.Context, k8sClient client.Client, namespace, name
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels: map[string]string{
+				metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
+			},
 		},
 		Data: map[string][]byte{
 			corev1.BasicAuthUsernameKey: []byte("admin"),

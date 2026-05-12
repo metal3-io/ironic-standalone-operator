@@ -5,11 +5,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const (
-	LabelEnvironmentName  = "environment.metal3.io/ironic-standalone-operator"
-	LabelEnvironmentValue = "true"
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 // AddSecretSelector adds a selector to a cache.ByObject map that filters
@@ -21,7 +18,7 @@ func AddSecretSelector(selectors map[client.Object]cache.ByObject) map[client.Ob
 		secret: {
 			Label: labels.SelectorFromSet(
 				labels.Set{
-					LabelEnvironmentName: LabelEnvironmentValue,
+					metal3api.LabelEnvironmentName: metal3api.LabelEnvironmentValue,
 				}),
 		},
 	}
