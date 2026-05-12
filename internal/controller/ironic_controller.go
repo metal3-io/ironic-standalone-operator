@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -223,13 +224,14 @@ func (r *IronicReconciler) getAndUpdateSecret(cctx ironic.ControllerContext, iro
 	secretManager := secretutils.NewSecretManager(cctx.Context, cctx.Logger, cctx.Client, r.APIReader)
 	secret, err = secretManager.AcquireSecret(namespacedName, ironicConf, cctx.Scheme)
 	if err != nil {
-		// NotFound requires a user's intervention, so reporting it in the conditions.
-		// Everything else is reported up for a retry.
-		if k8serrors.IsNotFound(err) {
-			message := fmt.Sprintf("secret %s/%s not found", ironicConf.Namespace, secretName)
-			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
+		wrappedErr := fmt.Errorf("cannot load secret %s/%s: %w", ironicConf.Namespace, secretName, err)
+		// Only missing-label and NotFound errors require user intervention.
+		// Other errors are transient and should just be retried.
+		var missingLabelErr *secretutils.MissingLabelError
+		if errors.As(err, &missingLabelErr) || k8serrors.IsNotFound(err) {
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, wrappedErr.Error())
 		}
-		return nil, true, fmt.Errorf("cannot load secret %s/%s: %w", ironicConf.Namespace, secretName, err)
+		return nil, true, wrappedErr
 	}
 
 	return secret, false, nil
@@ -246,13 +248,14 @@ func (r *IronicReconciler) getConfigMap(cctx ironic.ControllerContext, ironicCon
 	secretManager := secretutils.NewSecretManager(cctx.Context, cctx.Logger, cctx.Client, r.APIReader)
 	configMap, err = secretManager.ObtainConfigMap(namespacedName)
 	if err != nil {
-		// NotFound requires a user's intervention, so reporting it in the conditions.
-		// Everything else is reported up for a retry.
-		if k8serrors.IsNotFound(err) {
-			message := fmt.Sprintf("configmap %s/%s not found", ironicConf.Namespace, configMapName)
-			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, message)
+		wrappedErr := fmt.Errorf("cannot load configmap %s/%s: %w", ironicConf.Namespace, configMapName, err)
+		// Only missing-label and NotFound errors require user intervention.
+		// Other errors are transient and should just be retried.
+		var missingLabelErr *secretutils.MissingLabelError
+		if errors.As(err, &missingLabelErr) || k8serrors.IsNotFound(err) {
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, wrappedErr.Error())
 		}
-		return nil, true, fmt.Errorf("cannot load configmap %s/%s: %w", ironicConf.Namespace, configMapName, err)
+		return nil, true, wrappedErr
 	}
 
 	return configMap, false, nil
