@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   functional-tests:
-    uses: ./.github/workflows/functional-tests.yml
+    uses: ./.github/workflows/functional.yml
     permissions:
       checks: write
       contents: read
