@@ -97,27 +97,19 @@ type DHCP struct {
 	ServeDNS bool `json:"serveDNS,omitempty"`
 }
 
-// Ingress defines ingress resource for Ironic services
+// Ingress defines ingress resource for Ironic services.
 type Ingress struct {
-	// IngressClass of Ingress resource
-	IngressClassName string `json:"ingressClassName,omitempty"`
-
-	// Host of the Ingress
-	Host string `json:"host,omitempty"`
-
 	// Annotations to be added to Ingress resource
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
-	// Ironic API Path
-	// +kubebuilder:default=/
+	// IngressClass of Ingress resource
 	// +optional
-	APIPath string `json:"apiPath,omitempty"`
+	IngressClassName string `json:"ingressClassName,omitempty"`
 
-	// Image server Path
-	// +kubebuilder:default=/(redfish|images)
-	// +optional
-	ImageServerPath string `json:"imageServerPath,omitempty"`
+	// The host which Ingress would apply on.
+	// Setting this would cause
+	Host string `json:"host,omitempty"`
 }
 
 type IPAddressManager string
@@ -144,14 +136,22 @@ type Networking struct {
 	// This setting is currently incompatible with the highly available architecture.
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
-	// Configure Ingress resource for Ironic services
+	// Configure Ingress resource for Ironic services.
+	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+	// In case of settings up Ingress, this would be ignored.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
+
+	// External HTTP URL for Image server.
+	// Set this option when you're image server is not directly accessible.
+	// Setting this option, will override URL set by Networking.Ingress.Host.
+	// +optional
+	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180

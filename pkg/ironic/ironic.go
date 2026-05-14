@@ -2,7 +2,6 @@ package ironic
 
 import (
 	"context"
-	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +135,7 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 				TargetPort: intstr.FromString(ironicPortName),
 			},
 		}
-		if ironic.Spec.HighAvailability {
+		if !ironic.Spec.HighAvailability {
 			ports = append(
 				ports,
 				corev1.ServicePort{
@@ -194,21 +193,22 @@ func ensureIronicIngress(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 		if ingressSettings.Annotations != nil {
 			ingress.SetAnnotations(ingressSettings.Annotations)
 		}
-		ingress.Spec.IngressClassName = &ingressSettings.IngressClassName
+		if ingressSettings.IngressClassName != "" {
+			ingress.Spec.IngressClassName = &ingressSettings.IngressClassName
+		}
 		ingress.Spec.TLS = append(ingress.Spec.TLS, networkingv1.IngressTLS{
 			Hosts:      []string{ingressSettings.Host},
-			SecretName: fmt.Sprintf("%s-ingress-tls"),
+			SecretName: ironic.Name + "-ingress-tls",
 		})
 
-		pathTypeImplementationSpecific := networkingv1.PathTypeImplementationSpecific
 		ingress.Spec.Rules = append(ingress.Spec.Rules, networkingv1.IngressRule{
 			Host: ingressSettings.Host,
 			IngressRuleValue: networkingv1.IngressRuleValue{
 				HTTP: &networkingv1.HTTPIngressRuleValue{
 					Paths: []networkingv1.HTTPIngressPath{
-						networkingv1.HTTPIngressPath{
-							Path:     ingressSettings.APIPath,
-							PathType: &pathTypeImplementationSpecific,
+						{
+							Path:     "/",
+							PathType: ptr.To(networkingv1.PathTypeImplementationSpecific),
 							Backend: networkingv1.IngressBackend{
 								Service: &networkingv1.IngressServiceBackend{
 									Name: ironicPortName,
@@ -218,9 +218,9 @@ func ensureIronicIngress(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 								},
 							},
 						},
-						networkingv1.HTTPIngressPath{
-							Path:     ingressSettings.ImageServerPath,
-							PathType: &pathTypeImplementationSpecific,
+						{
+							Path:     "/(redfish|images)",
+							PathType: ptr.To(networkingv1.PathTypeImplementationSpecific),
 							Backend: networkingv1.IngressBackend{
 								Service: &networkingv1.IngressServiceBackend{
 									Name: imagesPortName,
@@ -300,15 +300,15 @@ func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, e
 
 	// Let the service be created while Ironic is being deployed, but do
 	// not report overall success until both are done.
-	serviceStatus, err := ensureIronicService(cctx, resources.Ironic)
-	if err != nil || !serviceStatus.IsReady() {
-		return serviceStatus, err
+	serviceStatus, serviceErr := ensureIronicService(cctx, resources.Ironic)
+	if serviceErr != nil || !serviceStatus.IsReady() {
+		return serviceStatus, serviceErr
 	}
 
 	if resources.Ironic.Spec.Networking.Ingress != nil {
-		ingressStatus, err := ensureIronicIngress(cctx, resources.Ironic)
-		if err != nil || !ingressStatus.IsReady() {
-			return ingressStatus, err
+		ingressStatus, ingressErr := ensureIronicIngress(cctx, resources.Ironic)
+		if ingressErr != nil || !ingressStatus.IsReady() {
+			return ingressStatus, ingressErr
 		}
 	}
 

@@ -468,7 +468,17 @@ This setting is currently incompatible with the highly available architecture.<b
         <td>string</td>
         <td>
           ExternalIP is used for accessing API and the image server from remote hosts.
-This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.<br/>
+This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+In case of settings up Ingress, this would be ignored.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>imageServerExternalURL</b></td>
+        <td>string</td>
+        <td>
+          External HTTP URL for Image server.
+Set this option when you're image server is not directly accessible.
+Setting this option, will override URL set by Networking.Ingress.Host.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -497,7 +507,8 @@ This settings only applies to virtual media deployments. The IP will not be acce
         <td><b><a href="#ironicspecnetworkingingress">ingress</a></b></td>
         <td>object</td>
         <td>
-          Configure Ingress resource for Ironic services<br/>
+          Configure Ingress resource for Ironic services.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -653,7 +664,8 @@ Must not be set together with DNSAddress.<br/>
 
 
 
-Configure Ingress resource for Ironic services
+Configure Ingress resource for Ironic services.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
 
 <table>
     <thead>
@@ -672,28 +684,11 @@ Configure Ingress resource for Ironic services
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>apiPath</b></td>
-        <td>string</td>
-        <td>
-          Ironic API Path<br/>
-          <br/>
-            <i>Default</i>: /<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>host</b></td>
         <td>string</td>
         <td>
-          Host of the Ingress<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>imageServerPath</b></td>
-        <td>string</td>
-        <td>
-          Image server Path<br/>
-          <br/>
-            <i>Default</i>: /(redfish|images)<br/>
+          The host which Ingress would apply on.
+Setting this would cause<br/>
         </td>
         <td>false</td>
       </tr><tr>

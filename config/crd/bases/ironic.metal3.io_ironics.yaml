@@ -241,6 +241,13 @@ spec:
                     description: |-
                       ExternalIP is used for accessing API and the image server from remote hosts.
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+                      In case of settings up Ingress, this would be ignored.
+                    type: string
+                  imageServerExternalURL:
+                    description: |-
+                      External HTTP URL for Image server.
+                      Set this option when you're image server is not directly accessible.
+                      Setting this option, will override URL set by Networking.Ingress.Host.
                     type: string
                   imageServerPort:
                     default: 6180
@@ -257,23 +264,19 @@ spec:
                     minimum: 1
                     type: integer
                   ingress:
-                    description: Configure Ingress resource for Ironic services
+                    description: |-
+                      Configure Ingress resource for Ironic services.
+                      Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
                         description: Annotations to be added to Ingress resource
                         type: object
-                      apiPath:
-                        default: /
-                        description: Ironic API Path
-                        type: string
                       host:
-                        description: Host of the Ingress
-                        type: string
-                      imageServerPath:
-                        default: /(redfish|images)
-                        description: Image server Path
+                        description: |-
+                          The host which Ingress would apply on.
+                          Setting this would cause
                         type: string
                       ingressClassName:
                         description: IngressClass of Ingress resource
