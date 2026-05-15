@@ -115,53 +115,109 @@ func validateAgentImages(images []metal3api.AgentImages) error {
 	return nil
 }
 
+func validateDHCPRange(r metal3api.DHCPRange, idx int) error {
+	prefix := fmt.Sprintf("networking.dhcp.ranges[%d]", idx)
+
+	if r.NetworkCIDR == "" {
+		return fmt.Errorf("%s.networkCIDR is required", prefix)
+	}
+
+	cidr, err := netip.ParsePrefix(r.NetworkCIDR)
+	if err != nil {
+		return fmt.Errorf("%s.networkCIDR is invalid: %w", prefix, err)
+	}
+
+	if r.RangeBegin == "" || r.RangeEnd == "" {
+		return fmt.Errorf("%s: rangeBegin and rangeEnd are required", prefix)
+	}
+
+	if err := validateIPinPrefix(r.RangeBegin, cidr); err != nil {
+		return fmt.Errorf("%s.rangeBegin: %w", prefix, err)
+	}
+
+	if err := validateIPinPrefix(r.RangeEnd, cidr); err != nil {
+		return fmt.Errorf("%s.rangeEnd: %w", prefix, err)
+	}
+
+	if err := validateIP(r.GatewayAddress); err != nil {
+		return fmt.Errorf("%s.gatewayAddress: %w", prefix, err)
+	}
+
+	return nil
+}
+
 func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 	dhcp := ironic.Networking.DHCP
 	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
 	if !hasNetworking {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
-	if dhcp.NetworkCIDR == "" {
-		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
-	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
-	}
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
-	}
-
-	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
-	}
-
-	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
-		return err
-	}
-
-	if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
-		return err
 	}
 
 	if err := validateIP(dhcp.DNSAddress); err != nil {
 		return err
 	}
 
-	if err := validateIP(dhcp.GatewayAddress); err != nil {
-		return err
+	hasPrimaryRange := dhcp.NetworkCIDR != "" || dhcp.RangeBegin != "" || dhcp.RangeEnd != ""
+	hasRanges := len(dhcp.Ranges) > 0
+
+	if !hasPrimaryRange && !hasRanges {
+		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
 	}
 
-	// These are supposed to be populated by the webhook
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
+	// Validate primary (flat) fields if present
+	if hasPrimaryRange {
+		if dhcp.NetworkCIDR == "" {
+			return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
+		}
+		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
+			return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
+		}
+
+		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
+			return err
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
+			return err
+		}
+
+		if err := validateIP(dhcp.GatewayAddress); err != nil {
+			return err
+		}
+
+		// Check that the provisioning IP is in the flat CIDR (skip when Ranges is also used, enabling relay scenarios)
+		if !hasRanges && ironic.Networking.IPAddress != "" {
+			provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
+			if !provCIDR.Contains(provIP) {
+				return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+			}
+		}
 	}
 
-	// Check that the provisioning IP is in the CIDR
-	if ironic.Networking.IPAddress != "" {
-		provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
-		if !provCIDR.Contains(provIP) {
-			return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+	// Validate additional ranges
+	if hasRanges {
+		names := make(map[string]bool)
+		for i, r := range dhcp.Ranges {
+			if len(dhcp.Ranges) > 1 && r.Name == "" {
+				return fmt.Errorf("networking.dhcp.ranges[%d].name is required when multiple ranges are defined", i)
+			}
+			if r.Name != "" {
+				if names[r.Name] {
+					return fmt.Errorf("networking.dhcp.ranges: duplicate name %q", r.Name)
+				}
+				names[r.Name] = true
+			}
+			if err := validateDHCPRange(r, i); err != nil {
+				return err
+			}
 		}
 	}
 

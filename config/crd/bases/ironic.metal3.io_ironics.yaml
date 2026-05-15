@@ -221,7 +221,7 @@ spec:
                         type: array
                       networkCIDR:
                         description: NetworkCIDR is a CIDR of the provisioning network.
-                          Required.
+                          Required when Ranges is not set.
                         type: string
                       rangeBegin:
                         description: RangeBegin is the first IP that can be given
@@ -231,6 +231,46 @@ spec:
                         description: RangeEnd is the last IP that can be given to
                           hosts. Must be inside NetworkCIDR.
                         type: string
+                      ranges:
+                        description: |-
+                          Ranges is a list of DHCP address ranges for multi-subnet support.
+                          Can be used together with the top-level NetworkCIDR, RangeBegin, RangeEnd
+                          fields — both are concatenated into the dnsmasq configuration.
+                          Each range can have its own CIDR and dnsmasq tag name.
+                          The provisioning IP (networking.ipAddress) does not need to be in any range's
+                          CIDR, enabling DHCP relay scenarios.
+                        items:
+                          description: |-
+                            DHCPRange defines a single DHCP address range with per-range options.
+                            Used in the Ranges field for multi-subnet DHCP support.
+                          properties:
+                            gatewayAddress:
+                              description: GatewayAddress is the IP address of the
+                                gateway for this range.
+                              type: string
+                            name:
+                              description: |-
+                                Name is used as a dnsmasq tag for per-range options (e.g. gateway).
+                                Must be unique across ranges. Required when multiple ranges are defined.
+                              type: string
+                            networkCIDR:
+                              description: NetworkCIDR is the CIDR of the provisioning
+                                network for this range.
+                              type: string
+                            rangeBegin:
+                              description: RangeBegin is the first IP that can be
+                                given to hosts. Must be inside NetworkCIDR.
+                              type: string
+                            rangeEnd:
+                              description: RangeEnd is the last IP that can be given
+                                to hosts. Must be inside NetworkCIDR.
+                              type: string
+                          required:
+                          - networkCIDR
+                          - rangeBegin
+                          - rangeEnd
+                          type: object
+                        type: array
                       serveDNS:
                         description: |-
                           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
