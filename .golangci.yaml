@@ -135,6 +135,9 @@ linters:
       - tagliatelle
       text: CA
     - linters:
+      - tagliatelle
+      text: VIPs
+    - linters:
       - staticcheck
       text: 'SA1019: tls\.(TrustedCAName|BMCCAName) is deprecated: .*'
       paths:
