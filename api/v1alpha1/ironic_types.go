@@ -107,8 +107,9 @@ type Ingress struct {
 	// +optional
 	IngressClassName string `json:"ingressClassName,omitempty"`
 
-	// The host which Ingress would apply on.
-	// Setting this would cause
+	// Host is the fully qualified domain name of a network host.
+	// This defines the hostname that the Ingress resource will route traffic for.
+	// +optional
 	Host string `json:"host,omitempty"`
 }
 
@@ -143,7 +144,7 @@ type Networking struct {
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
-	// In case of settings up Ingress, this would be ignored.
+	// Cannot be set at the same time as Ingress.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 

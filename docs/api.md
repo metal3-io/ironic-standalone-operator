@@ -469,7 +469,7 @@ This setting is currently incompatible with the highly available architecture.<b
         <td>
           ExternalIP is used for accessing API and the image server from remote hosts.
 This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
-In case of settings up Ingress, this would be ignored.<br/>
+Cannot be set at the same time as Ingress.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -687,8 +687,8 @@ Set this option when you are planning to deploy Ironic in a public cluster and w
         <td><b>host</b></td>
         <td>string</td>
         <td>
-          The host which Ingress would apply on.
-Setting this would cause<br/>
+          Host is the fully qualified domain name of a network host.
+This defines the hostname that the Ingress resource will route traffic for.<br/>
         </td>
         <td>false</td>
       </tr><tr>
