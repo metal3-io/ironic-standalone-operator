@@ -237,17 +237,27 @@ spec:
                           Must not be set together with DNSAddress.
                         type: boolean
                     type: object
+                  externalCallbackURL:
+                    description: |-
+                      externalCallbackURL for Ironic API server.
+                      Set this option when your Ironic API server is not directly accessible.
+                      Setting this option, will override URL set by networking.ingress.host.
+                      Must be set together with networking.imageServerExternalURL or networking.ingress
+                    format: uri
+                    type: string
                   externalIP:
                     description: |-
                       ExternalIP is used for accessing API and the image server from remote hosts.
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
-                      Cannot be set at the same time as Ingress.
+                      Cannot be set at the same time with networking.ingress.
                     type: string
                   imageServerExternalURL:
                     description: |-
                       External HTTP URL for Image server.
-                      Set this option when you're image server is not directly accessible.
-                      Setting this option, will override URL set by Networking.Ingress.Host.
+                      Set this option when your image server is not directly accessible.
+                      Setting this option, will override URL set by networking.ingress.host.
+                      Must be set together with networking.externalCallbackURL or networking.ingress
+                    format: uri
                     type: string
                   imageServerPort:
                     default: 6180
@@ -267,6 +277,7 @@ spec:
                     description: |-
                       Configure Ingress resource for Ironic services.
                       Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+                      Cannot be set at the same time with networking.externalIP.
                     properties:
                       annotations:
                         additionalProperties:
@@ -361,12 +372,14 @@ spec:
                             Initramfs is the URL of the IPA initramfs/ramdisk image.
                             Supported schemes: file://, http://, https://, oci://.
                             file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
+                          format: uri
                           type: string
                         kernel:
                           description: |-
                             Kernel is the URL of the IPA kernel image.
                             Supported schemes: file://, http://, https://, oci://.
                             file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
+                          format: uri
                           type: string
                       required:
                       - initramfs

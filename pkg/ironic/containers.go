@@ -343,17 +343,21 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		result = append(result, buildExtraConfigVars(resources.Ironic)...)
 	}
 
+	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
+
 	if resources.Ironic.Spec.Networking.Ingress != nil {
 		ingressHost := resources.Ironic.Spec.Networking.Ingress.Host
 		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", ingressHost)
 		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", ingressHost)
 	}
 
+	if resources.Ironic.Spec.Networking.ExternalCallbackURL != "" {
+		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", resources.Ironic.Spec.Networking.ExternalCallbackURL)
+	}
+
 	if resources.Ironic.Spec.Networking.ImageServerExternalURL != "" {
 		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", resources.Ironic.Spec.Networking.ImageServerExternalURL)
 	}
-
-	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
 
 	// Add sensor data environment variables when PrometheusExporter is enabled
 	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled {
