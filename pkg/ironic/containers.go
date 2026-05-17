@@ -776,7 +776,7 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 		})
 	}
 
-	return corev1.Container{
+	container := corev1.Container{
 		Name:  "keepalived",
 		Image: versionInfo.KeepalivedImage,
 		Env:   envVars,
@@ -791,6 +791,19 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 			},
 		},
 	}
+
+	// Override the VRRP virtual router ID when a non-default value is configured.
+	// The upstream keepalived image ships a template with virtual_router_id
+	// hardcoded, so we sed-replace the value (whatever it is) before exec-ing
+	// the manage script.
+	if vrid := ironic.Spec.Networking.KeepalivedVRID; vrid > 1 {
+		container.Command = []string{
+			"/bin/bash", "-c",
+			fmt.Sprintf("sed -i -E 's/^([[:space:]]*)virtual_router_id [0-9]+/\\1virtual_router_id %d/' /etc/keepalived/keepalived.conf\nexec /bin/manage-keepalived.sh\n", vrid),
+		}
+	}
+
+	return container
 }
 
 func flaskRunHost(ironic *metal3api.Ironic) string {

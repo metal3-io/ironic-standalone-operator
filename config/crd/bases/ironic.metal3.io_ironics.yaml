@@ -327,6 +327,16 @@ spec:
                     required:
                     - enabled
                     type: object
+                  keepalivedVRID:
+                    default: 1
+                    description: |-
+                      KeepalivedVRID is the VRRP virtual router ID used by keepalived.
+                      Must be unique within the L2 broadcast domain.
+                      Only applies when IPAddressManager is "keepalived".
+                    format: int32
+                    maximum: 255
+                    minimum: 1
+                    type: integer
                   macAddresses:
                     description: |-
                       MACAddresses can be provided to make the start script pick the interface matching any of these addresses.

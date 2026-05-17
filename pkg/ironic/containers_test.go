@@ -46,6 +46,19 @@ func TestExpectedContainers(t *testing.T) {
 			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
 		},
 		{
+			Scenario: "Keepalived with custom VRID",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface:        "eth0",
+					IPAddress:        "192.0.2.2",
+					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+					KeepalivedVRID:   42,
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
+		{
 			Scenario: "Keepalived and DHCP",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
@@ -142,6 +155,61 @@ func TestExpectedContainers(t *testing.T) {
 			} else {
 				assert.ErrorContains(t, err, tc.ExpectedError)
 			}
+		})
+	}
+}
+
+func TestKeepalivedVRID(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{"htpasswd": []byte("abcd")},
+	}
+
+	testCases := []struct {
+		Scenario        string
+		VRID            int32
+		ExpectNoCommand bool
+	}{
+		{Scenario: "default VRID (0)", VRID: 0, ExpectNoCommand: true},
+		{Scenario: "default VRID (1)", VRID: 1, ExpectNoCommand: true},
+		{Scenario: "custom VRID", VRID: 42, ExpectNoCommand: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						Interface:        "eth0",
+						IPAddress:        "192.0.2.2",
+						IPAddressManager: metal3api.IPAddressManagerKeepalived,
+						KeepalivedVRID:   tc.VRID,
+					},
+				},
+			}
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			for _, cont := range podTemplate.Spec.Containers {
+				if cont.Name == "keepalived" {
+					if tc.ExpectNoCommand {
+						assert.Empty(t, cont.Command, "keepalived should use default entrypoint")
+					} else {
+						require.Len(t, cont.Command, 3, "keepalived should have a custom command")
+						script := cont.Command[2]
+						// The sed must be anchored and match any existing digit
+						// sequence — a literal "virtual_router_id 1" would mis-rewrite
+						// a template that ships virtual_router_id 10 (yielding 160).
+						assert.Contains(t, script, "[0-9]+", "sed must use a digit class, not a literal")
+						assert.Contains(t, script, fmt.Sprintf("virtual_router_id %d", tc.VRID))
+						assert.Contains(t, script, "exec /bin/manage-keepalived.sh")
+					}
+					return
+				}
+			}
+			t.Fatal("keepalived container not found")
 		})
 	}
 }

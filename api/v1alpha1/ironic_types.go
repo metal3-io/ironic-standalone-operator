@@ -216,6 +216,15 @@ type Networking struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	RPCPort int32 `json:"rpcPort,omitempty"`
+
+	// KeepalivedVRID is the VRRP virtual router ID used by keepalived.
+	// Must be unique within the L2 broadcast domain.
+	// Only applies when IPAddressManager is "keepalived".
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=255
+	// +optional
+	KeepalivedVRID int32 `json:"keepalivedVRID,omitempty"`
 }
 
 // CPUArchitecture represents a CPU architecture supported by IPA.

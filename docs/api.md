@@ -542,6 +542,20 @@ Warning: keepalived is not compatible with the highly available architecture.<br
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>keepalivedVRID</b></td>
+        <td>integer</td>
+        <td>
+          KeepalivedVRID is the VRRP virtual router ID used by keepalived.
+Must be unique within the L2 broadcast domain.
+Only applies when IPAddressManager is "keepalived".<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 1<br/>
+            <i>Minimum</i>: 1<br/>
+            <i>Maximum</i>: 255<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>macAddresses</b></td>
         <td>[]string</td>
         <td>
