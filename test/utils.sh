@@ -16,7 +16,12 @@ IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-quay.io/metal3-io}"
 
 ipa_host_ip() {
     if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
-        docker network inspect kind -f '{{(index .IPAM.Config 0).Gateway}}'
+        # Kind uses Docker networking; must use docker directly (not podman).
+        # Dual-stack networks may list IPv6 first with no gateway, so filter
+        # for the IPv4 gateway address explicitly.
+        docker network inspect kind \
+            -f '{{range .IPAM.Config}}{{if .Gateway}}{{.Gateway}}{{"\n"}}{{end}}{{end}}' \
+            | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1
     else
         minikube ssh -- ip route show default | awk '{print $3}'
     fi
