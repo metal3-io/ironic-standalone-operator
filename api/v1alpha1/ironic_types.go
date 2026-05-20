@@ -183,6 +183,22 @@ type Networking struct {
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
 
+	// externalCallbackURL for Ironic API server.
+	// Set this option when your Ironic API server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.imageServerExternalURL or networking.ingress
+	// +kubebuilder:validation:Format=uri
+	// +optional
+	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
+
+	// External HTTP URL for Image server.
+	// Set this option when your image server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.externalCallbackURL or networking.ingress
+	// +kubebuilder:validation:Format=uri
+	// +optional
+	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
+
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180
 	// +kubebuilder:validation:Minimum=1
@@ -257,11 +273,13 @@ type AgentImages struct {
 	// Kernel is the URL of the IPA kernel image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
+	// +kubebuilder:validation:Format=uri
 	Kernel string `json:"kernel"`
 
 	// Initramfs is the URL of the IPA initramfs/ramdisk image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
+	// +kubebuilder:validation:Format=uri
 	Initramfs string `json:"initramfs"`
 
 	// Architecture is the target CPU architecture.
