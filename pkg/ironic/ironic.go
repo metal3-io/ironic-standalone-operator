@@ -23,6 +23,21 @@ func ironicDeploymentName(ironic *metal3api.Ironic) string {
 	return ironic.Name + "-service"
 }
 
+func switchConfigSecretName(ironic *metal3api.Ironic) string {
+	// Use configured name if provided, otherwise use default
+	if ironic.Spec.NetworkingService != nil && ironic.Spec.NetworkingService.SwitchConfigSecretName != "" {
+		return ironic.Spec.NetworkingService.SwitchConfigSecretName
+	}
+	return ironic.Name + "-switch-config"
+}
+
+func switchCredentialsSecretName(ironic *metal3api.Ironic) string {
+	if ironic.Spec.NetworkingService != nil && ironic.Spec.NetworkingService.SwitchCredentialsSecretName != "" {
+		return ironic.Spec.NetworkingService.SwitchCredentialsSecretName
+	}
+	return ironic.Name + "-switch-credentials"
+}
+
 func ensureIronicDaemonSet(cctx ControllerContext, resources Resources) (Status, error) {
 	template, err := newIronicPodTemplate(cctx, resources)
 	if err != nil {
@@ -179,11 +194,6 @@ func removeIronicDeployment(cctx ControllerContext, ironic *metal3api.Ironic) er
 // EnsureIronic deploys Ironic either as a Deployment or as a DaemonSet.
 func EnsureIronic(cctx ControllerContext, resources Resources) (status Status, err error) {
 	if validationErr := resources.Validate(); validationErr != nil {
-		status = Status{Fatal: validationErr}
-		return status, nil //nolint:nilerr // validation errors are reported in status, not as return error
-	}
-
-	if validationErr := checkVersion(resources, cctx.VersionInfo.InstalledVersion); validationErr != nil {
 		status = Status{Fatal: validationErr}
 		return status, nil //nolint:nilerr // validation errors are reported in status, not as return error
 	}

@@ -73,10 +73,9 @@ const (
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
-//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -224,14 +223,45 @@ func (r *IronicReconciler) handleIronic(cctx ironic.ControllerContext, ironicCon
 		}
 	}
 
+	switchConfigSecret, switchCredentialsSecret, err := ironic.EnsureNetworkingSwitchSecrets(cctx, ironicConf, r.APIReader)
+	if err != nil {
+		// Only missing-label and NotFound errors require user intervention.
+		// Other errors are transient and should just be retried.
+		var missingLabelErr *secretutils.MissingLabelError
+		if errors.As(err, &missingLabelErr) || k8serrors.IsNotFound(err) {
+			_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
+			r.recordEventf(ironicConf, corev1.EventTypeWarning, eventReasonInvalidLinkedRes, "%v", err)
+		}
+		return requeue, err
+	}
+
 	resources := ironic.Resources{
-		Ironic:             ironicConf,
-		APISecret:          apiSecret,
-		TLSSecret:          tlsSecret,
-		BMCCASecret:        bmcCASecret,
-		BMCCAConfigMap:     bmcCAConfigMap,
-		TrustedCASecret:    trustedCASecret,
-		TrustedCAConfigMap: trustedCAConfigMap,
+		Ironic:                  ironicConf,
+		APISecret:               apiSecret,
+		TLSSecret:               tlsSecret,
+		BMCCASecret:             bmcCASecret,
+		BMCCAConfigMap:          bmcCAConfigMap,
+		TrustedCASecret:         trustedCASecret,
+		TrustedCAConfigMap:      trustedCAConfigMap,
+		SwitchConfigSecret:      switchConfigSecret,
+		SwitchCredentialsSecret: switchCredentialsSecret,
+	}
+
+	if versionErr := ironic.CheckVersion(resources, cctx.VersionInfo.InstalledVersion); versionErr != nil {
+		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, versionErr.Error())
+		r.recordEventf(ironicConf, corev1.EventTypeWarning, eventReasonVersionError, "%v", versionErr)
+		return false, nil
+	}
+
+	// Manage networking service deployment
+	networkingStatus, err := ironic.EnsureIronicNetworking(cctx, resources)
+	if err != nil {
+		cctx.Logger.Error(err, "failed to ensure networking service")
+		return requeue, err
+	}
+	if !networkingStatus.IsReady() {
+		cctx.Logger.Info(networkingStatus.String())
+		return true, nil
 	}
 
 	status, err := ironic.EnsureIronic(cctx, resources)
@@ -379,6 +409,10 @@ func (r *IronicReconciler) cleanUp(cctx ironic.ControllerContext, ironicConf *me
 
 	err := ironic.RemoveIronic(cctx, ironicConf)
 	if err != nil {
+		return false, err
+	}
+
+	if err := ironic.RemoveIronicNetworking(cctx, ironicConf); err != nil {
 		return false, err
 	}
 

@@ -18,7 +18,8 @@ var (
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
 
-	versionBMCCA = metal3api.Version330
+	versionBMCCA      = metal3api.Version330
+	versionNetworking = metal3api.Version350
 )
 
 type VersionInfo struct {
@@ -112,9 +113,16 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 	return versionInfo, nil
 }
 
-func checkVersion(resources Resources, version metal3api.Version) error {
+// CheckVersion validates that the installed Ironic version supports all
+// requested features. Must be called before EnsureIronic or
+// EnsureIronicNetworking.
+func CheckVersion(resources Resources, version metal3api.Version) error {
 	if (resources.BMCCASecret != nil || resources.BMCCAConfigMap != nil) && version.Compare(versionBMCCA) < 0 {
 		return errors.New("using tls.bmcCA or tls.bmcCAName is only possible for Ironic 33.0 or newer")
+	}
+
+	if resources.Ironic.IsNetworkingServiceEnabled() && version.Compare(versionNetworking) < 0 {
+		return errors.New("networking service is only supported in Ironic 35.0 or newer")
 	}
 
 	return nil

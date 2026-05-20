@@ -177,7 +177,7 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 				Ironic: ironic,
 			}
 
-			err := checkVersion(resources, tc.version)
+			err := CheckVersion(resources, tc.version)
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedError)
@@ -245,7 +245,63 @@ func TestBMCCAVersionCheck(t *testing.T) {
 				BMCCASecret: bmcSecret,
 			}
 
-			err := checkVersion(resources, tc.version)
+			err := CheckVersion(resources, tc.version)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestNetworkingVersionCheck(t *testing.T) {
+	testCases := []struct {
+		name          string
+		version       metal3api.Version
+		expectedError string
+	}{
+		{
+			name:    "networking with latest version",
+			version: metal3api.VersionLatest,
+		},
+		{
+			name:    "networking with version 35.0",
+			version: metal3api.Version350,
+		},
+		{
+			name:          "networking with version 34.0",
+			version:       metal3api.Version340,
+			expectedError: "networking service is only supported in Ironic 35.0 or newer",
+		},
+		{
+			name:          "networking with version 33.0",
+			version:       metal3api.Version330,
+			expectedError: "networking service is only supported in Ironic 35.0 or newer",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ironic",
+					Namespace: "test",
+				},
+				Spec: metal3api.IronicSpec{
+					NetworkingService: &metal3api.NetworkingService{
+						Enabled: true,
+					},
+				},
+			}
+
+			resources := Resources{
+				Ironic: ironic,
+			}
+
+			err := CheckVersion(resources, tc.version)
 
 			if tc.expectedError != "" {
 				require.Error(t, err)
