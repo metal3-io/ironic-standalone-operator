@@ -268,16 +268,20 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 	// Build the path to the CA bundle file
 	caPath := fmt.Sprintf("%s/ca/trusted/%s", certsDir, selectedKey)
 
-	return []corev1.EnvVar{
+	vars := []corev1.EnvVar{
 		{
 			Name:  "WEBSERVER_CACERT_FILE", // CA for verifying image server TLS connections
 			Value: caPath,
 		},
-		{
+	}
+	if resources.Ironic.Spec.TLS.CertificateName != "" {
+		vars = append(vars, corev1.EnvVar{
 			Name:  "IRONIC_CACERT_FILE", // CA for verifying JSON-RPC TLS connections (e.g. ironic-networking)
 			Value: caPath,
-		},
+		})
 	}
+
+	return vars
 }
 
 func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
