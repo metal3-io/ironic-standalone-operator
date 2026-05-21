@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/gophercloud/gophercloud/v2"
@@ -49,18 +48,10 @@ func NewHTTPClient() http.Client {
 
 func GetStatusCode(ctx context.Context, httpClient *http.Client, url string) int {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
-	if err != nil {
-		GinkgoWriter.Printf("Failed to create request for %s: %v\n", url, err)
-		// Return 0 to allow Eventually to retry on errors
-		return 0
-	}
+	Expect(err).NotTo(HaveOccurred())
 
 	resp, err := httpClient.Do(req) //nolint:gosec // URL is controlled by test infrastructure
-	if err != nil {
-		GinkgoWriter.Printf("Failed to connect to %s: %v\n", url, err)
-		// Return 0 to allow Eventually to retry on connection errors
-		return 0
-	}
+	Expect(err).NotTo(HaveOccurred())
 	defer resp.Body.Close()
 
 	return resp.StatusCode
