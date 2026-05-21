@@ -471,12 +471,36 @@ This setting is currently incompatible with the highly available architecture.<b
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>externalCallbackURL</b></td>
+        <td>string</td>
+        <td>
+          externalCallbackURL for Ironic API server.
+Set this option when your Ironic API server is not directly accessible.
+Setting this option, will override URL set by networking.ingress.host.
+Must be set together with networking.imageServerExternalURL or networking.ingress<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>externalIP</b></td>
         <td>string</td>
         <td>
           ExternalIP is used for accessing API and the image server from remote hosts.
 This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
 Cannot be set at the same time with networking.ingress.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>imageServerExternalURL</b></td>
+        <td>string</td>
+        <td>
+          External HTTP URL for Image server.
+Set this option when your image server is not directly accessible.
+Setting this option, will override URL set by networking.ingress.host.
+Must be set together with networking.externalCallbackURL or networking.ingress<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1027,6 +1051,8 @@ AgentImages defines a single IPA (Ironic Python Agent) image configuration.
           Initramfs is the URL of the IPA initramfs/ramdisk image.
 Supported schemes: file://, http://, https://, oci://.
 file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1036,6 +1062,8 @@ file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-py
           Kernel is the URL of the IPA kernel image.
 Supported schemes: file://, http://, https://, oci://.
 file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>true</td>
       </tr><tr>
