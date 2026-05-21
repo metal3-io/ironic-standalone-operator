@@ -6,7 +6,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.12.0
 	github.com/mariadb-operator/mariadb-operator v0.38.1
 	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
-	github.com/onsi/ginkgo/v2 v2.28.3
+	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	k8s.io/api v0.35.5
 	k8s.io/apimachinery v0.35.5
