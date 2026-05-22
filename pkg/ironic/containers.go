@@ -776,6 +776,26 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 		})
 	}
 
+	var (
+		vrid        int32
+		hasPassword bool
+	)
+	if kc := ironic.Spec.Networking.Keepalived; kc != nil {
+		vrid = kc.VRID
+		if pw := kc.PasswordRef; pw != nil {
+			hasPassword = true
+			envVars = append(envVars, corev1.EnvVar{
+				Name: "KEEPALIVED_AUTH_PASS",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: pw.Name},
+						Key:                  "password",
+					},
+				},
+			})
+		}
+	}
+
 	container := corev1.Container{
 		Name:  "keepalived",
 		Image: versionInfo.KeepalivedImage,
@@ -792,15 +812,31 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 		},
 	}
 
-	// Override the VRRP virtual router ID when a non-default value is configured.
-	// The upstream keepalived image ships a template with virtual_router_id
-	// hardcoded, so we sed-replace the value (whatever it is) before exec-ing
-	// the manage script.
-	if vrid := ironic.Spec.Networking.KeepalivedVRID; vrid > 1 {
-		container.Command = []string{
-			"/bin/bash", "-c",
-			fmt.Sprintf("sed -i -E 's/^([[:space:]]*)virtual_router_id [0-9]+/\\1virtual_router_id %d/' /etc/keepalived/keepalived.conf\nexec /bin/manage-keepalived.sh\n", vrid),
+	// Patch keepalived.conf in place when VRID or auth_pass overrides are
+	// configured. The upstream keepalived image ships a template that has
+	// virtual_router_id hardcoded and no authentication block at all, so:
+	//   - VRID: sed-replace the existing value (anchored, digit class).
+	//   - Password: insert an authentication { auth_type PASS; auth_pass ... }
+	//     block before the virtual_ipaddress line. The password value is
+	//     sourced from a Secret-backed env var at runtime.
+	if vrid > 1 || hasPassword {
+		var script strings.Builder
+		if vrid > 1 {
+			fmt.Fprintf(&script, "sed -i -E 's/^([[:space:]]*)virtual_router_id [0-9]+/\\1virtual_router_id %d/' /etc/keepalived/keepalived.conf\n", vrid)
 		}
+		if hasPassword {
+			// Each `i\` insert-before command runs once per address match.
+			// "virtual_ipaddress" appears exactly once in the template; the
+			// inserted lines don't contain that string, so the address only
+			// matches the original line on every pass and the block lands in
+			// the correct order.
+			script.WriteString("sed -i '/virtual_ipaddress/i\\    authentication {' /etc/keepalived/keepalived.conf\n")
+			script.WriteString("sed -i '/virtual_ipaddress/i\\        auth_type PASS' /etc/keepalived/keepalived.conf\n")
+			script.WriteString("sed -i \"/virtual_ipaddress/i\\        auth_pass ${KEEPALIVED_AUTH_PASS}\" /etc/keepalived/keepalived.conf\n")
+			script.WriteString("sed -i '/virtual_ipaddress/i\\    }' /etc/keepalived/keepalived.conf\n")
+		}
+		script.WriteString("exec /bin/manage-keepalived.sh\n")
+		container.Command = []string{"/bin/bash", "-c", script.String()}
 	}
 
 	return container
