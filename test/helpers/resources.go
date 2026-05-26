@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +38,19 @@ func SkipIfCustomImage() {
 	GinkgoHelper()
 	if UsesCustomImage() {
 		Skip("skipping because a custom image is provided")
+	}
+}
+
+func SkipIfVersionBefore(minVersion string) {
+	GinkgoHelper()
+	if CustomImageVersion == "" || CustomImageVersion == "latest" {
+		return
+	}
+	custom, err := metal3api.ParseVersion(CustomImageVersion)
+	Expect(err).NotTo(HaveOccurred(), "invalid IRONIC_CUSTOM_VERSION %q", CustomImageVersion)
+	minimum := metal3api.MustParseVersion(minVersion)
+	if custom.Compare(minimum) < 0 {
+		Skip(fmt.Sprintf("skipping because custom image version %s is before %s", CustomImageVersion, minVersion))
 	}
 }
 
