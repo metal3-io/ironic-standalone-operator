@@ -390,9 +390,9 @@ func TestTrustedCAConfigMap(t *testing.T) {
 			}
 			assert.Equal(t, expectTrustedCA, foundMount, "Volume mount existence mismatch")
 
-			// Check environment variables (WEBSERVER_CACERT_FILE and IRONIC_CACERT_FILE)
+			// Check environment variables
 			var foundWebserverCACert, foundIronicCACert bool
-			var webserverCACertValue, ironicCACertValue string
+			var webserverCACertValue string
 			for _, env := range ironicContainer.Env {
 				if env.Name == "WEBSERVER_CACERT_FILE" {
 					foundWebserverCACert = true
@@ -400,15 +400,14 @@ func TestTrustedCAConfigMap(t *testing.T) {
 				}
 				if env.Name == "IRONIC_CACERT_FILE" {
 					foundIronicCACert = true
-					ironicCACertValue = env.Value
 				}
 			}
 			assert.Equal(t, expectTrustedCA, foundWebserverCACert, "WEBSERVER_CACERT_FILE environment variable existence mismatch")
-			assert.Equal(t, expectTrustedCA, foundIronicCACert, "IRONIC_CACERT_FILE environment variable existence mismatch")
+			// IRONIC_CACERT_FILE should not be set without TLS
+			assert.False(t, foundIronicCACert, "IRONIC_CACERT_FILE should not be set without TLS")
 
 			if expectTrustedCA {
 				assert.Equal(t, tc.ExpectedEnvVarValue, webserverCACertValue, "WEBSERVER_CACERT_FILE value mismatch")
-				assert.Equal(t, tc.ExpectedEnvVarValue, ironicCACertValue, "IRONIC_CACERT_FILE value mismatch")
 			}
 		})
 	}
@@ -1087,15 +1086,11 @@ func TestBuildTrustedCAEnvVars(t *testing.T) {
 
 			envVars := buildTrustedCAEnvVars(cctx, resources)
 
-			// Should return WEBSERVER_CACERT_FILE and IRONIC_CACERT_FILE
-			require.Len(t, envVars, 2, "Should return two environment variables")
+			require.Len(t, envVars, 1, "Should return one environment variable")
 			assert.Equal(t, "WEBSERVER_CACERT_FILE", envVars[0].Name)
-			assert.Equal(t, "IRONIC_CACERT_FILE", envVars[1].Name)
 
-			// Verify the path contains the expected key
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
 			assert.Equal(t, expectedPath, envVars[0].Value, "WEBSERVER_CACERT_FILE value mismatch")
-			assert.Equal(t, expectedPath, envVars[1].Value, "IRONIC_CACERT_FILE value mismatch")
 		})
 	}
 }
@@ -1165,13 +1160,142 @@ func TestBuildTrustedCAEnvVarsKeySelection(t *testing.T) {
 			}
 
 			envVars := buildTrustedCAEnvVars(cctx, resources)
-			require.Len(t, envVars, 2)
+			require.Len(t, envVars, 1)
 
 			expectedPath := "/certs/ca/trusted/" + tc.expectedKey
 			assert.Equal(t, "WEBSERVER_CACERT_FILE", envVars[0].Name)
 			assert.Equal(t, expectedPath, envVars[0].Value)
-			assert.Equal(t, "IRONIC_CACERT_FILE", envVars[1].Name)
-			assert.Equal(t, expectedPath, envVars[1].Value)
+		})
+	}
+}
+
+func TestIronicCACertFile(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		tlsSecret               *corev1.Secret
+		trustedCAConfigMap      *corev1.ConfigMap
+		expectedIronicCACert    string
+		expectedWebserverCACert string
+	}{
+		{
+			name:                 "no TLS, no trustedCA",
+			expectedIronicCACert: "",
+		},
+		{
+			name: "no TLS, with trustedCA — IRONIC_CACERT_FILE must not be set",
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string]string{"ca.crt": "cert"},
+			},
+			expectedIronicCACert:    "",
+			expectedWebserverCACert: "/certs/ca/trusted/ca.crt",
+		},
+		{
+			name: "TLS with ca.crt, no trustedCA — uses ca.crt from TLS secret",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+					"ca.crt":  []byte("ca"),
+				},
+			},
+			expectedIronicCACert: "/certs/ironic/ca.crt",
+		},
+		{
+			name: "TLS without ca.crt, no trustedCA — leaf fallback",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+				},
+			},
+			expectedIronicCACert: "",
+		},
+		{
+			name: "TLS with ca.crt and trustedCA — prefers ca.crt",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+					"ca.crt":  []byte("ca"),
+				},
+			},
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string]string{"ca-bundle.crt": "cert"},
+			},
+			expectedIronicCACert:    "/certs/ironic/ca.crt",
+			expectedWebserverCACert: "/certs/ca/trusted/ca-bundle.crt",
+		},
+		{
+			name: "TLS without ca.crt, with trustedCA — falls back to trustedCA",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+				},
+			},
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string]string{"ca-bundle.crt": "cert"},
+			},
+			expectedIronicCACert:    "/certs/ca/trusted/ca-bundle.crt",
+			expectedWebserverCACert: "/certs/ca/trusted/ca-bundle.crt",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			apiSecret := &corev1.Secret{
+				Data: map[string][]byte{"htpasswd": []byte("abcd")},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
+				Spec:       metal3api.IronicSpec{},
+			}
+			if tc.tlsSecret != nil {
+				ironic.Spec.TLS.CertificateName = tc.tlsSecret.Name
+			}
+
+			resources := Resources{
+				Ironic:             ironic,
+				APISecret:          apiSecret,
+				TLSSecret:          tc.tlsSecret,
+				TrustedCAConfigMap: tc.trustedCAConfigMap,
+			}
+
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer)
+
+			envMap := make(map[string]string)
+			for _, env := range ironicContainer.Env {
+				envMap[env.Name] = env.Value
+			}
+
+			if tc.expectedIronicCACert != "" {
+				assert.Equal(t, tc.expectedIronicCACert, envMap["IRONIC_CACERT_FILE"])
+			} else {
+				_, found := envMap["IRONIC_CACERT_FILE"]
+				assert.False(t, found, "IRONIC_CACERT_FILE should not be set")
+			}
+
+			if tc.expectedWebserverCACert != "" {
+				assert.Equal(t, tc.expectedWebserverCACert, envMap["WEBSERVER_CACERT_FILE"])
+			}
 		})
 	}
 }
