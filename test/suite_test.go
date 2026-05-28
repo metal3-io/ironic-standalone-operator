@@ -1279,6 +1279,8 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("creates Ironic with networking service", Label("networking"), func() {
+		helpers.SkipIfVersionBefore("35.0")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1305,6 +1307,8 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("networking service uses user-provided switch secrets", Label("networking-user-secret", "networking"), func() {
+		helpers.SkipIfVersionBefore("35.0")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1392,6 +1396,8 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("networking service reports missing label on user-provided secret", Label("networking-missing-label", "networking"), func() {
+		helpers.SkipIfVersionBefore("35.0")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1442,6 +1448,8 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("networking service can be enabled and disabled", Label("networking-lifecycle", "networking"), func() {
+		helpers.SkipIfVersionBefore("35.0")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
@@ -1488,6 +1496,8 @@ var _ = Describe("Ironic object tests", func() {
 	})
 
 	It("networking service restarts on switch config change", Label("networking-restart", "networking"), func() {
+		helpers.SkipIfVersionBefore("35.0")
+
 		name := types.NamespacedName{
 			Name:      "test-ironic",
 			Namespace: namespace,
