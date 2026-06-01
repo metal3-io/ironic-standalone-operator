@@ -686,25 +686,11 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 		dhcpPort = 547
 	}
 
-	livenessProbe := newProbe(corev1.ProbeHandler{
+	probe := newProbe(corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
 			Command: []string{"sh", "-c", fmt.Sprintf("ss -lun | grep :%d && ss -lun | grep :69", dhcpPort)},
 		},
 	})
-	readinessProbe := newProbe(corev1.ProbeHandler{
-		Exec: &corev1.ExecAction{
-			Command: []string{"sh", "-c", fmt.Sprintf("ss -lun | grep :%d && ss -lun | grep :69", dhcpPort)},
-		},
-	})
-
-	if ironic.Spec.Overrides != nil {
-		if p := ironic.Spec.Overrides.DnsmasqLivenessProbe; p != nil {
-			livenessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
-		}
-		if p := ironic.Spec.Overrides.DnsmasqReadinessProbe; p != nil {
-			readinessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
-		}
-	}
 
 	return corev1.Container{
 		Name:    "dnsmasq",
@@ -720,8 +706,8 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 				Add:  []corev1.Capability{"NET_ADMIN", "NET_BIND_SERVICE", "NET_RAW"},
 			},
 		},
-		LivenessProbe:  livenessProbe,
-		ReadinessProbe: readinessProbe,
+		LivenessProbe:  probe,
+		ReadinessProbe: probe,
 	}
 }
 

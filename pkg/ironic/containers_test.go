@@ -1007,57 +1007,20 @@ func TestDnsmasqProbeConfiguration(t *testing.T) {
 		},
 	}
 
-	customLivenessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"sh", "-c", "custom-liveness"},
-			},
-		},
-	}
-	customReadinessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"sh", "-c", "custom-readiness"},
-			},
-		},
-	}
-
 	testCases := []struct {
-		Scenario             string
-		Networking           metal3api.Networking
-		Overrides            *metal3api.Overrides
-		ExpectedLivenessCmd  string
-		ExpectedReadinessCmd string
+		Scenario    string
+		Networking  metal3api.Networking
+		ExpectedCmd string
 	}{
 		{
-			Scenario:             "IPv4 CIDR uses DHCPv4 port 67",
-			Networking:           ipv4Net,
-			ExpectedLivenessCmd:  "ss -lun | grep :67 && ss -lun | grep :69",
-			ExpectedReadinessCmd: "ss -lun | grep :67 && ss -lun | grep :69",
+			Scenario:    "IPv4 CIDR uses DHCPv4 port 67",
+			Networking:  ipv4Net,
+			ExpectedCmd: "ss -lun | grep :67 && ss -lun | grep :69",
 		},
 		{
-			Scenario:             "IPv6 CIDR uses DHCPv6 port 547",
-			Networking:           ipv6Net,
-			ExpectedLivenessCmd:  "ss -lun | grep :547 && ss -lun | grep :69",
-			ExpectedReadinessCmd: "ss -lun | grep :547 && ss -lun | grep :69",
-		},
-		{
-			Scenario:   "Explicit liveness probe override leaves readiness as default",
-			Networking: ipv6Net,
-			Overrides: &metal3api.Overrides{
-				DnsmasqLivenessProbe: customLivenessProbe,
-			},
-			ExpectedLivenessCmd:  "custom-liveness",
-			ExpectedReadinessCmd: "ss -lun | grep :547 && ss -lun | grep :69",
-		},
-		{
-			Scenario:   "Explicit readiness probe override leaves liveness as default",
-			Networking: ipv4Net,
-			Overrides: &metal3api.Overrides{
-				DnsmasqReadinessProbe: customReadinessProbe,
-			},
-			ExpectedLivenessCmd:  "ss -lun | grep :67 && ss -lun | grep :69",
-			ExpectedReadinessCmd: "custom-readiness",
+			Scenario:    "IPv6 CIDR uses DHCPv6 port 547",
+			Networking:  ipv6Net,
+			ExpectedCmd: "ss -lun | grep :547 && ss -lun | grep :69",
 		},
 	}
 
@@ -1076,7 +1039,6 @@ func TestDnsmasqProbeConfiguration(t *testing.T) {
 				},
 				Spec: metal3api.IronicSpec{
 					Networking: tc.Networking,
-					Overrides:  tc.Overrides,
 				},
 			}
 
@@ -1098,11 +1060,11 @@ func TestDnsmasqProbeConfiguration(t *testing.T) {
 			require.NotNil(t, dnsmasq.ReadinessProbe.Exec, "readiness probe should be exec-based")
 
 			assert.Equal(t,
-				[]string{"sh", "-c", tc.ExpectedLivenessCmd},
+				[]string{"sh", "-c", tc.ExpectedCmd},
 				dnsmasq.LivenessProbe.Exec.Command,
 				"liveness probe command mismatch")
 			assert.Equal(t,
-				[]string{"sh", "-c", tc.ExpectedReadinessCmd},
+				[]string{"sh", "-c", tc.ExpectedCmd},
 				dnsmasq.ReadinessProbe.Exec.Command,
 				"readiness probe command mismatch")
 		})

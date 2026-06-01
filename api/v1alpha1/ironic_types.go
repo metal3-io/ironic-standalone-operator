@@ -426,14 +426,6 @@ type Overrides struct {
 	// +optional
 	Containers []corev1.Container `json:"containers,omitempty"`
 
-	// DnsmasqLivenessProbe overrides the dnsmasq container liveness probe.
-	// +optional
-	DnsmasqLivenessProbe *corev1.Probe `json:"dnsmasqLivenessProbe,omitempty"`
-
-	// DnsmasqReadinessProbe overrides the dnsmasq container readiness probe.
-	// +optional
-	DnsmasqReadinessProbe *corev1.Probe `json:"dnsmasqReadinessProbe,omitempty"`
-
 	// HttpdLivenessProbe overrides the httpd container liveness probe.
 	// +optional
 	HttpdLivenessProbe *corev1.Probe `json:"httpdLivenessProbe,omitempty"`
