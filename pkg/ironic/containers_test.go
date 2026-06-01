@@ -987,6 +987,128 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 	}
 }
 
+func TestDnsmasqProbeConfiguration(t *testing.T) {
+	ipv4Net := metal3api.Networking{
+		Interface: "eth0",
+		IPAddress: "192.0.2.2",
+		DHCP: &metal3api.DHCP{
+			NetworkCIDR: "192.0.2.0/24",
+			RangeBegin:  "192.0.2.10",
+			RangeEnd:    "192.0.2.200",
+		},
+	}
+	ipv6Net := metal3api.Networking{
+		Interface: "eth0",
+		IPAddress: "fd00:abcd:ef01:3fff::a",
+		DHCP: &metal3api.DHCP{
+			NetworkCIDR: "fd00:abcd:ef01:3fff::/64",
+			RangeBegin:  "fd00:abcd:ef01:3fff::3000",
+			RangeEnd:    "fd00:abcd:ef01:3fff::3fff",
+		},
+	}
+
+	customLivenessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"sh", "-c", "custom-liveness"},
+			},
+		},
+	}
+	customReadinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"sh", "-c", "custom-readiness"},
+			},
+		},
+	}
+
+	testCases := []struct {
+		Scenario             string
+		Networking           metal3api.Networking
+		Overrides            *metal3api.Overrides
+		ExpectedLivenessCmd  string
+		ExpectedReadinessCmd string
+	}{
+		{
+			Scenario:             "IPv4 CIDR uses DHCPv4 port 67",
+			Networking:           ipv4Net,
+			ExpectedLivenessCmd:  "ss -lun | grep :67 && ss -lun | grep :69",
+			ExpectedReadinessCmd: "ss -lun | grep :67 && ss -lun | grep :69",
+		},
+		{
+			Scenario:             "IPv6 CIDR uses DHCPv6 port 547",
+			Networking:           ipv6Net,
+			ExpectedLivenessCmd:  "ss -lun | grep :547 && ss -lun | grep :69",
+			ExpectedReadinessCmd: "ss -lun | grep :547 && ss -lun | grep :69",
+		},
+		{
+			Scenario:   "Explicit liveness probe override leaves readiness as default",
+			Networking: ipv6Net,
+			Overrides: &metal3api.Overrides{
+				DnsmasqLivenessProbe: customLivenessProbe,
+			},
+			ExpectedLivenessCmd:  "custom-liveness",
+			ExpectedReadinessCmd: "ss -lun | grep :547 && ss -lun | grep :69",
+		},
+		{
+			Scenario:   "Explicit readiness probe override leaves liveness as default",
+			Networking: ipv4Net,
+			Overrides: &metal3api.Overrides{
+				DnsmasqReadinessProbe: customReadinessProbe,
+			},
+			ExpectedLivenessCmd:  "ss -lun | grep :67 && ss -lun | grep :69",
+			ExpectedReadinessCmd: "custom-readiness",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("test"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Networking: tc.Networking,
+					Overrides:  tc.Overrides,
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var dnsmasq *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == "dnsmasq" {
+					dnsmasq = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, dnsmasq, "dnsmasq container should exist")
+			require.NotNil(t, dnsmasq.LivenessProbe, "liveness probe should not be nil")
+			require.NotNil(t, dnsmasq.LivenessProbe.Exec, "liveness probe should be exec-based")
+			require.NotNil(t, dnsmasq.ReadinessProbe, "readiness probe should not be nil")
+			require.NotNil(t, dnsmasq.ReadinessProbe.Exec, "readiness probe should be exec-based")
+
+			assert.Equal(t,
+				[]string{"sh", "-c", tc.ExpectedLivenessCmd},
+				dnsmasq.LivenessProbe.Exec.Command,
+				"liveness probe command mismatch")
+			assert.Equal(t,
+				[]string{"sh", "-c", tc.ExpectedReadinessCmd},
+				dnsmasq.ReadinessProbe.Exec.Command,
+				"readiness probe command mismatch")
+		})
+	}
+}
+
 func TestBuildTrustedCAEnvVars(t *testing.T) {
 	testCases := []struct {
 		name          string

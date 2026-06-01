@@ -353,6 +353,16 @@ func (in *Overrides) DeepCopyInto(out *Overrides) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.DnsmasqLivenessProbe != nil {
+		in, out := &in.DnsmasqLivenessProbe, &out.DnsmasqLivenessProbe
+		*out = new(v1.Probe)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.DnsmasqReadinessProbe != nil {
+		in, out := &in.DnsmasqReadinessProbe, &out.DnsmasqReadinessProbe
+		*out = new(v1.Probe)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.HttpdLivenessProbe != nil {
 		in, out := &in.HttpdLivenessProbe, &out.HttpdLivenessProbe
 		*out = new(v1.Probe)
