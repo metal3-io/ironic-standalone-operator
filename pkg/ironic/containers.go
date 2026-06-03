@@ -270,11 +270,7 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 
 	return []corev1.EnvVar{
 		{
-			Name:  "WEBSERVER_CACERT_FILE", // CA for verifying image server TLS connections
-			Value: caPath,
-		},
-		{
-			Name:  "IRONIC_CACERT_FILE", // CA for verifying JSON-RPC TLS connections (e.g. ironic-networking)
+			Name:  "WEBSERVER_CACERT_FILE",
 			Value: caPath,
 		},
 	}
@@ -380,7 +376,32 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	}
 
 	if resources.TrustedCAConfigMap != nil || resources.TrustedCASecret != nil {
-		result = append(result, buildTrustedCAEnvVars(cctx, resources)...)
+		trustedCAEnvVars := buildTrustedCAEnvVars(cctx, resources)
+		result = append(result, trustedCAEnvVars...)
+
+		// When TLS is enabled, set IRONIC_CACERT_FILE for JSON-RPC TLS verification.
+		// Prefer the CA from the TLS secret (ca.crt, populated by cert-manager);
+		// fall back to the trusted CA bundle if the TLS secret lacks ca.crt.
+		if resources.TLSSecret != nil {
+			if _, hasCACert := resources.TLSSecret.Data["ca.crt"]; hasCACert {
+				result = append(result, corev1.EnvVar{
+					Name:  "IRONIC_CACERT_FILE",
+					Value: certsDir + "/ironic/ca.crt",
+				})
+			} else if len(trustedCAEnvVars) > 0 {
+				result = append(result, corev1.EnvVar{
+					Name:  "IRONIC_CACERT_FILE",
+					Value: trustedCAEnvVars[0].Value,
+				})
+			}
+		}
+	} else if resources.TLSSecret != nil {
+		if _, hasCACert := resources.TLSSecret.Data["ca.crt"]; hasCACert {
+			result = append(result, corev1.EnvVar{
+				Name:  "IRONIC_CACERT_FILE",
+				Value: certsDir + "/ironic/ca.crt",
+			})
+		}
 	}
 
 	if resources.Ironic.Spec.ExtraConfig != nil {
