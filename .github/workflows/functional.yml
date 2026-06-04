@@ -24,6 +24,7 @@ jobs:
       CLUSTER_TYPE: minikube
       LOGDIR: /tmp/logs
       JUNIT_OUTPUT: /tmp/logs/report.xml
+    timeout-minutes: 90
     strategy:
       fail-fast: ${{ inputs.fail-fast }}
       matrix:

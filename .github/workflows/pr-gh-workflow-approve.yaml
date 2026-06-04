@@ -14,7 +14,7 @@ jobs:
   approve:
     name: Approve on ok-to-test
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     permissions:
       actions: write
 
