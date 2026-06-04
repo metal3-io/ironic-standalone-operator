@@ -138,6 +138,9 @@ linters:
       - tagliatelle
       text: VLAN
     - linters:
+      - tagliatelle
+      text: VIPs
+    - linters:
       - staticcheck
       text: 'SA1019: tls\.(TrustedCAName|BMCCAName) is deprecated: .*'
       paths:
