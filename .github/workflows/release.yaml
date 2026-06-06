@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       release_tag: ${{ steps.release-version.outputs.release_version }}
     if: github.repository == 'metal3-io/ironic-standalone-operator'
@@ -88,6 +89,7 @@ jobs:
   release:
     name: create draft release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: push_release_tags
     permissions:
       contents: write
@@ -139,6 +141,7 @@ jobs:
       id-token: write
     needs: push_release_tags
     name: Build IrSO container image
+    timeout-minutes: 10
     if: github.repository == 'metal3-io/ironic-standalone-operator'
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main # zizmor: ignore[unpinned-uses]
     with:

@@ -9,4 +9,5 @@ on:
 jobs:
   verify:
     name: verify PR contents
+    timeout-minutes: 5
     uses: metal3-io/project-infra/.github/workflows/pr-verifier.yaml@main # zizmor: ignore[unpinned-uses]
