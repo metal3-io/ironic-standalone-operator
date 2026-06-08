@@ -241,6 +241,7 @@ spec:
                     description: |-
                       ExternalIP is used for accessing API and the image server from remote hosts.
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+                      Cannot be set at the same time with networking.ingress.
                     type: string
                   imageServerPort:
                     default: 6180
@@ -256,6 +257,26 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  ingress:
+                    description: |-
+                      Configure Ingress resource for Ironic services.
+                      Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+                      Cannot be set at the same time with networking.externalIP.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to be added to Ingress resource
+                        type: object
+                      host:
+                        description: |-
+                          Host is the fully qualified domain name of a network host.
+                          This defines the hostname that the Ingress resource will route traffic for.
+                        type: string
+                      ingressClassName:
+                        description: IngressClass of Ingress resource
+                        type: string
+                    type: object
                   interface:
                     description: |-
                       Interface is a Linux network device to listen on.

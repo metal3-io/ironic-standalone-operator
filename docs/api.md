@@ -475,7 +475,8 @@ This setting is currently incompatible with the highly available architecture.<b
         <td>string</td>
         <td>
           ExternalIP is used for accessing API and the image server from remote hosts.
-This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.<br/>
+This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+Cannot be set at the same time with networking.ingress.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -498,6 +499,15 @@ This settings only applies to virtual media deployments. The IP will not be acce
             <i>Format</i>: int32<br/>
             <i>Default</i>: 6183<br/>
             <i>Minimum</i>: 1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingingress">ingress</a></b></td>
+        <td>object</td>
+        <td>
+          Configure Ingress resource for Ironic services.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+Cannot be set at the same time with networking.externalIP.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -655,6 +665,50 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.ingress
+<sup><sup>[↩ Parent](#ironicspecnetworking)</sup></sup>
+
+
+
+Configure Ingress resource for Ironic services.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+Cannot be set at the same time with networking.externalIP.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          Annotations to be added to Ingress resource<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>host</b></td>
+        <td>string</td>
+        <td>
+          Host is the fully qualified domain name of a network host.
+This defines the hostname that the Ingress resource will route traffic for.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ingressClassName</b></td>
+        <td>string</td>
+        <td>
+          IngressClass of Ingress resource<br/>
         </td>
         <td>false</td>
       </tr></tbody>
