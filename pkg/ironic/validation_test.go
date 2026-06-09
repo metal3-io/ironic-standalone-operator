@@ -87,6 +87,28 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "banana is not a valid IP address",
 		},
 		{
+			Scenario: "with ingress",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Ingress: &metal3api.Ingress{
+						Host: "ironic.example.com",
+					},
+				},
+			},
+		},
+		{
+			Scenario: "ingress and externalIP configured simultaneously",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ExternalIP: "192.168.0.2",
+					Ingress: &metal3api.Ingress{
+						Host: "ironic.example.com",
+					},
+				},
+			},
+			ExpectedError: "networking.ingress and networking.externalIP cannot be set at the same time",
+		},
+		{
 			Scenario: "HA needs database",
 			Ironic: metal3api.IronicSpec{
 				HighAvailability: true,
