@@ -707,9 +707,15 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 	envVars = appendListOfStringsEnv(envVars,
 		"DHCP_IGNORE", dhcp.Ignore, ",")
 
+	// IPv6-only deployments need port 547 (DHCPv6) instead of 67 (DHCPv4); TFTP port 69 is unchanged.
+	dhcpPort := 67
+	if prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR); err == nil && prefix.Addr().Is6() {
+		dhcpPort = 547
+	}
+
 	probe := newProbe(corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
-			Command: []string{"sh", "-c", "ss -lun | grep :67 && ss -lun | grep :69"},
+			Command: []string{"sh", "-c", fmt.Sprintf("ss -lun | grep :%d && ss -lun | grep :69", dhcpPort)},
 		},
 	})
 
