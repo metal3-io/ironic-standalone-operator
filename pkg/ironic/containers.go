@@ -1033,6 +1033,13 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
+	var hostNetwork bool
+	if resources.Ironic.Spec.Networking.HostNetwork == nil {
+		hostNetwork = resources.Ironic.Spec.Networking.Ingress == nil // if ingress is set, HostNetwork must be false.
+	} else {
+		hostNetwork = *resources.Ironic.Spec.Networking.HostNetwork
+	}
+
 	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -1047,7 +1054,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			InitContainers: initContainers,
 			Volumes:        volumes,
 			// Ironic needs to be accessed by external machines
-			HostNetwork:                  true,
+			HostNetwork:                  hostNetwork,
 			DNSPolicy:                    corev1.DNSClusterFirstWithHostNet,
 			NodeSelector:                 resources.Ironic.Spec.NodeSelector,
 			AutomountServiceAccountToken: ptr.To(false),
