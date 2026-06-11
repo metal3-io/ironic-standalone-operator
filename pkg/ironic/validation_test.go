@@ -109,6 +109,28 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "networking.ingress and networking.externalIP cannot be set at the same time",
 		},
 		{
+			Scenario: "ingress is configured and externalCallbackURL is configured",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Ingress: &metal3api.Ingress{
+						Host: "ironic.example.com",
+					},
+					ExternalCallbackURL: "http://ironic.example.com",
+				},
+			},
+		},
+		{
+			Scenario: "ingress is configured and imageServerExternalURL is configured",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Ingress: &metal3api.Ingress{
+						Host: "ironic.example.com",
+					},
+					ImageServerExternalURL: "http://image.example.com",
+				},
+			},
+		},
+		{
 			Scenario: "ingress is not configured and imageServerExternalURL is configured",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{

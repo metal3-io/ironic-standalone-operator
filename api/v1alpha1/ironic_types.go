@@ -161,7 +161,7 @@ type Networking struct {
 	APIPort int32 `json:"apiPort,omitempty"`
 
 	// HostNetwork makes Ironic pod use the host network, which is required for Ironic to be accessed by external machines using the host IP address.
-	// This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies hostNetwork=false.
+	// This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies HostNetwork=false.
 	// +optional
 	HostNetwork *bool `json:"hostNetwork,omitempty"`
 
@@ -184,7 +184,7 @@ type Networking struct {
 	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
 	// The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
 	// Cannot be set at the same time with networking.externalIP.
-	// Setting this option will set HostNetwork to false.
+	// When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
 
