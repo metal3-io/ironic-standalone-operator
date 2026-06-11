@@ -160,6 +160,11 @@ type Networking struct {
 	// +optional
 	APIPort int32 `json:"apiPort,omitempty"`
 
+	// HostNetwork makes Ironic pod use the host network, which is required for Ironic to be accessed by external machines using the host IP address.
+	// This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies HostNetwork=false.
+	// +optional
+	HostNetwork *bool `json:"hostNetwork,omitempty"`
+
 	// BindInterface makes Ironic API bound to only one interface.
 	// +optional
 	BindInterface bool `json:"bindInterface,omitempty"`
@@ -177,9 +182,27 @@ type Networking struct {
 
 	// Configure Ingress resource for Ironic services.
 	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+	// The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
 	// Cannot be set at the same time with networking.externalIP.
+	// When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
+
+	// externalCallbackURL for Ironic API server.
+	// Set this option when your Ironic API server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.imageServerExternalURL or networking.ingress
+	// +kubebuilder:validation:Format=uri
+	// +optional
+	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
+
+	// External HTTP URL for Image server.
+	// Set this option when your image server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.externalCallbackURL or networking.ingress
+	// +kubebuilder:validation:Format=uri
+	// +optional
+	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180
@@ -255,11 +278,13 @@ type AgentImages struct {
 	// Kernel is the URL of the IPA kernel image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
+	// +kubebuilder:validation:Format=uri
 	Kernel string `json:"kernel"`
 
 	// Initramfs is the URL of the IPA initramfs/ramdisk image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
+	// +kubebuilder:validation:Format=uri
 	Initramfs string `json:"initramfs"`
 
 	// Architecture is the target CPU architecture.
