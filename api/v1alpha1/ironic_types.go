@@ -60,13 +60,40 @@ type Inspection struct {
 	VLANInterfaces []string `json:"vlanInterfaces,omitempty"`
 }
 
+// DHCPRange defines a single DHCP address range with per-range options.
+type DHCPRange struct {
+	// Name is used as a dnsmasq tag for per-range options. Required when
+	// multiple ranges are defined; auto-generated as `range_<i+1>` otherwise.
+	// Must match [A-Za-z0-9_.-]+.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// NetworkCIDR is the CIDR of the provisioning network for this range.
+	NetworkCIDR string `json:"networkCIDR"`
+
+	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	RangeBegin string `json:"rangeBegin"`
+
+	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	RangeEnd string `json:"rangeEnd"`
+
+	// GatewayAddress is the IPv4 gateway advertised to clients in this range.
+	// Must be inside NetworkCIDR when set. IPv6 gateways are not supported here.
+	// +optional
+	GatewayAddress string `json:"gatewayAddress,omitempty"`
+}
+
 type DHCP struct {
 	// DNSAddress is the IP address of the DNS server to pass to hosts via DHCP.
 	// Must not be set together with ServeDNS.
 	// +optional
 	DNSAddress string `json:"dnsAddress,omitempty"`
 
-	// GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+	// GatewayAddress is the default router advertised to clients in the flat
+	// range. Ignored in relay-only mode (no flat range); use per-range
+	// gatewayAddress on Ranges entries instead.
+	//
+	// Deprecated: use Ranges instead.
 	// +optional
 	GatewayAddress string `json:"gatewayAddress,omitempty"`
 
@@ -82,14 +109,26 @@ type DHCP struct {
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
 
-	// NetworkCIDR is a CIDR of the provisioning network. Required.
+	// NetworkCIDR is a CIDR of the provisioning network. Required when Ranges is not set.
+	//
+	// Deprecated: use Ranges instead.
 	NetworkCIDR string `json:"networkCIDR,omitempty"`
 
 	// RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+	//
+	// Deprecated: use Ranges instead.
 	RangeBegin string `json:"rangeBegin,omitempty"`
 
 	// RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+	//
+	// Deprecated: use Ranges instead.
 	RangeEnd string `json:"rangeEnd,omitempty"`
+
+	// Ranges is a list of DHCP address ranges for multi-subnet support.
+	// Can be combined with the top-level flat range. When only Ranges is set,
+	// the provisioning IP need not be in any range's CIDR (DHCP relay).
+	// +optional
+	Ranges []DHCPRange `json:"ranges,omitempty"`
 
 	// ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 	// Must not be set together with DNSAddress.
