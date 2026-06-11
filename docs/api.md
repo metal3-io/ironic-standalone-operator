@@ -753,6 +753,30 @@ beyond the main ipAddress/interface from the networking configuration.
 Use this when you need Keepalived to manage IPs on additional network interfaces.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecnetworkingkeepalivedpasswordref">passwordRef</a></b></td>
+        <td>object</td>
+        <td>
+          PasswordRef references a Secret with the VRRP simple-auth
+(PASS) password under the key "password". VRRP truncates the value to
+8 bytes — longer values are silently cut by keepalived.
+The password must consist of characters safe to embed unquoted in a
+keepalived.conf line (printable ASCII, no whitespace, no '"' or '\').<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>vrid</b></td>
+        <td>integer</td>
+        <td>
+          VRID is the VRRP virtual router ID used by keepalived.
+Must be unique within the L2 broadcast domain.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 1<br/>
+            <i>Minimum</i>: 1<br/>
+            <i>Maximum</i>: 255<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -799,6 +823,46 @@ When not set, keepalived uses /32 for IPv4 and /128 for IPv6.<br/>
             <i>Maximum</i>: 128<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.keepalived.passwordRef
+<sup><sup>[↩ Parent](#ironicspecnetworkingkeepalived)</sup></sup>
+
+
+
+PasswordRef references a Secret with the VRRP simple-auth
+(PASS) password under the key "password". VRRP truncates the value to
+8 bytes — longer values are silently cut by keepalived.
+The password must consist of characters safe to embed unquoted in a
+keepalived.conf line (printable ASCII, no whitespace, no '"' or '\').
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>kind</b></td>
+        <td>enum</td>
+        <td>
+          Kind of the resource (ConfigMap or Secret).<br/>
+          <br/>
+            <i>Enum</i>: ConfigMap, Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the resource.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
