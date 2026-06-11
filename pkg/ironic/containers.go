@@ -94,6 +94,11 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		)
 		networkingProvided = true
 	}
+	// When networking.ingress is set or hostNetwork is disabled, we can provide the podIP
+	fieldPath := "status.hostIP"
+	if ironic.Spec.Networking.Ingress != nil || (ironic.Spec.Networking.HostNetwork != nil && !*ironic.Spec.Networking.HostNetwork) {
+		fieldPath = "status.podIP"
+	}
 	if !networkingProvided {
 		result = append(result,
 			corev1.EnvVar{
@@ -101,7 +106,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
 						APIVersion: "v1",
-						FieldPath:  "status.hostIP",
+						FieldPath:  fieldPath,
 					},
 				},
 			},
