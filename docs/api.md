@@ -496,7 +496,7 @@ Cannot be set at the same time with networking.ingress.<br/>
         <td>boolean</td>
         <td>
           HostNetwork makes Ironic pod use the host network, which is required for Ironic to be accessed by external machines using the host IP address.
-This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies hostNetwork=false.<br/>
+This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies HostNetwork=false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -541,7 +541,7 @@ Must be set together with networking.externalCallbackURL or networking.ingress<b
 Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
 The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
 Cannot be set at the same time with networking.externalIP.
-Setting this option will set HostNetwork to false.<br/>
+When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -714,7 +714,7 @@ Configure Ingress resource for Ironic services.
 Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
 The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
 Cannot be set at the same time with networking.externalIP.
-Setting this option will set HostNetwork to false.
+When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.
 
 <table>
     <thead>

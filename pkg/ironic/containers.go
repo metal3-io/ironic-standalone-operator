@@ -94,12 +94,12 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		)
 		networkingProvided = true
 	}
-	// When networking.ingress is set or hostNetwork is disabled, we can provide the podIP
-	fieldPath := "status.hostIP"
-	if ironic.Spec.Networking.Ingress != nil || (ironic.Spec.Networking.HostNetwork != nil && !*ironic.Spec.Networking.HostNetwork) {
-		fieldPath = "status.podIP"
-	}
 	if !networkingProvided {
+		// When networking.ingress is set or hostNetwork is disabled, we can provide the podIP
+		fieldPath := "status.hostIP"
+		if ironic.Spec.Networking.Ingress != nil || (ironic.Spec.Networking.HostNetwork != nil && !*ironic.Spec.Networking.HostNetwork) {
+			fieldPath = "status.podIP"
+		}
 		result = append(result,
 			corev1.EnvVar{
 				Name: "PROVISIONING_IP",
@@ -419,14 +419,13 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 		ingressHost := resources.Ironic.Spec.Networking.Ingress.Host
 		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", "https://"+ingressHost)
 		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", "https://"+ingressHost)
-	}
-
-	if resources.Ironic.Spec.Networking.ExternalCallbackURL != "" {
-		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", resources.Ironic.Spec.Networking.ExternalCallbackURL)
-	}
-
-	if resources.Ironic.Spec.Networking.ImageServerExternalURL != "" {
-		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", resources.Ironic.Spec.Networking.ImageServerExternalURL)
+	} else {
+		if resources.Ironic.Spec.Networking.ExternalCallbackURL != "" {
+			result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", resources.Ironic.Spec.Networking.ExternalCallbackURL)
+		}
+		if resources.Ironic.Spec.Networking.ImageServerExternalURL != "" {
+			result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", resources.Ironic.Spec.Networking.ImageServerExternalURL)
+		}
 	}
 
 	// Add sensor data environment variables when PrometheusExporter is enabled
@@ -1045,10 +1044,17 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	}
 
 	var hostNetwork bool
+	var dnsPolicy corev1.DNSPolicy
 	if resources.Ironic.Spec.Networking.HostNetwork == nil {
-		hostNetwork = resources.Ironic.Spec.Networking.Ingress == nil // if ingress is set, HostNetwork must be false.
+		// Default to hostNetwork=true unless ingress is enabled (ingress implies hostNetwork=false by default).
+		hostNetwork = resources.Ironic.Spec.Networking.Ingress == nil
 	} else {
 		hostNetwork = *resources.Ironic.Spec.Networking.HostNetwork
+	}
+	if hostNetwork {
+		dnsPolicy = corev1.DNSClusterFirstWithHostNet
+	} else {
+		dnsPolicy = corev1.DNSClusterFirst
 	}
 
 	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
@@ -1061,12 +1067,11 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Annotations: annotations,
 		},
 		Spec: corev1.PodSpec{
-			Containers:     containers,
-			InitContainers: initContainers,
-			Volumes:        volumes,
-			// Ironic needs to be accessed by external machines
+			Containers:                   containers,
+			InitContainers:               initContainers,
+			Volumes:                      volumes,
 			HostNetwork:                  hostNetwork,
-			DNSPolicy:                    corev1.DNSClusterFirstWithHostNet,
+			DNSPolicy:                    dnsPolicy,
 			NodeSelector:                 resources.Ironic.Spec.NodeSelector,
 			AutomountServiceAccountToken: ptr.To(false),
 		},

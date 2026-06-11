@@ -200,8 +200,8 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 	}
 
 	if ironic.Networking.Ingress == nil &&
-		(ironic.Networking.ImageServerExternalURL != "" && ironic.Networking.ExternalCallbackURL == "") ||
-		(ironic.Networking.ImageServerExternalURL == "" && ironic.Networking.ExternalCallbackURL != "") {
+		((ironic.Networking.ImageServerExternalURL != "" && ironic.Networking.ExternalCallbackURL == "") ||
+			(ironic.Networking.ImageServerExternalURL == "" && ironic.Networking.ExternalCallbackURL != "")) {
 		return errors.New("in case of networking.ingress is not enabled, networking.imageServerExternalURL and networking.externalCallbackURL must be set together")
 	}
 
