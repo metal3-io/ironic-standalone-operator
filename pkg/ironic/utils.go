@@ -364,6 +364,42 @@ func applyContainerOverrides(existing []corev1.Container, overrides []corev1.Con
 	return result
 }
 
+// applyVolumeOverrides merges override volumes into existing volumes.
+// If an override volume has the same name as an existing volume, it replaces the existing one.
+// Otherwise, the override volume is appended to the list.
+func applyVolumeOverrides(existing []corev1.Volume, overrides []corev1.Volume) []corev1.Volume {
+	if len(overrides) == 0 {
+		return existing
+	}
+
+	result := make([]corev1.Volume, 0, len(existing)+len(overrides))
+
+	// Build a map of override volumes by name
+	overrideMap := make(map[string]corev1.Volume, len(overrides))
+	for _, volume := range overrides {
+		overrideMap[volume.Name] = volume
+	}
+
+	// First, add existing volumes, replacing with overrides where names match
+	for _, volume := range existing {
+		if override, found := overrideMap[volume.Name]; found {
+			result = append(result, override)
+			delete(overrideMap, volume.Name)
+		} else {
+			result = append(result, volume)
+		}
+	}
+
+	// Then, append any remaining override volumes that didn't match existing names
+	for _, volume := range overrides {
+		if _, stillInMap := overrideMap[volume.Name]; stillInMap {
+			result = append(result, volume)
+		}
+	}
+
+	return result
+}
+
 func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
 	if overrides == nil {
 		return podTemplate
@@ -378,6 +414,9 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 
 	// Merge init containers: replace if name matches, otherwise append
 	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers)
+
+	// Merge volumes: replace if name matches, otherwise append
+	podTemplate.Spec.Volumes = applyVolumeOverrides(podTemplate.Spec.Volumes, overrides.Volumes)
 
 	return podTemplate
 }

@@ -507,6 +507,13 @@ type Overrides struct {
 	// Extra labels to add to each pod (including upgrade jobs).
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
+	// Volumes to add to the main Ironic pod (and upgrade jobs).
+	// Use this together with volumeMounts on overridden containers to mount
+	// additional ConfigMaps, Secrets or PersistentVolumeClaims.
+	// If a volume name matches an existing volume, the existing volume is replaced.
+	// +optional
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 
 // PrometheusExporter defines configuration for Prometheus metrics export.
