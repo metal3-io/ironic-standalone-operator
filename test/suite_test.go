@@ -864,7 +864,7 @@ func testUpgradeHA(ironicVersionOld string, ironicVersionNew string, apiVersionO
 	VerifyIronic(ironic, TestAssumptions{maxAPIVersion: apiVersionNew, withHA: true})
 }
 
-var _ = Describe("Ironic object tests", func() {
+var _ = Describe("Ironic resource", func() {
 	var namespace string
 
 	BeforeEach(func() {
@@ -1306,7 +1306,7 @@ var _ = Describe("Ironic object tests", func() {
 		helpers.VerifyNetworkingEnvVarsOnIronic(ctx, clientset, namespace, name.Name)
 	})
 
-	It("networking service uses user-provided switch secrets", Label("networking-user-secret", "networking"), func() {
+	It("starts networking service with user-provided switch secrets", Label("networking-user-secret", "networking"), func() {
 		helpers.SkipIfVersionBefore("35.0")
 
 		name := types.NamespacedName{
@@ -1395,7 +1395,7 @@ var _ = Describe("Ironic object tests", func() {
 		Expect(string(credsSecret.Data["00-11-22-33-44-55.key"])).To(Equal("user-provided-ssh-key"))
 	})
 
-	It("networking service reports missing label on user-provided secret", Label("networking-missing-label", "networking"), func() {
+	It("with networking service reports missing label on user-provided secret", Label("networking-missing-label", "networking"), func() {
 		helpers.SkipIfVersionBefore("35.0")
 
 		name := types.NamespacedName{
@@ -1447,7 +1447,7 @@ var _ = Describe("Ironic object tests", func() {
 		VerifyIronic(ironic, TestAssumptions{})
 	})
 
-	It("networking service can be enabled and disabled", Label("networking-lifecycle", "networking"), func() {
+	It("allows enabling and disabling networking service", Label("networking-lifecycle", "networking"), func() {
 		helpers.SkipIfVersionBefore("35.0")
 
 		name := types.NamespacedName{
@@ -1495,7 +1495,7 @@ var _ = Describe("Ironic object tests", func() {
 		helpers.VerifySwitchSecretsGone(ctx, clientset, namespace, name.Name)
 	})
 
-	It("networking service restarts on switch config change", Label("networking-restart", "networking"), func() {
+	It("restart networking service on switch config change", Label("networking-restart", "networking"), func() {
 		helpers.SkipIfVersionBefore("35.0")
 
 		name := types.NamespacedName{
