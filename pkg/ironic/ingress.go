@@ -86,12 +86,12 @@ func ensureIronicIngress(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 
 		return controllerutil.SetControllerReference(ironic, ingress, cctx.Scheme)
 	})
+	if err != nil {
+		return transientError(err)
+	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("ironic ingress", "Ingress", ingress.Name, "Status", result)
 		return updated()
-	}
-	if err != nil {
-		return transientError(err)
 	}
 
 	return ready()
