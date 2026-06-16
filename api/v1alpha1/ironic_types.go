@@ -162,18 +162,21 @@ type Networking struct {
 	// +optional
 	APIPort int32 `json:"apiPort,omitempty"`
 
-	// HostNetwork makes Ironic pod use the host network, which is required for Ironic to be accessed by external machines using the host IP address.
-	// This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies HostNetwork=false.
+	// DisableHostNetwork disables the use of host networking for Ironic pods.
+	// Disabling host networking causes network boot impossible.
+	// kubebuilder:default=false
 	// +optional
-	HostNetwork *bool `json:"hostNetwork,omitempty"`
+	DisableHostNetwork bool `json:"disableHostNetwork,omitempty"`
 
 	// BindInterface makes Ironic API bound to only one interface.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	BindInterface bool `json:"bindInterface,omitempty"`
 
 	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 	// The service is only deployed when this is set.
 	// This setting is currently incompatible with the highly available architecture.
+	// Requires DisableHostNetwork to be false.
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
@@ -183,10 +186,10 @@ type Networking struct {
 	ExternalIP string `json:"externalIP,omitempty"`
 
 	// Configure Ingress resource for Ironic services.
-	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
-	// The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
+	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
+	// The API and the image server will be accessible via the hostname specified in the ingress configuration.
+	// Ingress should only be used with virtual media deployments.
 	// Cannot be set at the same time with networking.externalIP.
-	// When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
 
@@ -194,6 +197,7 @@ type Networking struct {
 	// Set this option when your Ironic API server is not directly accessible.
 	// Setting this option, will override URL set by networking.ingress.host.
 	// Must be set together with networking.imageServerExternalURL or networking.ingress
+	// Cannot be set at the same time with networking.externalIP.
 	// +kubebuilder:validation:Format=uri
 	// +optional
 	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
@@ -202,6 +206,7 @@ type Networking struct {
 	// Set this option when your image server is not directly accessible.
 	// Setting this option, will override URL set by networking.ingress.host.
 	// Must be set together with networking.externalCallbackURL or networking.ingress
+	// Cannot be set at the same time with networking.externalIP.
 	// +kubebuilder:validation:Format=uri
 	// +optional
 	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
@@ -220,11 +225,13 @@ type Networking struct {
 
 	// Interface is a Linux network device to listen on.
 	// Detected from IPAddress if missing.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	Interface string `json:"interface,omitempty"`
 
 	// IPAddress is the main IP address to listen on and use for communication.
 	// Detected from Interface if missing. Cannot be provided for a highly available architecture.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	IPAddress string `json:"ipAddress,omitempty"`
 
@@ -242,12 +249,14 @@ type Networking struct {
 	// When enabled, a Keepalived container will be started to manage the main ipAddress
 	// on the main interface, plus any additional VIPs listed in additionalVIPs.
 	// Cannot be used together with ipAddressManager.
+	// Requires DisableHostNetwork to be false.
 	// Warning: keepalived is not compatible with the highly available architecture.
 	// +optional
 	Keepalived *KeepalivedConfig `json:"keepalived,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
 

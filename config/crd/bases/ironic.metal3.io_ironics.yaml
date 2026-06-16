@@ -185,14 +185,16 @@ spec:
                     minimum: 1
                     type: integer
                   bindInterface:
-                    description: BindInterface makes Ironic API bound to only one
-                      interface.
+                    description: |-
+                      BindInterface makes Ironic API bound to only one interface.
+                      Requires DisableHostNetwork to be false.
                     type: boolean
                   dhcp:
                     description: |-
                       DHCP is a configuration of DHCP for the network boot service (dnsmasq).
                       The service is only deployed when this is set.
                       This setting is currently incompatible with the highly available architecture.
+                      Requires DisableHostNetwork to be false.
                     properties:
                       dnsAddress:
                         description: |-
@@ -237,12 +239,19 @@ spec:
                           Must not be set together with DNSAddress.
                         type: boolean
                     type: object
+                  disableHostNetwork:
+                    description: |-
+                      DisableHostNetwork disables the use of host networking for Ironic pods.
+                      Disabling host networking causes network boot impossible.
+                      kubebuilder:default=false
+                    type: boolean
                   externalCallbackURL:
                     description: |-
                       externalCallbackURL for Ironic API server.
                       Set this option when your Ironic API server is not directly accessible.
                       Setting this option, will override URL set by networking.ingress.host.
                       Must be set together with networking.imageServerExternalURL or networking.ingress
+                      Cannot be set at the same time with networking.externalIP.
                     format: uri
                     type: string
                   externalIP:
@@ -251,17 +260,13 @@ spec:
                       This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
                       Cannot be set at the same time with networking.ingress.
                     type: string
-                  hostNetwork:
-                    description: |-
-                      HostNetwork makes Ironic pod use the host network, which is required for Ironic to be accessed by external machines using the host IP address.
-                      This option would be considered as true unless the user explicitly sets it to false or sets ingress configuration, which implies HostNetwork=false.
-                    type: boolean
                   imageServerExternalURL:
                     description: |-
                       External HTTP URL for Image server.
                       Set this option when your image server is not directly accessible.
                       Setting this option, will override URL set by networking.ingress.host.
                       Must be set together with networking.externalCallbackURL or networking.ingress
+                      Cannot be set at the same time with networking.externalIP.
                     format: uri
                     type: string
                   imageServerPort:
@@ -281,10 +286,10 @@ spec:
                   ingress:
                     description: |-
                       Configure Ingress resource for Ironic services.
-                      Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
-                      The operator should use this in case of virtual media deployments. The API and the image server will be accessed via the hostname specified in the ingress configuration.
+                      Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
+                      The API and the image server will be accessible via the hostname specified in the ingress configuration.
+                      Ingress should only be used with virtual media deployments.
                       Cannot be set at the same time with networking.externalIP.
-                      When HostNetwork is not explicitly configured, enabling ingress will default HostNetwork to false.
                     properties:
                       annotations:
                         additionalProperties:
@@ -304,11 +309,13 @@ spec:
                     description: |-
                       Interface is a Linux network device to listen on.
                       Detected from IPAddress if missing.
+                      Requires DisableHostNetwork to be false.
                     type: string
                   ipAddress:
                     description: |-
                       IPAddress is the main IP address to listen on and use for communication.
                       Detected from Interface if missing. Cannot be provided for a highly available architecture.
+                      Requires DisableHostNetwork to be false.
                     type: string
                   ipAddressManager:
                     description: |-
@@ -328,6 +335,7 @@ spec:
                       When enabled, a Keepalived container will be started to manage the main ipAddress
                       on the main interface, plus any additional VIPs listed in additionalVIPs.
                       Cannot be used together with ipAddressManager.
+                      Requires DisableHostNetwork to be false.
                       Warning: keepalived is not compatible with the highly available architecture.
                     properties:
                       additionalVIPs:
@@ -375,6 +383,7 @@ spec:
                     description: |-
                       MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
                       Only set if no other options can be used.
+                      Requires DisableHostNetwork to be false.
                     items:
                       type: string
                     type: array

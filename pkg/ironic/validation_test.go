@@ -106,7 +106,37 @@ func TestValidateIronic(t *testing.T) {
 					},
 				},
 			},
-			ExpectedError: "networking.ingress and networking.externalIP cannot be set at the same time",
+			ExpectedError: "networking.externalIP cannot be set together with networking.ingress or networking.externalCallbackURL or networking.imageServerExternalURL",
+		},
+		{
+			Scenario: "externalCallbackURL and externalIP configured simultaneously",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ExternalIP:          "192.168.0.2",
+					ExternalCallbackURL: "https://ironic.example.com",
+				},
+			},
+			ExpectedError: "networking.externalIP cannot be set together with networking.ingress or networking.externalCallbackURL or networking.imageServerExternalURL",
+		},
+		{
+			Scenario: "imageServerExternalURL and externalIP configured simultaneously",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ExternalIP:             "192.168.0.2",
+					ImageServerExternalURL: "https://image.example.com",
+				},
+			},
+			ExpectedError: "networking.externalIP cannot be set together with networking.ingress or networking.externalCallbackURL or networking.imageServerExternalURL",
+		},
+		{
+			Scenario: "DHCP configured and host networking disabled",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DisableHostNetwork: true,
+					DHCP:               &metal3api.DHCP{DNSAddress: "1.1.1.1"},
+				},
+			},
+			ExpectedError: "networking.disableHostNetwork cannot be set together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived",
 		},
 		{
 			Scenario: "ingress is configured and externalCallbackURL is configured",
