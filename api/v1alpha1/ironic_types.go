@@ -162,21 +162,21 @@ type Networking struct {
 	// +optional
 	APIPort int32 `json:"apiPort,omitempty"`
 
-	// DisableHostNetwork disables the use of host networking for Ironic pods.
-	// Disabling host networking causes network boot impossible.
-	// kubebuilder:default=false
+	// EnableHostNetwork enables the use of host networking for Ironic pods.
+	// Disabling host networking makes network boot impossible.
+	// +kubebuilder:default=true
 	// +optional
-	DisableHostNetwork bool `json:"disableHostNetwork,omitempty"`
+	EnableHostNetwork *bool `json:"enableHostNetwork,omitempty"`
 
 	// BindInterface makes Ironic API bound to only one interface.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	// +optional
 	BindInterface bool `json:"bindInterface,omitempty"`
 
 	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 	// The service is only deployed when this is set.
 	// This setting is currently incompatible with the highly available architecture.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
@@ -225,13 +225,13 @@ type Networking struct {
 
 	// Interface is a Linux network device to listen on.
 	// Detected from IPAddress if missing.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	// +optional
 	Interface string `json:"interface,omitempty"`
 
 	// IPAddress is the main IP address to listen on and use for communication.
 	// Detected from Interface if missing. Cannot be provided for a highly available architecture.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	// +optional
 	IPAddress string `json:"ipAddress,omitempty"`
 
@@ -249,14 +249,14 @@ type Networking struct {
 	// When enabled, a Keepalived container will be started to manage the main ipAddress
 	// on the main interface, plus any additional VIPs listed in additionalVIPs.
 	// Cannot be used together with ipAddressManager.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	// Warning: keepalived is not compatible with the highly available architecture.
 	// +optional
 	Keepalived *KeepalivedConfig `json:"keepalived,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.
-	// Requires DisableHostNetwork to be false.
+	// Requires EnableHostNetwork to be true.
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
 

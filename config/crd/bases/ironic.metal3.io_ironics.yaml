@@ -187,14 +187,14 @@ spec:
                   bindInterface:
                     description: |-
                       BindInterface makes Ironic API bound to only one interface.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                     type: boolean
                   dhcp:
                     description: |-
                       DHCP is a configuration of DHCP for the network boot service (dnsmasq).
                       The service is only deployed when this is set.
                       This setting is currently incompatible with the highly available architecture.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                     properties:
                       dnsAddress:
                         description: |-
@@ -239,11 +239,11 @@ spec:
                           Must not be set together with DNSAddress.
                         type: boolean
                     type: object
-                  disableHostNetwork:
+                  enableHostNetwork:
+                    default: true
                     description: |-
-                      DisableHostNetwork disables the use of host networking for Ironic pods.
-                      Disabling host networking causes network boot impossible.
-                      kubebuilder:default=false
+                      EnableHostNetwork enables the use of host networking for Ironic pods.
+                      Disabling host networking makes network boot impossible.
                     type: boolean
                   externalCallbackURL:
                     description: |-
@@ -309,13 +309,13 @@ spec:
                     description: |-
                       Interface is a Linux network device to listen on.
                       Detected from IPAddress if missing.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                     type: string
                   ipAddress:
                     description: |-
                       IPAddress is the main IP address to listen on and use for communication.
                       Detected from Interface if missing. Cannot be provided for a highly available architecture.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                     type: string
                   ipAddressManager:
                     description: |-
@@ -335,7 +335,7 @@ spec:
                       When enabled, a Keepalived container will be started to manage the main ipAddress
                       on the main interface, plus any additional VIPs listed in additionalVIPs.
                       Cannot be used together with ipAddressManager.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                       Warning: keepalived is not compatible with the highly available architecture.
                     properties:
                       additionalVIPs:
@@ -383,7 +383,7 @@ spec:
                     description: |-
                       MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
                       Only set if no other options can be used.
-                      Requires DisableHostNetwork to be false.
+                      Requires EnableHostNetwork to be true.
                     items:
                       type: string
                     type: array

@@ -96,7 +96,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	}
 	if !networkingProvided {
 		fieldPath := "status.hostIP"
-		if ironic.Spec.Networking.DisableHostNetwork {
+		if !ptr.Deref(ironic.Spec.Networking.EnableHostNetwork, true) {
 			fieldPath = "status.podIP"
 		}
 		result = append(result,
@@ -1050,10 +1050,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
-	hostNetwork := true
+	hostNetwork := ptr.Deref(resources.Ironic.Spec.Networking.EnableHostNetwork, true)
 	dnsPolicy := corev1.DNSClusterFirstWithHostNet
-	if resources.Ironic.Spec.Networking.DisableHostNetwork {
-		hostNetwork = false
+	if !hostNetwork {
 		dnsPolicy = corev1.DNSClusterFirst
 	}
 

@@ -459,7 +459,7 @@ Networking defines networking settings for Ironic.
         <td>boolean</td>
         <td>
           BindInterface makes Ironic API bound to only one interface.
-Requires DisableHostNetwork to be false.<br/>
+Requires EnableHostNetwork to be true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -469,16 +469,17 @@ Requires DisableHostNetwork to be false.<br/>
           DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 The service is only deployed when this is set.
 This setting is currently incompatible with the highly available architecture.
-Requires DisableHostNetwork to be false.<br/>
+Requires EnableHostNetwork to be true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>disableHostNetwork</b></td>
+        <td><b>enableHostNetwork</b></td>
         <td>boolean</td>
         <td>
-          DisableHostNetwork disables the use of host networking for Ironic pods.
-Disabling host networking causes network boot impossible.
-kubebuilder:default=false<br/>
+          EnableHostNetwork enables the use of host networking for Ironic pods.
+Disabling host networking makes network boot impossible.<br/>
+          <br/>
+            <i>Default</i>: true<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -555,7 +556,7 @@ Cannot be set at the same time with networking.externalIP.<br/>
         <td>
           Interface is a Linux network device to listen on.
 Detected from IPAddress if missing.
-Requires DisableHostNetwork to be false.<br/>
+Requires EnableHostNetwork to be true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -564,7 +565,7 @@ Requires DisableHostNetwork to be false.<br/>
         <td>
           IPAddress is the main IP address to listen on and use for communication.
 Detected from Interface if missing. Cannot be provided for a highly available architecture.
-Requires DisableHostNetwork to be false.<br/>
+Requires EnableHostNetwork to be true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -589,7 +590,7 @@ Deprecated: Use the keepalived field instead.<br/>
 When enabled, a Keepalived container will be started to manage the main ipAddress
 on the main interface, plus any additional VIPs listed in additionalVIPs.
 Cannot be used together with ipAddressManager.
-Requires DisableHostNetwork to be false.
+Requires EnableHostNetwork to be true.
 Warning: keepalived is not compatible with the highly available architecture.<br/>
         </td>
         <td>false</td>
@@ -599,7 +600,7 @@ Warning: keepalived is not compatible with the highly available architecture.<br
         <td>
           MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 Only set if no other options can be used.
-Requires DisableHostNetwork to be false.<br/>
+Requires EnableHostNetwork to be true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -638,7 +639,7 @@ Only change this if the default value causes a conflict on your deployment.<br/>
 DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 The service is only deployed when this is set.
 This setting is currently incompatible with the highly available architecture.
-Requires DisableHostNetwork to be false.
+Requires EnableHostNetwork to be true.
 
 <table>
     <thead>
@@ -770,7 +771,7 @@ Keepalived configures Keepalived to manage virtual IPs on the specified interfac
 When enabled, a Keepalived container will be started to manage the main ipAddress
 on the main interface, plus any additional VIPs listed in additionalVIPs.
 Cannot be used together with ipAddressManager.
-Requires DisableHostNetwork to be false.
+Requires EnableHostNetwork to be true.
 Warning: keepalived is not compatible with the highly available architecture.
 
 <table>

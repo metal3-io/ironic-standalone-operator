@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/utils/ptr"
+
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
@@ -187,9 +189,9 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("credentialsName, host and name are required on database")
 	}
 
-	if ironic.Networking.DisableHostNetwork &&
+	if !ptr.Deref(ironic.Networking.EnableHostNetwork, true) &&
 		(ironic.Networking.BindInterface || ironic.Networking.DHCP != nil || ironic.Networking.Interface != "" || ironic.Networking.IPAddress != "" || len(ironic.Networking.MACAddresses) > 0 || ironic.Networking.Keepalived != nil) {
-		return errors.New("networking.disableHostNetwork cannot be set together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
+		return errors.New("networking.enableHostNetwork cannot be set to false together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
 	}
 
 	if err := validateIP(ironic.Networking.IPAddress); err != nil {
