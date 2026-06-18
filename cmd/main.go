@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -142,6 +143,12 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if databaseImage != "" {
+		err := errors.New("mariadb-image is no longer supported, use MariaDB Operator instead: https://github.com/mariadb-operator/mariadb-operator")
+		setupLog.Error(err, "invalid mariadb-image")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
