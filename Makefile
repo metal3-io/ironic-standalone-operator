@@ -144,6 +144,22 @@ test: manifests generate fmt vet ## Run tests.
 	go test ./... -coverprofile cover.out
 	cd api && go test ./... -coverprofile cover.out
 
+FUZZ_TIME ?= 30s
+
+.PHONY: fuzz
+fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)
+	cd $(TEST_DIR)/fuzz && go test -race -v ./...
+
+.PHONY: fuzz-run
+fuzz-run: ## Run all fuzz tests sequentially with fuzzing enabled (use FUZZ_TIME=duration)
+	@echo "Discovering fuzz tests..."
+	@cd $(TEST_DIR)/fuzz; \
+ 	for fuzz_test in $$(go test -list='Fuzz.*' ./... | grep '^Fuzz'); do \
+		echo "Running $$fuzz_test for $(FUZZ_TIME)..."; \
+		go test -run=^$$ -fuzz=$$fuzz_test -fuzztime='$(FUZZ_TIME)' ./... || exit 1; \
+	done
+	@echo "All fuzz tests completed successfully!"
+
 ##@ Build
 
 .PHONY: build
