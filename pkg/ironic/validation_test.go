@@ -389,7 +389,7 @@ func TestValidateIronic(t *testing.T) {
 			Ironic: metal3api.IronicSpec{
 				Version: "42.42",
 			},
-			ExpectedError: "version 42.42 is not supported, supported versions are 33.0, 34.0, 35.0, latest",
+			ExpectedError: "version 42.42 is not supported, supported versions are 33.0, 34.0, 35.0, 37.0, latest",
 		},
 		{
 			Scenario: "change existing database config",
