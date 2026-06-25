@@ -14,7 +14,6 @@ on:
 jobs:
   build_controller:
     name: Build Ironic-standalone-operator container image
-    timeout-minutes: 10
     if: github.repository == 'metal3-io/ironic-standalone-operator'
     permissions:
       contents: read

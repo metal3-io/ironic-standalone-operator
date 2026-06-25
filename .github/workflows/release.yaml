@@ -141,7 +141,6 @@ jobs:
       id-token: write
     needs: push_release_tags
     name: Build IrSO container image
-    timeout-minutes: 10
     if: github.repository == 'metal3-io/ironic-standalone-operator'
     uses: metal3-io/project-infra/.github/workflows/container-image-build.yml@main # zizmor: ignore[unpinned-uses]
     with:
