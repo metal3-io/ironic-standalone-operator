@@ -88,7 +88,7 @@ done
 # Predownloading IPA image and serving it locally (see #574)
 
 IPA_FILE="ipa-centos9-master.tar.gz"
-IPA_REMOTE_URI="https://artifactory.nordix.org/artifactory/openstack-remote-cache/ironic-python-agent/dib"
+IPA_REMOTE_URI="https://artifactory.nordix.org/artifactory/openstack-remote/ironic-python-agent/dib"
 
 mkdir -p "${IPA_DIR}"
 if [[ ! -f "${IPA_DIR}/${IPA_FILE}" ]]; then
