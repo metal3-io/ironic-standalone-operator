@@ -9,7 +9,6 @@ permissions: {}
 jobs:
   functional-tests:
     uses: ./.github/workflows/functional.yml
-    timeout-minutes: 90
     permissions:
       checks: write
       contents: read
