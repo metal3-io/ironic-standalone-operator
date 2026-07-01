@@ -1052,7 +1052,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 
 	hostNetwork := !resources.Ironic.Spec.Networking.DisableHostNetwork
 	dnsPolicy := corev1.DNSClusterFirstWithHostNet
-	if hostNetwork {
+	if !hostNetwork {
 		dnsPolicy = corev1.DNSClusterFirst
 	}
 
