@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/utils/ptr"
-
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
@@ -189,7 +187,7 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("credentialsName, host and name are required on database")
 	}
 
-	if !ptr.Deref(ironic.Networking.EnableHostNetwork, true) &&
+	if ironic.Networking.DisableHostNetwork &&
 		(ironic.Networking.BindInterface || ironic.Networking.DHCP != nil || ironic.Networking.Interface != "" || ironic.Networking.IPAddress != "" || len(ironic.Networking.MACAddresses) > 0 || ironic.Networking.Keepalived != nil) {
 		return errors.New("networking.enableHostNetwork cannot be set to false together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
 	}
@@ -210,7 +208,7 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 	if ironic.Networking.Ingress == nil &&
 		((ironic.Networking.ImageServerExternalURL != "" && ironic.Networking.ExternalCallbackURL == "") ||
 			(ironic.Networking.ImageServerExternalURL == "" && ironic.Networking.ExternalCallbackURL != "")) {
-		return errors.New("in case of networking.ingress is not enabled, networking.imageServerExternalURL and networking.externalCallbackURL must be set together")
+		return errors.New("when networking.ingress is not set, networking.externalCallbackURL and networking.imageServerExternalURL must be set together")
 	}
 
 	if ironic.HighAvailability && ironic.Networking.IPAddress != "" {

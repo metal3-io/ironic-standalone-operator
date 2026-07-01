@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -133,8 +132,8 @@ func TestValidateIronic(t *testing.T) {
 			Scenario: "DHCP configured and host networking disabled",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
-					EnableHostNetwork: ptr.To(false),
-					DHCP:              &metal3api.DHCP{DNSAddress: "1.1.1.1"},
+					DisableHostNetwork: true,
+					DHCP:               &metal3api.DHCP{DNSAddress: "1.1.1.1"},
 				},
 			},
 			ExpectedError: "networking.enableHostNetwork cannot be set to false together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived",
@@ -168,7 +167,7 @@ func TestValidateIronic(t *testing.T) {
 					ImageServerExternalURL: "http://image.example.com",
 				},
 			},
-			ExpectedError: "in case of networking.ingress is not enabled, networking.imageServerExternalURL and networking.externalCallbackURL must be set together",
+			ExpectedError: "when networking.ingress is not set, networking.externalCallbackURL and networking.imageServerExternalURL must be set together",
 		},
 		{
 			Scenario: "ingress is not configured and externalCallbackURL is configured",
@@ -177,7 +176,7 @@ func TestValidateIronic(t *testing.T) {
 					ExternalCallbackURL: "http://ironic.example.com",
 				},
 			},
-			ExpectedError: "in case of networking.ingress is not enabled, networking.imageServerExternalURL and networking.externalCallbackURL must be set together",
+			ExpectedError: "when networking.ingress is not set, networking.externalCallbackURL and networking.imageServerExternalURL must be set together",
 		},
 		{
 			Scenario: "HA needs database",
