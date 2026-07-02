@@ -163,13 +163,32 @@ type Networking struct {
 	APIPort int32 `json:"apiPort,omitempty"`
 
 	// BindInterface makes Ironic API bound to only one interface.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	BindInterface bool `json:"bindInterface,omitempty"`
 
 	// DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 	// The service is only deployed when this is set.
 	// This setting is currently incompatible with the highly available architecture.
+	// Requires DisableHostNetwork to be false.
 	DHCP *DHCP `json:"dhcp,omitempty"`
+
+	// DisableHostNetwork enables the use of host networking for Ironic pods.
+	// Disabling host networking makes network boot impossible.
+	// This should only be used with virtual media deployments.
+	// +kubebuilder:default=false
+	// +optional
+	DisableHostNetwork bool `json:"disableHostNetwork,omitempty"`
+
+	// ExternalCallbackURL for Ironic API server.
+	// Set this option when your Ironic API server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.imageServerExternalURL or networking.ingress
+	// This should only be used with virtual media deployments.
+	// Cannot be set at the same time with networking.externalIP.
+	// +kubebuilder:validation:Format=uri
+	// +optional
+	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
 	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
@@ -177,11 +196,15 @@ type Networking struct {
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 
-	// Configure Ingress resource for Ironic services.
-	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+	// ImageServerExternalURL is to set external HTTP URL for Image server.
+	// Set this option when your image server is not directly accessible.
+	// Setting this option, will override URL set by networking.ingress.host.
+	// Must be set together with networking.externalCallbackURL or networking.ingress
 	// Cannot be set at the same time with networking.externalIP.
+	// This should only be used with virtual media deployments.
+	// +kubebuilder:validation:Format=uri
 	// +optional
-	Ingress *Ingress `json:"ingress,omitempty"`
+	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
 
 	// ImageServerPort is the public port used for serving images.
 	// +kubebuilder:default=6180
@@ -195,13 +218,23 @@ type Networking struct {
 	// +optional
 	ImageServerTLSPort int32 `json:"imageServerTLSPort,omitempty"`
 
+	// Configure Ingress resource for Ironic services.
+	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
+	// The API and the image server will be accessible via the hostname specified in the ingress configuration.
+	// This should only be used with virtual media deployments.
+	// Cannot be set at the same time with networking.externalIP.
+	// +optional
+	Ingress *Ingress `json:"ingress,omitempty"`
+
 	// Interface is a Linux network device to listen on.
 	// Detected from IPAddress if missing.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	Interface string `json:"interface,omitempty"`
 
 	// IPAddress is the main IP address to listen on and use for communication.
 	// Detected from Interface if missing. Cannot be provided for a highly available architecture.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	IPAddress string `json:"ipAddress,omitempty"`
 
@@ -219,12 +252,14 @@ type Networking struct {
 	// When enabled, a Keepalived container will be started to manage the main ipAddress
 	// on the main interface, plus any additional VIPs listed in additionalVIPs.
 	// Cannot be used together with ipAddressManager.
+	// Requires DisableHostNetwork to be false.
 	// Warning: keepalived is not compatible with the highly available architecture.
 	// +optional
 	Keepalived *KeepalivedConfig `json:"keepalived,omitempty"`
 
 	// MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
 	// Only set if no other options can be used.
+	// Requires DisableHostNetwork to be false.
 	// +optional
 	MACAddresses []string `json:"macAddresses,omitempty"`
 
@@ -257,11 +292,13 @@ type AgentImages struct {
 	// Kernel is the URL of the IPA kernel image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").
+	// +kubebuilder:validation:Format=uri
 	Kernel string `json:"kernel"`
 
 	// Initramfs is the URL of the IPA initramfs/ramdisk image.
 	// Supported schemes: file://, http://, https://, oci://.
 	// file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").
+	// +kubebuilder:validation:Format=uri
 	Initramfs string `json:"initramfs"`
 
 	// Architecture is the target CPU architecture.

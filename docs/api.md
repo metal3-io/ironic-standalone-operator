@@ -458,7 +458,8 @@ Networking defines networking settings for Ironic.
         <td><b>bindInterface</b></td>
         <td>boolean</td>
         <td>
-          BindInterface makes Ironic API bound to only one interface.<br/>
+          BindInterface makes Ironic API bound to only one interface.
+Requires DisableHostNetwork to be false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -467,7 +468,33 @@ Networking defines networking settings for Ironic.
         <td>
           DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 The service is only deployed when this is set.
-This setting is currently incompatible with the highly available architecture.<br/>
+This setting is currently incompatible with the highly available architecture.
+Requires DisableHostNetwork to be false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>disableHostNetwork</b></td>
+        <td>boolean</td>
+        <td>
+          DisableHostNetwork enables the use of host networking for Ironic pods.
+Disabling host networking makes network boot impossible.
+This should only be used with virtual media deployments.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>externalCallbackURL</b></td>
+        <td>string</td>
+        <td>
+          ExternalCallbackURL for Ironic API server.
+Set this option when your Ironic API server is not directly accessible.
+Setting this option, will override URL set by networking.ingress.host.
+Must be set together with networking.imageServerExternalURL or networking.ingress
+This should only be used with virtual media deployments.
+Cannot be set at the same time with networking.externalIP.<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -477,6 +504,20 @@ This setting is currently incompatible with the highly available architecture.<b
           ExternalIP is used for accessing API and the image server from remote hosts.
 This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
 Cannot be set at the same time with networking.ingress.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>imageServerExternalURL</b></td>
+        <td>string</td>
+        <td>
+          ImageServerExternalURL is to set external HTTP URL for Image server.
+Set this option when your image server is not directly accessible.
+Setting this option, will override URL set by networking.ingress.host.
+Must be set together with networking.externalCallbackURL or networking.ingress
+Cannot be set at the same time with networking.externalIP.
+This should only be used with virtual media deployments.<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -506,7 +547,9 @@ Cannot be set at the same time with networking.ingress.<br/>
         <td>object</td>
         <td>
           Configure Ingress resource for Ironic services.
-Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
+The API and the image server will be accessible via the hostname specified in the ingress configuration.
+This should only be used with virtual media deployments.
 Cannot be set at the same time with networking.externalIP.<br/>
         </td>
         <td>false</td>
@@ -515,7 +558,8 @@ Cannot be set at the same time with networking.externalIP.<br/>
         <td>string</td>
         <td>
           Interface is a Linux network device to listen on.
-Detected from IPAddress if missing.<br/>
+Detected from IPAddress if missing.
+Requires DisableHostNetwork to be false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -523,7 +567,8 @@ Detected from IPAddress if missing.<br/>
         <td>string</td>
         <td>
           IPAddress is the main IP address to listen on and use for communication.
-Detected from Interface if missing. Cannot be provided for a highly available architecture.<br/>
+Detected from Interface if missing. Cannot be provided for a highly available architecture.
+Requires DisableHostNetwork to be false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -548,6 +593,7 @@ Deprecated: Use the keepalived field instead.<br/>
 When enabled, a Keepalived container will be started to manage the main ipAddress
 on the main interface, plus any additional VIPs listed in additionalVIPs.
 Cannot be used together with ipAddressManager.
+Requires DisableHostNetwork to be false.
 Warning: keepalived is not compatible with the highly available architecture.<br/>
         </td>
         <td>false</td>
@@ -556,7 +602,8 @@ Warning: keepalived is not compatible with the highly available architecture.<br
         <td>[]string</td>
         <td>
           MACAddresses can be provided to make the start script pick the interface matching any of these addresses.
-Only set if no other options can be used.<br/>
+Only set if no other options can be used.
+Requires DisableHostNetwork to be false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -595,6 +642,7 @@ Only change this if the default value causes a conflict on your deployment.<br/>
 DHCP is a configuration of DHCP for the network boot service (dnsmasq).
 The service is only deployed when this is set.
 This setting is currently incompatible with the highly available architecture.
+Requires DisableHostNetwork to be false.
 
 <table>
     <thead>
@@ -677,7 +725,9 @@ Must not be set together with DNSAddress.<br/>
 
 
 Configure Ingress resource for Ironic services.
-Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address and NodePort.
+Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
+The API and the image server will be accessible via the hostname specified in the ingress configuration.
+This should only be used with virtual media deployments.
 Cannot be set at the same time with networking.externalIP.
 
 <table>
@@ -724,6 +774,7 @@ Keepalived configures Keepalived to manage virtual IPs on the specified interfac
 When enabled, a Keepalived container will be started to manage the main ipAddress
 on the main interface, plus any additional VIPs listed in additionalVIPs.
 Cannot be used together with ipAddressManager.
+Requires DisableHostNetwork to be false.
 Warning: keepalived is not compatible with the highly available architecture.
 
 <table>
@@ -1027,6 +1078,8 @@ AgentImages defines a single IPA (Ironic Python Agent) image configuration.
           Initramfs is the URL of the IPA initramfs/ramdisk image.
 Supported schemes: file://, http://, https://, oci://.
 file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.initramfs").<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1036,6 +1089,8 @@ file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-py
           Kernel is the URL of the IPA kernel image.
 Supported schemes: file://, http://, https://, oci://.
 file:// URLs must use absolute paths (e.g. "file:///shared/html/images/ironic-python-agent.kernel").<br/>
+          <br/>
+            <i>Format</i>: uri<br/>
         </td>
         <td>true</td>
       </tr><tr>
