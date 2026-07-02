@@ -345,6 +345,36 @@ spec:
                           When enabled, the main ipAddress and interface from the networking configuration
                           are always included automatically.
                         type: boolean
+                      passwordRef:
+                        description: |-
+                          PasswordRef references a Secret with the VRRP simple-auth
+                          (PASS) password under the key "password". VRRP truncates the value to
+                          8 bytes — longer values are silently cut by keepalived.
+                          The password must consist of characters safe to embed unquoted in a
+                          keepalived.conf line (printable ASCII, no whitespace, no '"' or '\').
+                        properties:
+                          kind:
+                            description: Kind of the resource (ConfigMap or Secret).
+                            enum:
+                            - ConfigMap
+                            - Secret
+                            type: string
+                          name:
+                            description: Name of the resource.
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      vrid:
+                        default: 1
+                        description: |-
+                          VRID is the VRRP virtual router ID used by keepalived.
+                          Must be unique within the L2 broadcast domain.
+                        format: int32
+                        maximum: 255
+                        minimum: 1
+                        type: integer
                     required:
                     - enabled
                     type: object

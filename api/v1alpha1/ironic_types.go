@@ -152,6 +152,22 @@ type KeepalivedConfig struct {
 	// Use this when you need Keepalived to manage IPs on additional network interfaces.
 	// +optional
 	AdditionalVIPs []KeepalivedIP `json:"additionalVIPs,omitempty"`
+
+	// VRID is the VRRP virtual router ID used by keepalived.
+	// Must be unique within the L2 broadcast domain.
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=255
+	// +optional
+	VRID int32 `json:"vrid,omitempty"`
+
+	// PasswordRef references a Secret with the VRRP simple-auth
+	// (PASS) password under the key "password". VRRP truncates the value to
+	// 8 bytes — longer values are silently cut by keepalived.
+	// The password must consist of characters safe to embed unquoted in a
+	// keepalived.conf line (printable ASCII, no whitespace, no '"' or '\').
+	// +optional
+	PasswordRef *ResourceReference `json:"passwordRef,omitempty"`
 }
 
 // Networking defines networking settings for Ironic.

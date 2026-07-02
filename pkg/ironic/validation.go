@@ -222,6 +222,15 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
+	if kc := ironic.Networking.Keepalived; kc != nil && !kc.Enabled {
+		if kc.VRID > 1 {
+			return errors.New("networking.keepalived: vrid requires enabled to be true")
+		}
+		if kc.PasswordRef != nil {
+			return errors.New("networking.keepalived: passwordRef requires enabled to be true")
+		}
+	}
+
 	if ironic.Networking.Keepalived != nil && ironic.Networking.Keepalived.Enabled {
 		if ironic.Networking.IPAddressManager == metal3api.IPAddressManagerKeepalived { //nolint:staticcheck // backward compat
 			return errors.New("networking: keepalived and ipAddressManager cannot be used together")
