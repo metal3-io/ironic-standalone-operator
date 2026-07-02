@@ -1000,6 +1000,16 @@ If a container name matches an existing init container, the existing init contai
           Extra labels to add to each pod (including upgrade jobs).<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindex">volumes</a></b></td>
+        <td>[]object</td>
+        <td>
+          Volumes to add to the main Ironic pod (and upgrade jobs).
+Use this together with volumeMounts on overridden containers to mount
+additional ConfigMaps, Secrets or PersistentVolumeClaims.
+If a volume name matches an existing volume, the existing volume is replaced.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -7810,6 +7820,3901 @@ Defaults to "" (volume's root).<br/>
 Behaves similarly to SubPath but environment variable references $(VAR_NAME) are expanded using the container's environment.
 Defaults to "" (volume's root).
 SubPathExpr and SubPath are mutually exclusive.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index]
+<sup><sup>[↩ Parent](#ironicspecoverrides)</sup></sup>
+
+
+
+Volume represents a named volume in a pod that may be accessed by any container in the pod.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          name of the volume.
+Must be a DNS_LABEL and unique within the pod.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexawselasticblockstore">awsElasticBlockStore</a></b></td>
+        <td>object</td>
+        <td>
+          awsElasticBlockStore represents an AWS Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+Deprecated: AWSElasticBlockStore is deprecated. All operations for the in-tree
+awsElasticBlockStore type are redirected to the ebs.csi.aws.com CSI driver.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexazuredisk">azureDisk</a></b></td>
+        <td>object</td>
+        <td>
+          azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.
+Deprecated: AzureDisk is deprecated. All operations for the in-tree azureDisk type
+are redirected to the disk.csi.azure.com CSI driver.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexazurefile">azureFile</a></b></td>
+        <td>object</td>
+        <td>
+          azureFile represents an Azure File Service mount on the host and bind mount to the pod.
+Deprecated: AzureFile is deprecated. All operations for the in-tree azureFile type
+are redirected to the file.csi.azure.com CSI driver.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcephfs">cephfs</a></b></td>
+        <td>object</td>
+        <td>
+          cephFS represents a Ceph FS mount on the host that shares a pod's lifetime.
+Deprecated: CephFS is deprecated and the in-tree cephfs type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcinder">cinder</a></b></td>
+        <td>object</td>
+        <td>
+          cinder represents a cinder volume attached and mounted on kubelets host machine.
+Deprecated: Cinder is deprecated. All operations for the in-tree cinder type
+are redirected to the cinder.csi.openstack.org CSI driver.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexconfigmap">configMap</a></b></td>
+        <td>object</td>
+        <td>
+          configMap represents a configMap that should populate this volume<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcsi">csi</a></b></td>
+        <td>object</td>
+        <td>
+          csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexdownwardapi">downwardAPI</a></b></td>
+        <td>object</td>
+        <td>
+          downwardAPI represents downward API about the pod that should populate this volume<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexemptydir">emptyDir</a></b></td>
+        <td>object</td>
+        <td>
+          emptyDir represents a temporary directory that shares a pod's lifetime.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeral">ephemeral</a></b></td>
+        <td>object</td>
+        <td>
+          ephemeral represents a volume that is handled by a cluster storage driver.
+The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
+and deleted when the pod is removed.
+
+Use this if:
+a) the volume is only needed while the pod runs,
+b) features of normal volumes like restoring from snapshot or capacity
+   tracking are needed,
+c) the storage driver is specified through a storage class, and
+d) the storage driver supports dynamic volume provisioning through
+   a PersistentVolumeClaim (see EphemeralVolumeSource for more
+   information on the connection between this volume type
+   and PersistentVolumeClaim).
+
+Use PersistentVolumeClaim or one of the vendor-specific
+APIs for volumes that persist for longer than the lifecycle
+of an individual pod.
+
+Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
+be used that way - see the documentation of the driver for
+more information.
+
+A pod can use both types of ephemeral volumes and
+persistent volumes at the same time.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexfc">fc</a></b></td>
+        <td>object</td>
+        <td>
+          fc represents a Fibre Channel resource that is attached to a kubelet's host machine and then exposed to the pod.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexflexvolume">flexVolume</a></b></td>
+        <td>object</td>
+        <td>
+          flexVolume represents a generic volume resource that is
+provisioned/attached using an exec based plugin.
+Deprecated: FlexVolume is deprecated. Consider using a CSIDriver instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexflocker">flocker</a></b></td>
+        <td>object</td>
+        <td>
+          flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running.
+Deprecated: Flocker is deprecated and the in-tree flocker type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexgcepersistentdisk">gcePersistentDisk</a></b></td>
+        <td>object</td>
+        <td>
+          gcePersistentDisk represents a GCE Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+Deprecated: GCEPersistentDisk is deprecated. All operations for the in-tree
+gcePersistentDisk type are redirected to the pd.csi.storage.gke.io CSI driver.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexgitrepo">gitRepo</a></b></td>
+        <td>object</td>
+        <td>
+          gitRepo represents a git repository at a particular revision.
+Deprecated: GitRepo is deprecated. To provision a container with a git repo, mount an
+EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir
+into the Pod's container.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexglusterfs">glusterfs</a></b></td>
+        <td>object</td>
+        <td>
+          glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
+Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexhostpath">hostPath</a></b></td>
+        <td>object</td>
+        <td>
+          hostPath represents a pre-existing file or directory on the host
+machine that is directly exposed to the container. This is generally
+used for system agents or other privileged things that are allowed
+to see the host machine. Most containers will NOT need this.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindeximage">image</a></b></td>
+        <td>object</td>
+        <td>
+          image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexiscsi">iscsi</a></b></td>
+        <td>object</td>
+        <td>
+          iscsi represents an ISCSI Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexnfs">nfs</a></b></td>
+        <td>object</td>
+        <td>
+          nfs represents an NFS mount on the host that shares a pod's lifetime
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexpersistentvolumeclaim">persistentVolumeClaim</a></b></td>
+        <td>object</td>
+        <td>
+          persistentVolumeClaimVolumeSource represents a reference to a
+PersistentVolumeClaim in the same namespace.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexphotonpersistentdisk">photonPersistentDisk</a></b></td>
+        <td>object</td>
+        <td>
+          photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine.
+Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentDisk type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexportworxvolume">portworxVolume</a></b></td>
+        <td>object</td>
+        <td>
+          portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
+Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
+are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
+is on.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojected">projected</a></b></td>
+        <td>object</td>
+        <td>
+          projected items for all in one resources secrets, configmaps, and downward API<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexquobyte">quobyte</a></b></td>
+        <td>object</td>
+        <td>
+          quobyte represents a Quobyte mount on the host that shares a pod's lifetime.
+Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexrbd">rbd</a></b></td>
+        <td>object</td>
+        <td>
+          rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
+Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexscaleio">scaleIO</a></b></td>
+        <td>object</td>
+        <td>
+          scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
+Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexsecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          secret represents a secret that should populate this volume.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#secret<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexstorageos">storageos</a></b></td>
+        <td>object</td>
+        <td>
+          storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
+Deprecated: StorageOS is deprecated and the in-tree storageos type is no longer supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexvspherevolume">vsphereVolume</a></b></td>
+        <td>object</td>
+        <td>
+          vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine.
+Deprecated: VsphereVolume is deprecated. All operations for the in-tree vsphereVolume type
+are redirected to the csi.vsphere.vmware.com CSI driver.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].awsElasticBlockStore
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+awsElasticBlockStore represents an AWS Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+Deprecated: AWSElasticBlockStore is deprecated. All operations for the in-tree
+awsElasticBlockStore type are redirected to the ebs.csi.aws.com CSI driver.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>volumeID</b></td>
+        <td>string</td>
+        <td>
+          volumeID is unique ID of the persistent disk resource in AWS (Amazon EBS volume).
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type of the volume that you want to mount.
+Tip: Ensure that the filesystem type is supported by the host operating system.
+Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>partition</b></td>
+        <td>integer</td>
+        <td>
+          partition is the partition in the volume that you want to mount.
+If omitted, the default is to mount by volume name.
+Examples: For volume /dev/sda1, you specify the partition as "1".
+Similarly, the volume partition for /dev/sda is "0" (or you can leave the property empty).<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly value true will force the readOnly setting in VolumeMounts.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].azureDisk
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.
+Deprecated: AzureDisk is deprecated. All operations for the in-tree azureDisk type
+are redirected to the disk.csi.azure.com CSI driver.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>diskName</b></td>
+        <td>string</td>
+        <td>
+          diskName is the Name of the data disk in the blob storage<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>diskURI</b></td>
+        <td>string</td>
+        <td>
+          diskURI is the URI of data disk in the blob storage<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>cachingMode</b></td>
+        <td>string</td>
+        <td>
+          cachingMode is the Host Caching mode: None, Read Only, Read Write.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is Filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+          <br/>
+            <i>Default</i>: ext4<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          kind expected values are Shared: multiple blob disks per storage account  Dedicated: single blob disk per storage account  Managed: azure managed data disk (only in managed availability set). defaults to shared<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly Defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].azureFile
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+azureFile represents an Azure File Service mount on the host and bind mount to the pod.
+Deprecated: AzureFile is deprecated. All operations for the in-tree azureFile type
+are redirected to the file.csi.azure.com CSI driver.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>secretName</b></td>
+        <td>string</td>
+        <td>
+          secretName is the  name of secret that contains Azure Storage Account Name and Key<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>shareName</b></td>
+        <td>string</td>
+        <td>
+          shareName is the azure share Name<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].cephfs
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+cephFS represents a Ceph FS mount on the host that shares a pod's lifetime.
+Deprecated: CephFS is deprecated and the in-tree cephfs type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>monitors</b></td>
+        <td>[]string</td>
+        <td>
+          monitors is Required: Monitors is a collection of Ceph monitors
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is Optional: Used as the mounted root, rather than the full Ceph tree, default is /<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly is Optional: Defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>secretFile</b></td>
+        <td>string</td>
+        <td>
+          secretFile is Optional: SecretFile is the path to key ring for User, default is /etc/ceph/user.secret
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcephfssecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef is Optional: SecretRef is reference to the authentication secret for User, default is empty.
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>user</b></td>
+        <td>string</td>
+        <td>
+          user is optional: User is the rados user name, default is admin
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].cephfs.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexcephfs)</sup></sup>
+
+
+
+secretRef is Optional: SecretRef is reference to the authentication secret for User, default is empty.
+More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].cinder
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+cinder represents a cinder volume attached and mounted on kubelets host machine.
+Deprecated: Cinder is deprecated. All operations for the in-tree cinder type
+are redirected to the cinder.csi.openstack.org CSI driver.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>volumeID</b></td>
+        <td>string</td>
+        <td>
+          volumeID used to identify the volume in cinder.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.
+More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcindersecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef is optional: points to a secret object containing parameters used to connect
+to OpenStack.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].cinder.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexcinder)</sup></sup>
+
+
+
+secretRef is optional: points to a secret object containing parameters used to connect
+to OpenStack.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].configMap
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+configMap represents a configMap that should populate this volume
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>defaultMode</b></td>
+        <td>integer</td>
+        <td>
+          defaultMode is optional: mode bits used to set permissions on created files by default.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+Defaults to 0644.
+Directories within the path are not affected by this setting.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexconfigmapitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          items if unspecified, each key-value pair in the Data field of the referenced
+ConfigMap will be projected into the volume as a file whose name is the
+key and content is the value. If specified, the listed keys will be
+projected into the specified paths, and unlisted keys will not be
+present. If a key is specified which is not present in the ConfigMap,
+the volume setup will error unless it is marked optional. Paths must be
+relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          optional specify whether the ConfigMap or its keys must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].configMap.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexconfigmap)</sup></sup>
+
+
+
+Maps a string key to a path within a volume.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the key to project.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the relative path of the file to map the key to.
+May not be an absolute path.
+May not contain the path element '..'.
+May not start with the string '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          mode is Optional: mode bits used to set permissions on this file.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].csi
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>driver</b></td>
+        <td>string</td>
+        <td>
+          driver is the name of the CSI driver that handles this volume.
+Consult with your admin for the correct name as registered in the cluster.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType to mount. Ex. "ext4", "xfs", "ntfs".
+If not provided, the empty value is passed to the associated CSI driver
+which will determine the default filesystem to apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexcsinodepublishsecretref">nodePublishSecretRef</a></b></td>
+        <td>object</td>
+        <td>
+          nodePublishSecretRef is a reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+NodePublishVolume and NodeUnpublishVolume calls.
+This field is optional, and  may be empty if no secret is required. If the
+secret object contains more than one secret, all secret references are passed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly specifies a read-only configuration for the volume.
+Defaults to false (read/write).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeAttributes</b></td>
+        <td>map[string]string</td>
+        <td>
+          volumeAttributes stores driver-specific properties that are passed to the CSI
+driver. Consult your driver's documentation for supported values.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].csi.nodePublishSecretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexcsi)</sup></sup>
+
+
+
+nodePublishSecretRef is a reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+NodePublishVolume and NodeUnpublishVolume calls.
+This field is optional, and  may be empty if no secret is required. If the
+secret object contains more than one secret, all secret references are passed.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].downwardAPI
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+downwardAPI represents downward API about the pod that should populate this volume
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>defaultMode</b></td>
+        <td>integer</td>
+        <td>
+          Optional: mode bits to use on created files by default. Must be a
+Optional: mode bits used to set permissions on created files by default.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+Defaults to 0644.
+Directories within the path are not affected by this setting.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexdownwardapiitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          Items is a list of downward API volume file<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].downwardAPI.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexdownwardapi)</sup></sup>
+
+
+
+DownwardAPIVolumeFile represents information to create the file containing the pod field
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
+        <td>object</td>
+        <td>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          Optional: mode bits used to set permissions on this file, must be an octal value
+between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
+        <td>object</td>
+        <td>
+          Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].downwardAPI.items[index].fieldRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexdownwardapiitemsindex)</sup></sup>
+
+
+
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>fieldPath</b></td>
+        <td>string</td>
+        <td>
+          Path of the field to select in the specified API version.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          Version of the schema the FieldPath is written in terms of, defaults to "v1".<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].downwardAPI.items[index].resourceFieldRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexdownwardapiitemsindex)</sup></sup>
+
+
+
+Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>resource</b></td>
+        <td>string</td>
+        <td>
+          Required: resource to select<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>containerName</b></td>
+        <td>string</td>
+        <td>
+          Container name: required for volumes, optional for env vars<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>divisor</b></td>
+        <td>int or string</td>
+        <td>
+          Specifies the output format of the exposed resources, defaults to "1"<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].emptyDir
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+emptyDir represents a temporary directory that shares a pod's lifetime.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>medium</b></td>
+        <td>string</td>
+        <td>
+          medium represents what type of storage medium should back this directory.
+The default is "" which means to use the node's default medium.
+Must be an empty string (default) or Memory.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>sizeLimit</b></td>
+        <td>int or string</td>
+        <td>
+          sizeLimit is the total amount of local storage required for this EmptyDir volume.
+The size limit is also applicable for memory medium.
+The maximum usage on memory medium EmptyDir would be the minimum value between
+the SizeLimit specified here and the sum of memory limits of all containers in a pod.
+The default is nil which means that the limit is undefined.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+ephemeral represents a volume that is handled by a cluster storage driver.
+The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
+and deleted when the pod is removed.
+
+Use this if:
+a) the volume is only needed while the pod runs,
+b) features of normal volumes like restoring from snapshot or capacity
+   tracking are needed,
+c) the storage driver is specified through a storage class, and
+d) the storage driver supports dynamic volume provisioning through
+   a PersistentVolumeClaim (see EphemeralVolumeSource for more
+   information on the connection between this volume type
+   and PersistentVolumeClaim).
+
+Use PersistentVolumeClaim or one of the vendor-specific
+APIs for volumes that persist for longer than the lifecycle
+of an individual pod.
+
+Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
+be used that way - see the documentation of the driver for
+more information.
+
+A pod can use both types of ephemeral volumes and
+persistent volumes at the same time.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplate">volumeClaimTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          Will be used to create a stand-alone PVC to provision the volume.
+The pod in which this EphemeralVolumeSource is embedded will be the
+owner of the PVC, i.e. the PVC will be deleted together with the
+pod.  The name of the PVC will be `<pod name>-<volume name>` where
+`<volume name>` is the name from the `PodSpec.Volumes` array
+entry. Pod validation will reject the pod if the concatenated name
+is not valid for a PVC (for example, too long).
+
+An existing PVC with that name that is not owned by the pod
+will *not* be used for the pod to avoid using an unrelated
+volume by mistake. Starting the pod is then blocked until
+the unrelated PVC is removed. If such a pre-created PVC is
+meant to be used by the pod, the PVC has to updated with an
+owner reference to the pod once the pod exists. Normally
+this should not be necessary, but it may be useful when
+manually reconstructing a broken cluster.
+
+This field is read-only and no changes will be made by Kubernetes
+to the PVC after it has been created.
+
+Required, must not be nil.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeral)</sup></sup>
+
+
+
+Will be used to create a stand-alone PVC to provision the volume.
+The pod in which this EphemeralVolumeSource is embedded will be the
+owner of the PVC, i.e. the PVC will be deleted together with the
+pod.  The name of the PVC will be `<pod name>-<volume name>` where
+`<volume name>` is the name from the `PodSpec.Volumes` array
+entry. Pod validation will reject the pod if the concatenated name
+is not valid for a PVC (for example, too long).
+
+An existing PVC with that name that is not owned by the pod
+will *not* be used for the pod to avoid using an unrelated
+volume by mistake. Starting the pod is then blocked until
+the unrelated PVC is removed. If such a pre-created PVC is
+meant to be used by the pod, the PVC has to updated with an
+owner reference to the pod once the pod exists. Normally
+this should not be necessary, but it may be useful when
+manually reconstructing a broken cluster.
+
+This field is read-only and no changes will be made by Kubernetes
+to the PVC after it has been created.
+
+Required, must not be nil.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          The specification for the PersistentVolumeClaim. The entire content is
+copied unchanged into the PVC that gets created from this
+template. The same fields as in a PersistentVolumeClaim
+are also valid here.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>metadata</b></td>
+        <td>object</td>
+        <td>
+          May contain labels and annotations that will be copied into the PVC
+when creating it. No other fields are allowed and will be rejected during
+validation.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplate)</sup></sup>
+
+
+
+The specification for the PersistentVolumeClaim. The entire content is
+copied unchanged into the PVC that gets created from this
+template. The same fields as in a PersistentVolumeClaim
+are also valid here.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>accessModes</b></td>
+        <td>[]string</td>
+        <td>
+          accessModes contains the desired access modes the volume should have.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecdatasource">dataSource</a></b></td>
+        <td>object</td>
+        <td>
+          dataSource field can be used to specify either:
+* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
+* An existing PVC (PersistentVolumeClaim)
+If the provisioner or an external controller can support the specified data source,
+it will create a new volume based on the contents of the specified data source.
+When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
+and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+If the namespace is specified, then dataSourceRef will not be copied to dataSource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecdatasourceref">dataSourceRef</a></b></td>
+        <td>object</td>
+        <td>
+          dataSourceRef specifies the object from which to populate the volume with data, if a non-empty
+volume is desired. This may be any object from a non-empty API group (non
+core object) or a PersistentVolumeClaim object.
+When this field is specified, volume binding will only succeed if the type of
+the specified object matches some installed volume populator or dynamic
+provisioner.
+This field will replace the functionality of the dataSource field and as such
+if both fields are non-empty, they must have the same value. For backwards
+compatibility, when namespace isn't specified in dataSourceRef,
+both fields (dataSource and dataSourceRef) will be set to the same
+value automatically if one of them is empty and the other is non-empty.
+When namespace is specified in dataSourceRef,
+dataSource isn't set to the same value and must be empty.
+There are three important differences between dataSource and dataSourceRef:
+* While dataSource only allows two specific types of objects, dataSourceRef
+  allows any non-core object, as well as PersistentVolumeClaim objects.
+* While dataSource ignores disallowed values (dropping them), dataSourceRef
+  preserves all values, and generates an error if a disallowed value is
+  specified.
+* While dataSource only allows local objects, dataSourceRef allows objects
+  in any namespaces.
+(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
+(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecresources">resources</a></b></td>
+        <td>object</td>
+        <td>
+          resources represents the minimum resources the volume should have.
+Users are allowed to specify resource requirements
+that are lower than previous value but must still be higher than capacity recorded in the
+status field of the claim.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecselector">selector</a></b></td>
+        <td>object</td>
+        <td>
+          selector is a label query over volumes to consider for binding.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>storageClassName</b></td>
+        <td>string</td>
+        <td>
+          storageClassName is the name of the StorageClass required by the claim.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeAttributesClassName</b></td>
+        <td>string</td>
+        <td>
+          volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+If specified, the CSI driver will create or update the volume with the attributes defined
+in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+it can be changed after the claim is created. An empty string or nil value indicates that no
+VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+this field can be reset to its previous value (including nil) to cancel the modification.
+If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+exists.
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeMode</b></td>
+        <td>string</td>
+        <td>
+          volumeMode defines what type of volume is required by the claim.
+Value of Filesystem is implied when not included in claim spec.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          volumeName is the binding reference to the PersistentVolume backing this claim.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSource
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+
+
+
+dataSource field can be used to specify either:
+* An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
+* An existing PVC (PersistentVolumeClaim)
+If the provisioner or an external controller can support the specified data source,
+it will create a new volume based on the contents of the specified data source.
+When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
+and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+If the namespace is specified, then dataSourceRef will not be copied to dataSource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          Kind is the type of resource being referenced<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of resource being referenced<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>apiGroup</b></td>
+        <td>string</td>
+        <td>
+          APIGroup is the group for the resource being referenced.
+If APIGroup is not specified, the specified Kind must be in the core API group.
+For any other third-party types, APIGroup is required.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSourceRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+
+
+
+dataSourceRef specifies the object from which to populate the volume with data, if a non-empty
+volume is desired. This may be any object from a non-empty API group (non
+core object) or a PersistentVolumeClaim object.
+When this field is specified, volume binding will only succeed if the type of
+the specified object matches some installed volume populator or dynamic
+provisioner.
+This field will replace the functionality of the dataSource field and as such
+if both fields are non-empty, they must have the same value. For backwards
+compatibility, when namespace isn't specified in dataSourceRef,
+both fields (dataSource and dataSourceRef) will be set to the same
+value automatically if one of them is empty and the other is non-empty.
+When namespace is specified in dataSourceRef,
+dataSource isn't set to the same value and must be empty.
+There are three important differences between dataSource and dataSourceRef:
+* While dataSource only allows two specific types of objects, dataSourceRef
+  allows any non-core object, as well as PersistentVolumeClaim objects.
+* While dataSource ignores disallowed values (dropping them), dataSourceRef
+  preserves all values, and generates an error if a disallowed value is
+  specified.
+* While dataSource only allows local objects, dataSourceRef allows objects
+  in any namespaces.
+(Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
+(Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          Kind is the type of resource being referenced<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of resource being referenced<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>apiGroup</b></td>
+        <td>string</td>
+        <td>
+          APIGroup is the group for the resource being referenced.
+If APIGroup is not specified, the specified Kind must be in the core API group.
+For any other third-party types, APIGroup is required.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of resource being referenced
+Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details.
+(Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec.resources
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+
+
+
+resources represents the minimum resources the volume should have.
+Users are allowed to specify resource requirements
+that are lower than previous value but must still be higher than capacity recorded in the
+status field of the claim.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>limits</b></td>
+        <td>map[string]int or string</td>
+        <td>
+          Limits describes the maximum amount of compute resources allowed.
+More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>requests</b></td>
+        <td>map[string]int or string</td>
+        <td>
+          Requests describes the minimum amount of compute resources required.
+If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+otherwise to an implementation-defined value. Requests cannot exceed Limits.
+More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec.selector
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+
+
+
+selector is a label query over volumes to consider for binding.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td>[]object</td>
+        <td>
+          matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>matchLabels</b></td>
+        <td>map[string]string</td>
+        <td>
+          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is "key", the
+operator is "In", and the values array contains only "value". The requirements are ANDed.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].ephemeral.volumeClaimTemplate.spec.selector.matchExpressions[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexephemeralvolumeclaimtemplatespecselector)</sup></sup>
+
+
+
+A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the label key that the selector applies to.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          operator represents a key's relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]string</td>
+        <td>
+          values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].fc
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+fc represents a Fibre Channel resource that is attached to a kubelet's host machine and then exposed to the pod.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lun</b></td>
+        <td>integer</td>
+        <td>
+          lun is Optional: FC target lun number<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly is Optional: Defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>targetWWNs</b></td>
+        <td>[]string</td>
+        <td>
+          targetWWNs is Optional: FC target worldwide names (WWNs)<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>wwids</b></td>
+        <td>[]string</td>
+        <td>
+          wwids Optional: FC volume world wide identifiers (wwids)
+Either wwids or combination of targetWWNs and lun must be set, but not both simultaneously.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].flexVolume
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+flexVolume represents a generic volume resource that is
+provisioned/attached using an exec based plugin.
+Deprecated: FlexVolume is deprecated. Consider using a CSIDriver instead.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>driver</b></td>
+        <td>string</td>
+        <td>
+          driver is the name of the driver to use for this volume.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". The default filesystem depends on FlexVolume script.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>options</b></td>
+        <td>map[string]string</td>
+        <td>
+          options is Optional: this field holds extra command options if any.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly is Optional: defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexflexvolumesecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef is Optional: secretRef is reference to the secret object containing
+sensitive information to pass to the plugin scripts. This may be
+empty if no secret object is specified. If the secret object
+contains more than one secret, all secrets are passed to the plugin
+scripts.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].flexVolume.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexflexvolume)</sup></sup>
+
+
+
+secretRef is Optional: secretRef is reference to the secret object containing
+sensitive information to pass to the plugin scripts. This may be
+empty if no secret object is specified. If the secret object
+contains more than one secret, all secrets are passed to the plugin
+scripts.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].flocker
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running.
+Deprecated: Flocker is deprecated and the in-tree flocker type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>datasetName</b></td>
+        <td>string</td>
+        <td>
+          datasetName is Name of the dataset stored as metadata -> name on the dataset for Flocker
+should be considered as deprecated<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>datasetUUID</b></td>
+        <td>string</td>
+        <td>
+          datasetUUID is the UUID of the dataset. This is unique identifier of a Flocker dataset<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].gcePersistentDisk
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+gcePersistentDisk represents a GCE Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+Deprecated: GCEPersistentDisk is deprecated. All operations for the in-tree
+gcePersistentDisk type are redirected to the pd.csi.storage.gke.io CSI driver.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pdName</b></td>
+        <td>string</td>
+        <td>
+          pdName is unique name of the PD resource in GCE. Used to identify the disk in GCE.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is filesystem type of the volume that you want to mount.
+Tip: Ensure that the filesystem type is supported by the host operating system.
+Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>partition</b></td>
+        <td>integer</td>
+        <td>
+          partition is the partition in the volume that you want to mount.
+If omitted, the default is to mount by volume name.
+Examples: For volume /dev/sda1, you specify the partition as "1".
+Similarly, the volume partition for /dev/sda is "0" (or you can leave the property empty).
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the ReadOnly setting in VolumeMounts.
+Defaults to false.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].gitRepo
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+gitRepo represents a git repository at a particular revision.
+Deprecated: GitRepo is deprecated. To provision a container with a git repo, mount an
+EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir
+into the Pod's container.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          repository is the URL<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>directory</b></td>
+        <td>string</td>
+        <td>
+          directory is the target directory name.
+Must not contain or start with '..'.  If '.' is supplied, the volume directory will be the
+git repository.  Otherwise, if specified, the volume will contain the git repository in
+the subdirectory with the given name.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>revision</b></td>
+        <td>string</td>
+        <td>
+          revision is the commit hash for the specified revision.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].glusterfs
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
+Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>endpoints</b></td>
+        <td>string</td>
+        <td>
+          endpoints is the endpoint name that details Glusterfs topology.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the Glusterfs volume path.
+More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the Glusterfs volume to be mounted with read-only permissions.
+Defaults to false.
+More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].hostPath
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+hostPath represents a pre-existing file or directory on the host
+machine that is directly exposed to the container. This is generally
+used for system agents or other privileged things that are allowed
+to see the host machine. Most containers will NOT need this.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path of the directory on the host.
+If the path is a symlink, it will follow the link to the real path.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type for HostPath Volume
+Defaults to ""
+More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].image
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
+The volume is resolved at pod startup depending on which PullPolicy value is provided:
+
+- Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+- Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+- IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+
+The volume gets re-resolved if the pod gets deleted and recreated, which means that new remote content will become available on pod recreation.
+A failure to resolve or pull the image during pod startup will block containers from starting and may add significant latency. Failures will be retried using normal volume backoff and will be reported on the pod reason and message.
+The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
+The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
+The volume will be mounted read-only (ro) and non-executable files (noexec).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
+The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pullPolicy</b></td>
+        <td>string</td>
+        <td>
+          Policy for pulling OCI objects. Possible values are:
+Always: the kubelet always attempts to pull the reference. Container creation will fail If the pull fails.
+Never: the kubelet never pulls the reference and only uses a local image or artifact. Container creation will fail if the reference isn't present.
+IfNotPresent: the kubelet pulls if the reference isn't already present on disk. Container creation will fail if the reference isn't present and the pull fails.
+Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reference</b></td>
+        <td>string</td>
+        <td>
+          Required: Image or artifact reference to be used.
+Behaves in the same way as pod.spec.containers[*].image.
+Pull secrets will be assembled in the same way as for the container image by looking up node credentials, SA image pull secrets, and pod spec image pull secrets.
+More info: https://kubernetes.io/docs/concepts/containers/images
+This field is optional to allow higher level config management to default or override
+container images in workload controllers like Deployments and StatefulSets.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].iscsi
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+iscsi represents an ISCSI Disk resource that is attached to a
+kubelet's host machine and then exposed to the pod.
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>iqn</b></td>
+        <td>string</td>
+        <td>
+          iqn is the target iSCSI Qualified Name.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>lun</b></td>
+        <td>integer</td>
+        <td>
+          lun represents iSCSI Target Lun number.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>targetPortal</b></td>
+        <td>string</td>
+        <td>
+          targetPortal is iSCSI Target Portal. The Portal is either an IP or ip_addr:port if the port
+is other than default (typically TCP ports 860 and 3260).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>chapAuthDiscovery</b></td>
+        <td>boolean</td>
+        <td>
+          chapAuthDiscovery defines whether support iSCSI Discovery CHAP authentication<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>chapAuthSession</b></td>
+        <td>boolean</td>
+        <td>
+          chapAuthSession defines whether support iSCSI Session CHAP authentication<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type of the volume that you want to mount.
+Tip: Ensure that the filesystem type is supported by the host operating system.
+Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>initiatorName</b></td>
+        <td>string</td>
+        <td>
+          initiatorName is the custom iSCSI Initiator Name.
+If initiatorName is specified with iscsiInterface simultaneously, new iSCSI interface
+<target portal>:<volume name> will be created for the connection.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>iscsiInterface</b></td>
+        <td>string</td>
+        <td>
+          iscsiInterface is the interface Name that uses an iSCSI transport.
+Defaults to 'default' (tcp).<br/>
+          <br/>
+            <i>Default</i>: default<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>portals</b></td>
+        <td>[]string</td>
+        <td>
+          portals is the iSCSI Target Portal List. The portal is either an IP or ip_addr:port if the port
+is other than default (typically TCP ports 860 and 3260).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the ReadOnly setting in VolumeMounts.
+Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexiscsisecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef is the CHAP Secret for iSCSI target and initiator authentication<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].iscsi.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexiscsi)</sup></sup>
+
+
+
+secretRef is the CHAP Secret for iSCSI target and initiator authentication
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].nfs
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+nfs represents an NFS mount on the host that shares a pod's lifetime
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path that is exported by the NFS server.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>server</b></td>
+        <td>string</td>
+        <td>
+          server is the hostname or IP address of the NFS server.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the NFS export to be mounted with read-only permissions.
+Defaults to false.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].persistentVolumeClaim
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+persistentVolumeClaimVolumeSource represents a reference to a
+PersistentVolumeClaim in the same namespace.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>claimName</b></td>
+        <td>string</td>
+        <td>
+          claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly Will force the ReadOnly setting in VolumeMounts.
+Default false.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].photonPersistentDisk
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine.
+Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentDisk type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>pdID</b></td>
+        <td>string</td>
+        <td>
+          pdID is the ID that identifies Photon Controller persistent disk<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].portworxVolume
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
+Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
+are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
+is on.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>volumeID</b></td>
+        <td>string</td>
+        <td>
+          volumeID uniquely identifies a Portworx volume<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fSType represents the filesystem type to mount
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+projected items for all in one resources secrets, configmaps, and downward API
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>defaultMode</b></td>
+        <td>integer</td>
+        <td>
+          defaultMode are the mode bits used to set permissions on created files by default.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+Directories within the path are not affected by this setting.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindex">sources</a></b></td>
+        <td>[]object</td>
+        <td>
+          sources is the list of volume projections. Each entry in this list
+handles one source.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojected)</sup></sup>
+
+
+
+Projection that may be projected along with other supported volume types.
+Exactly one of these fields must be set.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexclustertrustbundle">clusterTrustBundle</a></b></td>
+        <td>object</td>
+        <td>
+          ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
+of ClusterTrustBundle objects in an auto-updating file.
+
+Alpha, gated by the ClusterTrustBundleProjection feature gate.
+
+ClusterTrustBundle objects can either be selected by name, or by the
+combination of signer name and a label selector.
+
+Kubelet performs aggressive normalization of the PEM contents written
+into the pod filesystem.  Esoteric PEM features such as inter-block
+comments and block headers are stripped.  Certificates are deduplicated.
+The ordering of certificates within the file is arbitrary, and Kubelet
+may change the order over time.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexconfigmap">configMap</a></b></td>
+        <td>object</td>
+        <td>
+          configMap information about the configMap data to project<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapi">downwardAPI</a></b></td>
+        <td>object</td>
+        <td>
+          downwardAPI information about the downwardAPI data to project<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexpodcertificate">podCertificate</a></b></td>
+        <td>object</td>
+        <td>
+          Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexsecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          secret information about the secret data to project<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexserviceaccounttoken">serviceAccountToken</a></b></td>
+        <td>object</td>
+        <td>
+          serviceAccountToken is information about the serviceAccountToken data to project<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].clusterTrustBundle
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
+of ClusterTrustBundle objects in an auto-updating file.
+
+Alpha, gated by the ClusterTrustBundleProjection feature gate.
+
+ClusterTrustBundle objects can either be selected by name, or by the
+combination of signer name and a label selector.
+
+Kubelet performs aggressive normalization of the PEM contents written
+into the pod filesystem.  Esoteric PEM features such as inter-block
+comments and block headers are stripped.  Certificates are deduplicated.
+The ordering of certificates within the file is arbitrary, and Kubelet
+may change the order over time.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Relative path from the volume root to write the bundle.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexclustertrustbundlelabelselector">labelSelector</a></b></td>
+        <td>object</td>
+        <td>
+          Select all ClusterTrustBundles that match this label selector.  Only has
+effect if signerName is set.  Mutually-exclusive with name.  If unset,
+interpreted as "match nothing".  If set but empty, interpreted as "match
+everything".<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Select a single ClusterTrustBundle by object name.  Mutually-exclusive
+with signerName and labelSelector.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          If true, don't block pod startup if the referenced ClusterTrustBundle(s)
+aren't available.  If using name, then the named ClusterTrustBundle is
+allowed not to exist.  If using signerName, then the combination of
+signerName and labelSelector is allowed to match zero
+ClusterTrustBundles.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>signerName</b></td>
+        <td>string</td>
+        <td>
+          Select all ClusterTrustBundles that match this signer name.
+Mutually-exclusive with name.  The contents of all selected
+ClusterTrustBundles will be unified and deduplicated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexclustertrustbundle)</sup></sup>
+
+
+
+Select all ClusterTrustBundles that match this label selector.  Only has
+effect if signerName is set.  Mutually-exclusive with name.  If unset,
+interpreted as "match nothing".  If set but empty, interpreted as "match
+everything".
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexclustertrustbundlelabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td>[]object</td>
+        <td>
+          matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>matchLabels</b></td>
+        <td>map[string]string</td>
+        <td>
+          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+map is equivalent to an element of matchExpressions, whose key field is "key", the
+operator is "In", and the values array contains only "value". The requirements are ANDed.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexclustertrustbundlelabelselector)</sup></sup>
+
+
+
+A label selector requirement is a selector that contains values, a key, and an operator that
+relates the key and values.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the label key that the selector applies to.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          operator represents a key's relationship to a set of values.
+Valid operators are In, NotIn, Exists and DoesNotExist.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]string</td>
+        <td>
+          values is an array of string values. If the operator is In or NotIn,
+the values array must be non-empty. If the operator is Exists or DoesNotExist,
+the values array must be empty. This array is replaced during a strategic
+merge patch.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].configMap
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+configMap information about the configMap data to project
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexconfigmapitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          items if unspecified, each key-value pair in the Data field of the referenced
+ConfigMap will be projected into the volume as a file whose name is the
+key and content is the value. If specified, the listed keys will be
+projected into the specified paths, and unlisted keys will not be
+present. If a key is specified which is not present in the ConfigMap,
+the volume setup will error unless it is marked optional. Paths must be
+relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          optional specify whether the ConfigMap or its keys must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].configMap.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexconfigmap)</sup></sup>
+
+
+
+Maps a string key to a path within a volume.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the key to project.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the relative path of the file to map the key to.
+May not be an absolute path.
+May not contain the path element '..'.
+May not start with the string '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          mode is Optional: mode bits used to set permissions on this file.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].downwardAPI
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+downwardAPI information about the downwardAPI data to project
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapiitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          Items is a list of DownwardAPIVolume file<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].downwardAPI.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapi)</sup></sup>
+
+
+
+DownwardAPIVolumeFile represents information to create the file containing the pod field
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
+        <td>object</td>
+        <td>
+          Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          Optional: mode bits used to set permissions on this file, must be an octal value
+between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
+        <td>object</td>
+        <td>
+          Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].downwardAPI.items[index].fieldRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
+
+
+
+Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>fieldPath</b></td>
+        <td>string</td>
+        <td>
+          Path of the field to select in the specified API version.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          Version of the schema the FieldPath is written in terms of, defaults to "v1".<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].downwardAPI.items[index].resourceFieldRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
+
+
+
+Selects a resource of the container: only resources limits and requests
+(limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>resource</b></td>
+        <td>string</td>
+        <td>
+          Required: resource to select<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>containerName</b></td>
+        <td>string</td>
+        <td>
+          Container name: required for volumes, optional for env vars<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>divisor</b></td>
+        <td>int or string</td>
+        <td>
+          Specifies the output format of the exposed resources, defaults to "1"<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].podCertificate
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>keyType</b></td>
+        <td>string</td>
+        <td>
+          The type of keypair Kubelet will generate for the pod.
+
+Valid values are "RSA3072", "RSA4096", "ECDSAP256", "ECDSAP384",
+"ECDSAP521", and "ED25519".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>signerName</b></td>
+        <td>string</td>
+        <td>
+          Kubelet's generated CSRs will be addressed to this signer.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>certificateChainPath</b></td>
+        <td>string</td>
+        <td>
+          Write the certificate chain at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>credentialBundlePath</b></td>
+        <td>string</td>
+        <td>
+          Write the credential bundle at this path in the projected volume.
+
+The credential bundle is a single file that contains multiple PEM blocks.
+The first PEM block is a PRIVATE KEY block, containing a PKCS#8 private
+key.
+
+The remaining blocks are CERTIFICATE blocks, containing the issued
+certificate chain from the signer (leaf and any intermediates).
+
+Using credentialBundlePath lets your Pod's application code make a single
+atomic read that retrieves a consistent key and certificate chain.  If you
+project them to separate files, your application code will need to
+additionally check that the leaf certificate was issued to the key.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>keyPath</b></td>
+        <td>string</td>
+        <td>
+          Write the key at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxExpirationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          maxExpirationSeconds is the maximum lifetime permitted for the
+certificate.
+
+Kubelet copies this value verbatim into the PodCertificateRequests it
+generates for this projection.
+
+If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver
+will reject values shorter than 3600 (1 hour).  The maximum allowable
+value is 7862400 (91 days).
+
+The signer implementation is then free to issue a certificate with any
+lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600
+seconds (1 hour).  This constraint is enforced by kube-apiserver.
+`kubernetes.io` signers will never issue certificates with a lifetime
+longer than 24 hours.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>userAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          userAnnotations allow pod authors to pass additional information to
+the signer implementation.  Kubernetes does not restrict or validate this
+metadata in any way.
+
+These values are copied verbatim into the `spec.unverifiedUserAnnotations` field of
+the PodCertificateRequest objects that Kubelet creates.
+
+Entries are subject to the same validation as object metadata annotations,
+with the addition that all keys must be domain-prefixed. No restrictions
+are placed on values, except an overall size limitation on the entire field.
+
+Signers should document the keys and values they support. Signers should
+deny requests that contain keys they do not recognize.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].secret
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+secret information about the secret data to project
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexprojectedsourcesindexsecretitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          items if unspecified, each key-value pair in the Data field of the referenced
+Secret will be projected into the volume as a file whose name is the
+key and content is the value. If specified, the listed keys will be
+projected into the specified paths, and unlisted keys will not be
+present. If a key is specified which is not present in the Secret,
+the volume setup will error unless it is marked optional. Paths must be
+relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          optional field specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].secret.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindexsecret)</sup></sup>
+
+
+
+Maps a string key to a path within a volume.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the key to project.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the relative path of the file to map the key to.
+May not be an absolute path.
+May not contain the path element '..'.
+May not start with the string '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          mode is Optional: mode bits used to set permissions on this file.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].projected.sources[index].serviceAccountToken
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+serviceAccountToken is information about the serviceAccountToken data to project
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the path relative to the mount point of the file to project the
+token into.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>audience</b></td>
+        <td>string</td>
+        <td>
+          audience is the intended audience of the token. A recipient of a token
+must identify itself with an identifier specified in the audience of the
+token, and otherwise should reject the token. The audience defaults to the
+identifier of the apiserver.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>expirationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          expirationSeconds is the requested duration of validity of the service
+account token. As the token approaches expiration, the kubelet volume
+plugin will proactively rotate the service account token. The kubelet will
+start trying to rotate the token if the token is older than 80 percent of
+its time to live or if the token is older than 24 hours.Defaults to 1 hour
+and must be at least 10 minutes.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].quobyte
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+quobyte represents a Quobyte mount on the host that shares a pod's lifetime.
+Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>registry</b></td>
+        <td>string</td>
+        <td>
+          registry represents a single or multiple Quobyte Registry services
+specified as a string as host:port pair (multiple entries are separated with commas)
+which acts as the central registry for volumes<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volume</b></td>
+        <td>string</td>
+        <td>
+          volume is a string that references an already created Quobyte volume by name.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>group</b></td>
+        <td>string</td>
+        <td>
+          group to map volume access to
+Default is no group<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the Quobyte volume to be mounted with read-only permissions.
+Defaults to false.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>tenant</b></td>
+        <td>string</td>
+        <td>
+          tenant owning the given Quobyte volume in the Backend
+Used with dynamically provisioned Quobyte volumes, value is set by the plugin<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>user</b></td>
+        <td>string</td>
+        <td>
+          user to map volume access to
+Defaults to serivceaccount user<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].rbd
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
+Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>image</b></td>
+        <td>string</td>
+        <td>
+          image is the rados image name.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>monitors</b></td>
+        <td>[]string</td>
+        <td>
+          monitors is a collection of Ceph monitors.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type of the volume that you want to mount.
+Tip: Ensure that the filesystem type is supported by the host operating system.
+Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>keyring</b></td>
+        <td>string</td>
+        <td>
+          keyring is the path to key ring for RBDUser.
+Default is /etc/ceph/keyring.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: /etc/ceph/keyring<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pool</b></td>
+        <td>string</td>
+        <td>
+          pool is the rados pool name.
+Default is rbd.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: rbd<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly here will force the ReadOnly setting in VolumeMounts.
+Defaults to false.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexrbdsecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef is name of the authentication secret for RBDUser. If provided
+overrides keyring.
+Default is nil.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>user</b></td>
+        <td>string</td>
+        <td>
+          user is the rados user name.
+Default is admin.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
+          <br/>
+            <i>Default</i>: admin<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].rbd.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexrbd)</sup></sup>
+
+
+
+secretRef is name of the authentication secret for RBDUser. If provided
+overrides keyring.
+Default is nil.
+More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].scaleIO
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
+Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>gateway</b></td>
+        <td>string</td>
+        <td>
+          gateway is the host address of the ScaleIO API Gateway.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexscaleiosecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef references to the secret for ScaleIO user and other
+sensitive information. If this is not provided, Login operation will fail.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>system</b></td>
+        <td>string</td>
+        <td>
+          system is the name of the storage system as configured in ScaleIO.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs".
+Default is "xfs".<br/>
+          <br/>
+            <i>Default</i>: xfs<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>protectionDomain</b></td>
+        <td>string</td>
+        <td>
+          protectionDomain is the name of the ScaleIO Protection Domain for the configured storage.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly Defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>sslEnabled</b></td>
+        <td>boolean</td>
+        <td>
+          sslEnabled Flag enable/disable SSL communication with Gateway, default false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>storageMode</b></td>
+        <td>string</td>
+        <td>
+          storageMode indicates whether the storage for a volume should be ThickProvisioned or ThinProvisioned.
+Default is ThinProvisioned.<br/>
+          <br/>
+            <i>Default</i>: ThinProvisioned<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>storagePool</b></td>
+        <td>string</td>
+        <td>
+          storagePool is the ScaleIO Storage Pool associated with the protection domain.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          volumeName is the name of a volume already created in the ScaleIO system
+that is associated with this volume source.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].scaleIO.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexscaleio)</sup></sup>
+
+
+
+secretRef references to the secret for ScaleIO user and other
+sensitive information. If this is not provided, Login operation will fail.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].secret
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+secret represents a secret that should populate this volume.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>defaultMode</b></td>
+        <td>integer</td>
+        <td>
+          defaultMode is Optional: mode bits used to set permissions on created files by default.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values
+for mode bits. Defaults to 0644.
+Directories within the path are not affected by this setting.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexsecretitemsindex">items</a></b></td>
+        <td>[]object</td>
+        <td>
+          items If unspecified, each key-value pair in the Data field of the referenced
+Secret will be projected into the volume as a file whose name is the
+key and content is the value. If specified, the listed keys will be
+projected into the specified paths, and unlisted keys will not be
+present. If a key is specified which is not present in the Secret,
+the volume setup will error unless it is marked optional. Paths must be
+relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          optional field specify whether the Secret or its keys must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>secretName</b></td>
+        <td>string</td>
+        <td>
+          secretName is the name of the secret in the pod's namespace to use.
+More info: https://kubernetes.io/docs/concepts/storage/volumes#secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].secret.items[index]
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexsecret)</sup></sup>
+
+
+
+Maps a string key to a path within a volume.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          key is the key to project.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          path is the relative path of the file to map the key to.
+May not be an absolute path.
+May not contain the path element '..'.
+May not start with the string '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>mode</b></td>
+        <td>integer</td>
+        <td>
+          mode is Optional: mode bits used to set permissions on this file.
+Must be an octal value between 0000 and 0777 or a decimal value between 0 and 511.
+YAML accepts both octal and decimal values, JSON requires decimal values for mode bits.
+If not specified, the volume defaultMode will be used.
+This might be in conflict with other options that affect the file
+mode, like fsGroup, and the result can be other mode bits set.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].storageos
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
+Deprecated: StorageOS is deprecated and the in-tree storageos type is no longer supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is the filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>readOnly</b></td>
+        <td>boolean</td>
+        <td>
+          readOnly defaults to false (read/write). ReadOnly here will force
+the ReadOnly setting in VolumeMounts.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#ironicspecoverridesvolumesindexstorageossecretref">secretRef</a></b></td>
+        <td>object</td>
+        <td>
+          secretRef specifies the secret to use for obtaining the StorageOS API
+credentials.  If not specified, default values will be attempted.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          volumeName is the human-readable name of the StorageOS volume.  Volume
+names are only unique within a namespace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>volumeNamespace</b></td>
+        <td>string</td>
+        <td>
+          volumeNamespace specifies the scope of the volume within StorageOS.  If no
+namespace is specified then the Pod's namespace will be used.  This allows the
+Kubernetes name scoping to be mirrored within StorageOS for tighter integration.
+Set VolumeName to any name to override the default behaviour.
+Set to "default" if you are not using namespaces within StorageOS.
+Namespaces that do not pre-exist within StorageOS will be created.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].storageos.secretRef
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindexstorageos)</sup></sup>
+
+
+
+secretRef specifies the secret to use for obtaining the StorageOS API
+credentials.  If not specified, default values will be attempted.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.overrides.volumes[index].vsphereVolume
+<sup><sup>[↩ Parent](#ironicspecoverridesvolumesindex)</sup></sup>
+
+
+
+vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine.
+Deprecated: VsphereVolume is deprecated. All operations for the in-tree vsphereVolume type
+are redirected to the csi.vsphere.vmware.com CSI driver.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>volumePath</b></td>
+        <td>string</td>
+        <td>
+          volumePath is the path that identifies vSphere volume vmdk<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>fsType</b></td>
+        <td>string</td>
+        <td>
+          fsType is filesystem type to mount.
+Must be a filesystem type supported by the host operating system.
+Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>storagePolicyID</b></td>
+        <td>string</td>
+        <td>
+          storagePolicyID is the storage Policy Based Management (SPBM) profile ID associated with the StoragePolicyName.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>storagePolicyName</b></td>
+        <td>string</td>
+        <td>
+          storagePolicyName is the storage Policy Based Management (SPBM) profile name.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

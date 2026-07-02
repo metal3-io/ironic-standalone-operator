@@ -202,6 +202,210 @@ func TestApplyContainerOverrides(t *testing.T) {
 	}
 }
 
+func TestApplyVolumeOverrides(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+
+		Existing  []corev1.Volume
+		Overrides []corev1.Volume
+
+		ExpectedNames []string
+		Expected      []corev1.Volume
+	}{
+		{
+			Scenario: "No overrides",
+			Existing: []corev1.Volume{
+				{Name: "v1"},
+				{Name: "v2"},
+			},
+			Overrides: nil,
+
+			ExpectedNames: []string{"v1", "v2"},
+			Expected: []corev1.Volume{
+				{Name: "v1"},
+				{Name: "v2"},
+			},
+		},
+		{
+			Scenario: "Empty overrides",
+			Existing: []corev1.Volume{
+				{Name: "v1"},
+			},
+			Overrides: []corev1.Volume{},
+
+			ExpectedNames: []string{"v1"},
+			Expected: []corev1.Volume{
+				{Name: "v1"},
+			},
+		},
+		{
+			Scenario: "Append new volume",
+			Existing: []corev1.Volume{
+				{Name: "v1"},
+			},
+			Overrides: []corev1.Volume{
+				{
+					Name: "extra",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
+					},
+				},
+			},
+
+			ExpectedNames: []string{"v1", "extra"},
+			Expected: []corev1.Volume{
+				{Name: "v1"},
+				{
+					Name: "extra",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "Replace existing volume by name",
+			Existing: []corev1.Volume{
+				{Name: "v1"},
+				{
+					Name:         "v2",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+			},
+			Overrides: []corev1.Volume{
+				{
+					Name: "v2",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "my-cm"},
+						},
+					},
+				},
+			},
+
+			ExpectedNames: []string{"v1", "v2"},
+			Expected: []corev1.Volume{
+				{Name: "v1"},
+				{
+					Name: "v2",
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "my-cm"},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "Replace and append",
+			Existing: []corev1.Volume{
+				{Name: "v1"},
+				{Name: "v2"},
+			},
+			Overrides: []corev1.Volume{
+				{
+					Name:         "v1",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+				{Name: "v3"},
+			},
+
+			ExpectedNames: []string{"v1", "v2", "v3"},
+			Expected: []corev1.Volume{
+				{
+					Name:         "v1",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				},
+				{Name: "v2"},
+				{Name: "v3"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result := applyVolumeOverrides(tc.Existing, tc.Overrides)
+
+			var names []string
+			for _, vol := range result {
+				names = append(names, vol.Name)
+			}
+
+			assert.Equal(t, tc.ExpectedNames, names)
+			assert.Equal(t, tc.Expected, result)
+		})
+	}
+}
+
+func TestApplyOverridesToPodVolumes(t *testing.T) {
+	initial := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{Name: "ironic-shared"},
+			},
+		},
+	}
+
+	testCases := []struct {
+		Scenario string
+
+		Overrides *metal3api.Overrides
+
+		ExpectedVolumes []string
+	}{
+		{
+			Scenario:        "No overrides",
+			ExpectedVolumes: []string{"ironic-shared"},
+		},
+		{
+			Scenario:        "Empty overrides",
+			Overrides:       &metal3api.Overrides{},
+			ExpectedVolumes: []string{"ironic-shared"},
+		},
+		{
+			Scenario: "Append volume",
+			Overrides: &metal3api.Overrides{
+				Volumes: []corev1.Volume{
+					{
+						Name: "extra",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
+						},
+					},
+				},
+			},
+			ExpectedVolumes: []string{"ironic-shared", "extra"},
+		},
+		{
+			Scenario: "Replace built-in volume",
+			Overrides: &metal3api.Overrides{
+				Volumes: []corev1.Volume{
+					{
+						Name: "ironic-shared",
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-pvc"},
+						},
+					},
+				},
+			},
+			ExpectedVolumes: []string{"ironic-shared"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result := applyOverridesToPod(tc.Overrides, *initial.DeepCopy())
+
+			var volumeNames []string
+			for _, vol := range result.Spec.Volumes {
+				volumeNames = append(volumeNames, vol.Name)
+			}
+
+			assert.Equal(t, tc.ExpectedVolumes, volumeNames)
+		})
+	}
+}
+
 func TestApplyOverridesToPod(t *testing.T) {
 	initial := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
