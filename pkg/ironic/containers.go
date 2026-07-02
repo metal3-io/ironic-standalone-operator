@@ -638,13 +638,61 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	return ironicPorts, httpdPorts
 }
 
+func prefixToNetmask(prefix netip.Prefix) string {
+	bits := prefix.Bits()
+	if prefix.Addr().Is6() {
+		return strconv.Itoa(bits) // IPv6 uses prefix length
+	}
+	// IPv4: convert prefix length to dotted netmask
+	mask := uint32(0xFFFFFFFF) << (32 - bits)
+	return fmt.Sprintf("%d.%d.%d.%d", mask>>24, (mask>>16)&0xFF, (mask>>8)&0xFF, mask&0xFF)
+}
+
+func rangeTag(r metal3api.DHCPRange, idx int) string {
+	if r.Name != "" {
+		return r.Name
+	}
+	return fmt.Sprintf("range_%d", idx+1)
+}
+
 func buildDHCPRange(dhcp *metal3api.DHCP) string {
-	prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return "" // don't disable your webhooks people
+	var parts []string
+
+	if dhcp.NetworkCIDR != "" && dhcp.RangeBegin != "" && dhcp.RangeEnd != "" {
+		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err == nil {
+			if len(dhcp.Ranges) > 0 {
+				parts = append(parts, fmt.Sprintf("%s,%s,%s", dhcp.RangeBegin, dhcp.RangeEnd, prefixToNetmask(prefix)))
+			} else {
+				return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+			}
+		}
 	}
 
-	return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+	for i, r := range dhcp.Ranges {
+		prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+		if err != nil {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("set:%s,%s,%s,%s",
+			rangeTag(r, i), r.RangeBegin, r.RangeEnd, prefixToNetmask(prefix)))
+	}
+
+	return strings.Join(parts, ";")
+}
+
+// buildDHCPOptions is the single source of truth for per-range dhcp-option
+// directives. The ironic-image template splits the value on ";" and emits one
+// "dhcp-option=" line per item, so DHCP_RANGE must not also carry any
+// "dhcp-option=" content (would render twice).
+func buildDHCPOptions(dhcp *metal3api.DHCP) string {
+	var parts []string
+	for i, r := range dhcp.Ranges {
+		if r.GatewayAddress != "" {
+			parts = append(parts, fmt.Sprintf("tag:%s,option:router,%s", rangeTag(r, i), r.GatewayAddress))
+		}
+	}
+	return strings.Join(parts, ";")
 }
 
 func buildDNSIP(dhcp *metal3api.DHCP) string {
@@ -689,6 +737,28 @@ func newURLProbeHandler(https bool, port int, path string, requiresOk bool) core
 	}
 }
 
+// dhcpIsIPv6Only reports whether every configured DHCP CIDR (flat and
+// per-range) is IPv6. With any IPv4 CIDR present, dnsmasq listens on port 67,
+// so that remains the right port to probe.
+func dhcpIsIPv6Only(dhcp *metal3api.DHCP) bool {
+	hasCIDR := false
+	if dhcp.NetworkCIDR != "" {
+		prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err != nil || !prefix.Addr().Is6() {
+			return false
+		}
+		hasCIDR = true
+	}
+	for _, r := range dhcp.Ranges {
+		prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+		if err != nil || !prefix.Addr().Is6() {
+			return false
+		}
+		hasCIDR = true
+	}
+	return hasCIDR
+}
+
 func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
@@ -700,8 +770,17 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 
 	envVars = appendStringEnv(envVars,
 		"DNS_IP", buildDNSIP(dhcp))
+
+	// In relay-only mode, an untagged GATEWAY_IP would leak as a fallback
+	// router for unmatched clients; only per-range routers should apply.
+	gatewayIP := dhcp.GatewayAddress
+	if dhcp.NetworkCIDR == "" && len(dhcp.Ranges) > 0 {
+		gatewayIP = ""
+	}
+	envVars = appendStringEnv(envVars, "GATEWAY_IP", gatewayIP)
+
 	envVars = appendStringEnv(envVars,
-		"GATEWAY_IP", dhcp.GatewayAddress)
+		"DHCP_OPTIONS", buildDHCPOptions(dhcp))
 	envVars = appendListOfStringsEnv(envVars,
 		"DHCP_HOSTS", dhcp.Hosts, ";")
 	envVars = appendListOfStringsEnv(envVars,
@@ -709,7 +788,7 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 
 	// IPv6-only deployments need port 547 (DHCPv6) instead of 67 (DHCPv4); TFTP port 69 is unchanged.
 	dhcpPort := 67
-	if prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR); err == nil && prefix.Addr().Is6() {
+	if dhcpIsIPv6Only(dhcp) {
 		dhcpPort = 547
 	}
 

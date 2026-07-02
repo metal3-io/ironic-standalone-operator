@@ -7,11 +7,16 @@ import (
 	"net/netip"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
+
+// dhcpRangeNameRE constrains characters allowed in a DHCPRange.Name, since the
+// name is injected into comma/semicolon-delimited dnsmasq config.
+var dhcpRangeNameRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 const (
 	protoFile = "file"
@@ -35,7 +40,7 @@ func validateIP(ip string) error {
 	return nil
 }
 
-func validateIPinPrefix(ip string, prefix netip.Prefix) error {
+func validateIPinPrefix(ip string, prefix netip.Prefix, cidrField string) error {
 	if ip == "" {
 		return nil
 	}
@@ -46,7 +51,7 @@ func validateIPinPrefix(ip string, prefix netip.Prefix) error {
 	}
 
 	if !prefix.Contains(parsed) {
-		return fmt.Errorf("%s is not in networking.dhcp.networkCIDR", ip)
+		return fmt.Errorf("%s is not in %s", ip, cidrField)
 	}
 
 	return nil
@@ -121,53 +126,121 @@ func validateAgentImages(images []metal3api.AgentImages) error {
 	return nil
 }
 
+func validateDHCPRange(r metal3api.DHCPRange, idx int) error {
+	prefix := fmt.Sprintf("networking.dhcp.ranges[%d]", idx)
+
+	if r.NetworkCIDR == "" {
+		return fmt.Errorf("%s.networkCIDR is required", prefix)
+	}
+
+	cidr, err := netip.ParsePrefix(r.NetworkCIDR)
+	if err != nil {
+		return fmt.Errorf("%s.networkCIDR is invalid: %w", prefix, err)
+	}
+
+	if r.RangeBegin == "" || r.RangeEnd == "" {
+		return fmt.Errorf("%s: rangeBegin and rangeEnd are required", prefix)
+	}
+
+	cidrField := prefix + ".networkCIDR"
+
+	if err := validateIPinPrefix(r.RangeBegin, cidr, cidrField); err != nil {
+		return fmt.Errorf("%s.rangeBegin: %w", prefix, err)
+	}
+
+	if err := validateIPinPrefix(r.RangeEnd, cidr, cidrField); err != nil {
+		return fmt.Errorf("%s.rangeEnd: %w", prefix, err)
+	}
+
+	if r.GatewayAddress != "" {
+		if cidr.Addr().Is6() {
+			return fmt.Errorf("%s.gatewayAddress: IPv6 per-range gateway is not supported", prefix)
+		}
+		if err := validateIPinPrefix(r.GatewayAddress, cidr, cidrField); err != nil {
+			return fmt.Errorf("%s.gatewayAddress: %w", prefix, err)
+		}
+	}
+
+	return nil
+}
+
 func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 	dhcp := ironic.Networking.DHCP
 	hasNetworking := ironic.Networking.IPAddress != "" || ironic.Networking.Interface != "" || len(ironic.Networking.MACAddresses) > 0
 	if !hasNetworking {
 		return errors.New("networking: at least one of ipAddress, interface or macAddresses is required when DHCP is used")
 	}
-	if dhcp.NetworkCIDR == "" {
-		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
-	}
 	if dhcp.ServeDNS && dhcp.DNSAddress != "" {
 		return errors.New("networking.dhcp.dnsAddress cannot set together with serveDNS")
-	}
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
-	}
-
-	provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
-	}
-
-	if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR); err != nil {
-		return err
-	}
-
-	if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR); err != nil {
-		return err
 	}
 
 	if err := validateIP(dhcp.DNSAddress); err != nil {
 		return err
 	}
 
-	if err := validateIP(dhcp.GatewayAddress); err != nil {
-		return err
+	hasPrimaryRange := dhcp.NetworkCIDR != "" || dhcp.RangeBegin != "" || dhcp.RangeEnd != ""
+	hasRanges := len(dhcp.Ranges) > 0
+
+	if !hasPrimaryRange && !hasRanges {
+		return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
 	}
 
-	// These are supposed to be populated by the webhook
-	if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
-		return errors.New("firstIP and lastIP are not set and could not be automatically populated")
+	// Validate primary (flat) fields if present
+	if hasPrimaryRange {
+		if dhcp.NetworkCIDR == "" {
+			return errors.New("networking.dhcp.networkCIDR is required when DHCP is used")
+		}
+		if dhcp.RangeBegin == "" || dhcp.RangeEnd == "" {
+			return errors.New("networking.dhcp: rangeBegin and rangeEnd are required")
+		}
+
+		provCIDR, err := netip.ParsePrefix(dhcp.NetworkCIDR)
+		if err != nil {
+			return fmt.Errorf("networking.dhcp.networkCIDR is invalid: %w", err)
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeBegin, provCIDR, "networking.dhcp.networkCIDR"); err != nil {
+			return err
+		}
+
+		if err := validateIPinPrefix(dhcp.RangeEnd, provCIDR, "networking.dhcp.networkCIDR"); err != nil {
+			return err
+		}
+
+		if err := validateIP(dhcp.GatewayAddress); err != nil {
+			return err
+		}
+
+		// Whenever a flat CIDR is configured, the provisioning IP must live in
+		// it — the flat range is a direct-attached subnet by definition. The
+		// relay use case applies when Ranges is set *without* a flat range.
+		if ironic.Networking.IPAddress != "" {
+			provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
+			if !provCIDR.Contains(provIP) {
+				return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+			}
+		}
 	}
 
-	// Check that the provisioning IP is in the CIDR
-	if ironic.Networking.IPAddress != "" {
-		provIP, _ := netip.ParseAddr(ironic.Networking.IPAddress)
-		if !provCIDR.Contains(provIP) {
-			return errors.New("networking.dhcp.networkCIDR must contain networking.ipAddress")
+	// Validate additional ranges
+	if hasRanges {
+		names := make(map[string]bool)
+		for i, r := range dhcp.Ranges {
+			if len(dhcp.Ranges) > 1 && r.Name == "" {
+				return fmt.Errorf("networking.dhcp.ranges[%d].name is required when multiple ranges are defined", i)
+			}
+			if r.Name != "" {
+				if !dhcpRangeNameRE.MatchString(r.Name) {
+					return fmt.Errorf("networking.dhcp.ranges[%d].name %q must match %s", i, r.Name, dhcpRangeNameRE)
+				}
+				if names[r.Name] {
+					return fmt.Errorf("networking.dhcp.ranges: duplicate name %q", r.Name)
+				}
+				names[r.Name] = true
+			}
+			if err := validateDHCPRange(r, i); err != nil {
+				return err
+			}
 		}
 	}
 

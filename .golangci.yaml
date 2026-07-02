@@ -146,6 +146,12 @@ linters:
       paths:
       - pkg/ironic/validation.go
       - pkg/ironic/utils.go
+    - linters:
+      - staticcheck
+      text: 'SA1019: .*\.(NetworkCIDR|RangeBegin|RangeEnd|GatewayAddress) is deprecated: .*'
+      paths:
+      - pkg/ironic/validation.go
+      - pkg/ironic/containers.go
     paths:
     - zz_generated.*\.go$
     - .*conversion.*\.go$
