@@ -8,7 +8,7 @@ require (
 	github.com/metal3-io/ironic-standalone-operator v0.0.0
 	github.com/metal3-io/ironic-standalone-operator/api v0.0.0
 	github.com/onsi/ginkgo/v2 v2.31.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.2
