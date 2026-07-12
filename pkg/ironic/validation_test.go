@@ -136,7 +136,7 @@ func TestValidateIronic(t *testing.T) {
 					DHCP:               &metal3api.DHCP{DNSAddress: "1.1.1.1"},
 				},
 			},
-			ExpectedError: "networking.enableHostNetwork cannot be set to false together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived",
+			ExpectedError: "networking.disableHostNetwork cannot be set to true together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived",
 		},
 		{
 			Scenario: "ingress is configured and externalCallbackURL is configured",

@@ -173,7 +173,7 @@ type Networking struct {
 	// Requires DisableHostNetwork to be false.
 	DHCP *DHCP `json:"dhcp,omitempty"`
 
-	// DisableHostNetwork enables the use of host networking for Ironic pods.
+	// DisableHostNetwork disables the use of host networking for Ironic pods.
 	// Disabling host networking makes network boot impossible.
 	// This should only be used with virtual media deployments.
 	// +kubebuilder:default=false
@@ -191,8 +191,8 @@ type Networking struct {
 	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
 
 	// ExternalIP is used for accessing API and the image server from remote hosts.
-	// This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
-	// Cannot be set at the same time with networking.ingress.
+	// This setting only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+	// Cannot be set at the same time with networking.ingress, networking.externalCallbackURL, or networking.imageServerExternalURL.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 

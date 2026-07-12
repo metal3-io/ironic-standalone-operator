@@ -476,7 +476,7 @@ Requires DisableHostNetwork to be false.<br/>
         <td><b>disableHostNetwork</b></td>
         <td>boolean</td>
         <td>
-          DisableHostNetwork enables the use of host networking for Ironic pods.
+          DisableHostNetwork disables the use of host networking for Ironic pods.
 Disabling host networking makes network boot impossible.
 This should only be used with virtual media deployments.<br/>
           <br/>
@@ -502,8 +502,8 @@ Cannot be set at the same time with networking.externalIP.<br/>
         <td>string</td>
         <td>
           ExternalIP is used for accessing API and the image server from remote hosts.
-This settings only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
-Cannot be set at the same time with networking.ingress.<br/>
+This setting only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+Cannot be set at the same time with networking.ingress, networking.externalCallbackURL, or networking.imageServerExternalURL.<br/>
         </td>
         <td>false</td>
       </tr><tr>

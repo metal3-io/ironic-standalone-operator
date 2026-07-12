@@ -189,7 +189,7 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Networking.DisableHostNetwork &&
 		(ironic.Networking.BindInterface || ironic.Networking.DHCP != nil || ironic.Networking.Interface != "" || ironic.Networking.IPAddress != "" || len(ironic.Networking.MACAddresses) > 0 || ironic.Networking.Keepalived != nil) {
-		return errors.New("networking.enableHostNetwork cannot be set to false together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
+		return errors.New("networking.disableHostNetwork cannot be set to true together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
 	}
 
 	if err := validateIP(ironic.Networking.IPAddress); err != nil {
