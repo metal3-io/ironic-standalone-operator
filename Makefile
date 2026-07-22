@@ -112,9 +112,9 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+manifests: controller-gen crdoc ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	./hack/gen-api-doc.sh
+	CRDOC=$(CRDOC) ./hack/gen-api-doc.sh
 
 .PHONY: modules
 modules: ## Runs go mod to ensure proper vendoring.
@@ -238,11 +238,13 @@ $(LOCALBIN):
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+CRDOC ?= $(LOCALBIN)/crdoc
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.2
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 GOLANGCI_LINT_VERSION ?= v2.10.1
+CRDOC_VERSION ?= v0.6.2
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
@@ -262,6 +264,12 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 $(GOLANGCI_LINT): $(LOCALBIN) ## Download golangci-lint locally if necessary. If wrong version is installed, it will be overwritten.
 	test -s $(GOLANGCI_LINT) && $(GOLANGCI_LINT) --version | grep -q $(GOLANGCI_LINT_VERSION)  || \
 	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: crdoc
+crdoc: $(CRDOC) ## Download crdoc locally if necessary. If wrong version is installed, it will be overwritten.
+$(CRDOC): $(LOCALBIN)
+	test -s $(CRDOC) && $(CRDOC) --version | grep -q $(CRDOC_VERSION) || \
+	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@$(CRDOC_VERSION)
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
