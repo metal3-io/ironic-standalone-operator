@@ -16,7 +16,10 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-const ironicContainerName = "ironic"
+const (
+	ironicContainerName     = "ironic"
+	keepalivedContainerName = "keepalived"
+)
 
 func TestExpectedContainers(t *testing.T) {
 	testCases := []struct {
@@ -40,6 +43,21 @@ func TestExpectedContainers(t *testing.T) {
 					Interface:        "eth0",
 					IPAddress:        "192.0.2.2",
 					IPAddressManager: metal3api.IPAddressManagerKeepalived,
+				},
+			},
+			ExpectedContainerNames:     []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
+			ExpectedInitContainerNames: []string{"ramdisk-downloader"},
+		},
+		{
+			Scenario: "Keepalived with custom VRID",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						VRID:    42,
+					},
 				},
 			},
 			ExpectedContainerNames:     []string{"httpd", "ironic", "keepalived", "ramdisk-logs"},
@@ -142,6 +160,150 @@ func TestExpectedContainers(t *testing.T) {
 			} else {
 				assert.ErrorContains(t, err, tc.ExpectedError)
 			}
+		})
+	}
+}
+
+func TestKeepalivedVRID(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{"htpasswd": []byte("abcd")},
+	}
+
+	testCases := []struct {
+		Scenario        string
+		VRID            int32
+		ExpectNoCommand bool
+	}{
+		{Scenario: "default VRID (0)", VRID: 0, ExpectNoCommand: true},
+		{Scenario: "default VRID (1)", VRID: 1, ExpectNoCommand: true},
+		{Scenario: "custom VRID", VRID: 42, ExpectNoCommand: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						Interface: "eth0",
+						IPAddress: "192.0.2.2",
+						Keepalived: &metal3api.KeepalivedConfig{
+							Enabled: true,
+							VRID:    tc.VRID,
+						},
+					},
+				},
+			}
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			for _, cont := range podTemplate.Spec.Containers {
+				if cont.Name == keepalivedContainerName {
+					if tc.ExpectNoCommand {
+						assert.Empty(t, cont.Command, "keepalived should use default entrypoint")
+					} else {
+						require.Len(t, cont.Command, 3, "keepalived should have a custom command")
+						script := cont.Command[2]
+						// The sed must be anchored and match any existing digit
+						// sequence — a literal "virtual_router_id 1" would mis-rewrite
+						// a template that ships virtual_router_id 10 (yielding 160).
+						assert.Contains(t, script, "[0-9]+", "sed must use a digit class, not a literal")
+						assert.Contains(t, script, fmt.Sprintf("virtual_router_id %d", tc.VRID))
+						assert.Contains(t, script, "exec /bin/manage-keepalived.sh")
+					}
+					return
+				}
+			}
+			t.Fatal("keepalived container not found")
+		})
+	}
+}
+
+func TestKeepalivedPassword(t *testing.T) {
+	cctx := ControllerContext{}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{"htpasswd": []byte("abcd")},
+	}
+
+	testCases := []struct {
+		Scenario      string
+		PasswordRef   *metal3api.ResourceReference
+		VRID          int32
+		ExpectEnv     bool
+		ExpectPassSed bool
+		ExpectVRIDSed bool
+	}{
+		{Scenario: "no password ref", PasswordRef: nil, VRID: 0, ExpectEnv: false, ExpectPassSed: false, ExpectVRIDSed: false},
+		{Scenario: "password ref only", PasswordRef: &metal3api.ResourceReference{Name: "vrrp-secret"}, VRID: 1, ExpectEnv: true, ExpectPassSed: true, ExpectVRIDSed: false},
+		{Scenario: "password ref and custom VRID", PasswordRef: &metal3api.ResourceReference{Name: "vrrp-secret"}, VRID: 42, ExpectEnv: true, ExpectPassSed: true, ExpectVRIDSed: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						Interface: "eth0",
+						IPAddress: "192.0.2.2",
+						Keepalived: &metal3api.KeepalivedConfig{
+							Enabled:     true,
+							VRID:        tc.VRID,
+							PasswordRef: tc.PasswordRef,
+						},
+					},
+				},
+			}
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			for _, cont := range podTemplate.Spec.Containers {
+				if cont.Name != keepalivedContainerName {
+					continue
+				}
+				var hasEnv bool
+				for _, e := range cont.Env {
+					if e.Name != "KEEPALIVED_AUTH_PASS" {
+						continue
+					}
+					hasEnv = true
+					require.NotNil(t, e.ValueFrom, "KEEPALIVED_AUTH_PASS must be sourced from a Secret")
+					require.NotNil(t, e.ValueFrom.SecretKeyRef)
+					assert.Equal(t, tc.PasswordRef.Name, e.ValueFrom.SecretKeyRef.Name)
+					assert.Equal(t, "password", e.ValueFrom.SecretKeyRef.Key)
+				}
+				assert.Equal(t, tc.ExpectEnv, hasEnv, "KEEPALIVED_AUTH_PASS env presence")
+
+				if tc.ExpectPassSed || tc.ExpectVRIDSed {
+					require.Len(t, cont.Command, 3, "keepalived should have a custom command")
+					script := cont.Command[2]
+					if tc.ExpectPassSed {
+						// Auth block must be *inserted* before virtual_ipaddress,
+						// since the upstream template has no authentication block.
+						assert.Contains(t, script, "/virtual_ipaddress/i\\    authentication {")
+						assert.Contains(t, script, "auth_type PASS")
+						assert.Contains(t, script, "auth_pass ${KEEPALIVED_AUTH_PASS}")
+						assert.Contains(t, script, "/virtual_ipaddress/i\\    }")
+					} else {
+						assert.NotContains(t, script, "auth_pass")
+						assert.NotContains(t, script, "authentication {")
+					}
+					if tc.ExpectVRIDSed {
+						assert.Contains(t, script, "[0-9]+", "VRID sed must use a digit class, not a literal")
+						assert.Contains(t, script, fmt.Sprintf("virtual_router_id %d", tc.VRID))
+					} else {
+						assert.NotContains(t, script, "virtual_router_id")
+					}
+					assert.Contains(t, script, "exec /bin/manage-keepalived.sh")
+				} else {
+					assert.Empty(t, cont.Command, "keepalived should use default entrypoint")
+				}
+				return
+			}
+			t.Fatal("keepalived container not found")
 		})
 	}
 }
@@ -1325,7 +1487,7 @@ func TestKeepalivedEnvVars(t *testing.T) {
 
 			var keepalivedContainer *corev1.Container
 			for i := range podTemplate.Spec.Containers {
-				if podTemplate.Spec.Containers[i].Name == "keepalived" {
+				if podTemplate.Spec.Containers[i].Name == keepalivedContainerName {
 					keepalivedContainer = &podTemplate.Spec.Containers[i]
 					break
 				}

@@ -141,6 +141,9 @@ linters:
       - tagliatelle
       text: VIPs
     - linters:
+      - tagliatelle
+      text: VRID
+    - linters:
       - staticcheck
       text: 'SA1019: tls\.(TrustedCAName|BMCCAName) is deprecated: .*'
       paths:
