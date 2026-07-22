@@ -614,10 +614,22 @@ Must not be set together with ServeDNS.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#ironicspecnetworkingdhcpextrarangesindex">extraRanges</a></b></td>
+        <td>[]object</td>
+        <td>
+          ExtraRanges is a list of additional DHCP address ranges served alongside
+the main range, e.g. for subnets reached via a DHCP relay. When set, the
+main networkCIDR/rangeBegin/rangeEnd fields become optional: leave them
+unset to serve only these ranges. Requires Ironic 37.0 or newer.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>gatewayAddress</b></td>
         <td>string</td>
         <td>
-          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.<br/>
+          GatewayAddress is the IP address of the gateway to pass to hosts via DHCP.
+It only applies to the main range: each ExtraRanges entry advertises a
+router only when its own gatewayAddress is set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -642,21 +654,25 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td><b>networkCIDR</b></td>
         <td>string</td>
         <td>
-          NetworkCIDR is a CIDR of the provisioning network. Required.<br/>
+          NetworkCIDR is a CIDR of the provisioning network. Required unless
+extraRanges is set, in which case it must be set together with
+rangeBegin and rangeEnd or left unset to serve only extraRanges.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeBegin</b></td>
         <td>string</td>
         <td>
-          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.
+Required unless extraRanges is set. Must be set together with networkCIDR and rangeEnd.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>rangeEnd</b></td>
         <td>string</td>
         <td>
-          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.
+Required unless extraRanges is set. Must be set together with networkCIDR and rangeBegin.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -665,6 +681,58 @@ There is no API-side validation. Most users will leave this unset.<br/>
         <td>
           ServeDNS is set to true to pass the provisioning host as the DNS server on the provisioning network.
 Must not be set together with DNSAddress.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Ironic.spec.networking.dhcp.extraRanges[index]
+<sup><sup>[↩ Parent](#ironicspecnetworkingdhcp)</sup></sup>
+
+
+
+DHCPRange defines a single additional DHCP address range with per-range options.
+Each range is assigned an auto-generated dnsmasq tag `range_N`, where N is
+its 1-based position in the extraRanges list.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>networkCIDR</b></td>
+        <td>string</td>
+        <td>
+          NetworkCIDR is the CIDR of the provisioning network for this range.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeBegin</b></td>
+        <td>string</td>
+        <td>
+          RangeBegin is the first IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>rangeEnd</b></td>
+        <td>string</td>
+        <td>
+          RangeEnd is the last IP that can be given to hosts. Must be inside NetworkCIDR.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>gatewayAddress</b></td>
+        <td>string</td>
+        <td>
+          GatewayAddress is the IPv4 gateway advertised to clients in this range.
+When unset, no router is advertised to this range. Must be inside
+NetworkCIDR when set. IPv6 gateways are not supported here.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

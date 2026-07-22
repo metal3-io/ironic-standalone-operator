@@ -502,6 +502,282 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "not-an-ip is not a valid IP address",
 		},
 		{
+			Scenario: "extra ranges: main range plus relayed subnets (provIP not in extras)",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR:    "192.168.1.0/24",
+								RangeBegin:     "192.168.1.10",
+								RangeEnd:       "192.168.1.100",
+								GatewayAddress: "192.168.1.1",
+							},
+							{
+								NetworkCIDR:    "192.168.2.0/24",
+								RangeBegin:     "192.168.2.10",
+								RangeEnd:       "192.168.2.100",
+								GatewayAddress: "192.168.2.1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "extra ranges: IPv6",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "fd69:158d:692a::1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "fd69:158d:692a::/64",
+						RangeBegin:  "fd69:158d:692a::3000",
+						RangeEnd:    "fd69:158d:692a::3fff",
+						ExtraRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR: "fd69:158d:692a:1::/64",
+								RangeBegin:  "fd69:158d:692a:1::3000",
+								RangeEnd:    "fd69:158d:692a:1::3fff",
+							},
+							{
+								NetworkCIDR: "fd69:158d:692a:2::/64",
+								RangeBegin:  "fd69:158d:692a:2::3000",
+								RangeEnd:    "fd69:158d:692a:2::3fff",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "extra ranges: without a main range is allowed (relay-only)",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.100"},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "extra ranges: partial main range (networkCIDR only) is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.100"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networkCIDR, rangeBegin and rangeEnd must be set together",
+		},
+		{
+			Scenario: "extra ranges: rangeBegin outside CIDR",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "172.16.0.0/24", RangeBegin: "192.168.1.10", RangeEnd: "172.16.0.100"},
+						},
+					},
+				},
+			},
+			ExpectedError: "extraRanges[0].rangeBegin",
+		},
+		{
+			Scenario: "extra ranges: per-range gatewayAddress outside its CIDR is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.141.0/27", RangeBegin: "192.168.141.2", RangeEnd: "192.168.141.29", GatewayAddress: "10.0.0.1"},
+						},
+					},
+				},
+			},
+			ExpectedError: "extraRanges[0].gatewayAddress",
+		},
+		{
+			Scenario: "extra ranges: provIP outside the main CIDR is still rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "192.168.140.100",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.14.0/24",
+						RangeBegin:  "192.168.14.101",
+						RangeEnd:    "192.168.14.250",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.141.0/27", RangeBegin: "192.168.141.2", RangeEnd: "192.168.141.29"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.networkCIDR must contain networking.ipAddress",
+		},
+		{
+			Scenario: "DHCP with no ranges at all",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP:      &metal3api.DHCP{},
+				},
+			},
+			ExpectedError: "networkCIDR, rangeBegin and rangeEnd are required unless extraRanges is set",
+		},
+		{
+			Scenario: "reversed main range is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "192.168.1.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.200",
+						RangeEnd:    "192.168.1.10",
+					},
+				},
+			},
+			ExpectedError: "rangeBegin must not be after rangeEnd",
+		},
+		{
+			Scenario: "extra ranges: reversed range is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.200", RangeEnd: "192.168.1.10"},
+						},
+					},
+				},
+			},
+			ExpectedError: "extraRanges[0]: rangeBegin must not be after rangeEnd",
+		},
+		{
+			Scenario: "extra ranges: /0 networkCIDR is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "0.0.0.0/0", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+						},
+					},
+				},
+			},
+			ExpectedError: "non-zero prefix length",
+		},
+		{
+			Scenario: "extra ranges: pool overlapping the main range is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/16",
+						RangeBegin:  "10.0.1.10",
+						RangeEnd:    "10.0.1.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "10.0.0.0/16", RangeBegin: "10.0.1.50", RangeEnd: "10.0.1.200"},
+						},
+					},
+				},
+			},
+			ExpectedError: "overlap",
+		},
+		{
+			Scenario: "extra ranges: duplicate pools are rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+							{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+						},
+					},
+				},
+			},
+			ExpectedError: "overlap",
+		},
+		{
+			Scenario: "extra ranges: adjacent pools in one subnet are valid",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "10.0.0.1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "10.0.0.0/24",
+						RangeBegin:  "10.0.0.10",
+						RangeEnd:    "10.0.0.100",
+						ExtraRanges: []metal3api.DHCPRange{
+							{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.101", RangeEnd: "10.0.0.200"},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "extra ranges: IPv6 per-range gateway is rejected",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					IPAddress: "fd69:158d:692a::1",
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "fd69:158d:692a::/64",
+						RangeBegin:  "fd69:158d:692a::3000",
+						RangeEnd:    "fd69:158d:692a::3fff",
+						ExtraRanges: []metal3api.DHCPRange{
+							{
+								NetworkCIDR:    "fd69:158d:692a:1::/64",
+								RangeBegin:     "fd69:158d:692a:1::3000",
+								RangeEnd:       "fd69:158d:692a:1::3fff",
+								GatewayAddress: "fd69:158d:692a:1::1",
+							},
+						},
+					},
+				},
+			},
+			ExpectedError: "IPv6 per-range gateway is not supported",
+		},
+		{
 			Scenario: "HA incompatible with ServiceMonitor",
 			Ironic: metal3api.IronicSpec{
 				Database: &metal3api.Database{

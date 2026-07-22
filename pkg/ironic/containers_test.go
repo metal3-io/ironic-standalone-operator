@@ -2,6 +2,7 @@ package ironic
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -1023,6 +1024,22 @@ func TestDnsmasqProbeConfiguration(t *testing.T) {
 			RangeEnd:    "fd00:abcd:ef01:3fff::3fff",
 		},
 	}
+	mixedNet := metal3api.Networking{
+		Interface: "eth0",
+		IPAddress: "192.0.2.2",
+		DHCP: &metal3api.DHCP{
+			NetworkCIDR: "192.0.2.0/24",
+			RangeBegin:  "192.0.2.10",
+			RangeEnd:    "192.0.2.200",
+			ExtraRanges: []metal3api.DHCPRange{
+				{
+					NetworkCIDR: "fd00:abcd:ef01:3fff::/64",
+					RangeBegin:  "fd00:abcd:ef01:3fff::3000",
+					RangeEnd:    "fd00:abcd:ef01:3fff::3fff",
+				},
+			},
+		},
+	}
 
 	testCases := []struct {
 		Scenario    string
@@ -1038,6 +1055,11 @@ func TestDnsmasqProbeConfiguration(t *testing.T) {
 			Scenario:    "IPv6 CIDR uses DHCPv6 port 547",
 			Networking:  ipv6Net,
 			ExpectedCmd: "ss -lun | grep :547 && ss -lun | grep :69",
+		},
+		{
+			Scenario:    "mixed families probe both DHCP ports",
+			Networking:  mixedNet,
+			ExpectedCmd: "ss -lun | grep :67 && ss -lun | grep :547 && ss -lun | grep :69",
 		},
 	}
 
@@ -1346,6 +1368,26 @@ func TestKeepalivedEnvVars(t *testing.T) {
 				assert.Equal(t, tc.expectedProvInterface, envMap["PROVISIONING_INTERFACE"])
 				assert.Empty(t, envMap["KEEPALIVED_VIRTUAL_IPS"], "KEEPALIVED_VIRTUAL_IPS should not be set in legacy mode")
 			}
+		})
+	}
+}
+
+func TestPrefixToNetmask(t *testing.T) {
+	testCases := []struct {
+		CIDR     string
+		Expected string
+	}{
+		{"192.168.1.0/24", "255.255.255.0"},
+		{"10.0.0.0/16", "255.255.0.0"},
+		{"10.0.0.0/8", "255.0.0.0"},
+		{"192.168.1.0/32", "255.255.255.255"},
+		{"fd69:158d:692a:1::/64", "64"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.CIDR, func(t *testing.T) {
+			prefix, err := netip.ParsePrefix(tc.CIDR)
+			require.NoError(t, err)
+			assert.Equal(t, tc.Expected, prefixToNetmask(prefix))
 		})
 	}
 }
@@ -1860,4 +1902,176 @@ func TestIsAuthVolumeRequired(t *testing.T) {
 			assert.Equal(t, tc.Expected, result)
 		})
 	}
+}
+
+func TestBuildDHCPRange(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		DHCP     metal3api.DHCP
+		Expected string
+	}{
+		{
+			Scenario: "main range only renders an explicit netmask",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "192.168.1.0/24",
+				RangeBegin:  "192.168.1.10",
+				RangeEnd:    "192.168.1.200",
+			},
+			Expected: "192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "IPv6 main range only renders a prefix length",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "fd69:158d:692a::/64",
+				RangeBegin:  "fd69:158d:692a::3000",
+				RangeEnd:    "fd69:158d:692a::3fff",
+			},
+			Expected: "fd69:158d:692a::3000,fd69:158d:692a::3fff,64",
+		},
+		{
+			Scenario: "two IPv4 extra ranges render as auto-tagged set: entries",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "172.16.0.0/24",
+				RangeBegin:  "172.16.0.10",
+				RangeEnd:    "172.16.0.100",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			Expected: "172.16.0.10,172.16.0.100,255.255.255.0;set:range_1,10.0.0.10,10.0.0.100,255.255.255.0;set:range_2,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "IPv6 extra ranges render with prefix length and no gateway options",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "fd69:158d:692a::/64",
+				RangeBegin:  "fd69:158d:692a::3000",
+				RangeEnd:    "fd69:158d:692a::3fff",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "fd69:158d:692a:1::/64", RangeBegin: "fd69:158d:692a:1::3000", RangeEnd: "fd69:158d:692a:1::3fff"},
+					{NetworkCIDR: "fd69:158d:692a:2::/64", RangeBegin: "fd69:158d:692a:2::3000", RangeEnd: "fd69:158d:692a:2::3fff"},
+				},
+			},
+			Expected: "fd69:158d:692a::3000,fd69:158d:692a::3fff,64;set:range_1,fd69:158d:692a:1::3000,fd69:158d:692a:1::3fff,64;set:range_2,fd69:158d:692a:2::3000,fd69:158d:692a:2::3fff,64",
+		},
+		{
+			Scenario: "main range plus one extra range concatenate",
+			DHCP: metal3api.DHCP{
+				NetworkCIDR: "10.0.0.0/16",
+				RangeBegin:  "10.0.1.1",
+				RangeEnd:    "10.0.1.254",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "10.0.1.1,10.0.1.254,255.255.0.0;set:range_1,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+		{
+			Scenario: "relay-only: extra ranges without a main range",
+			DHCP: metal3api.DHCP{
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100"},
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "set:range_1,10.0.0.10,10.0.0.100,255.255.255.0;set:range_2,192.168.1.10,192.168.1.200,255.255.255.0",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, buildDHCPRange(&tc.DHCP))
+		})
+	}
+}
+
+func TestBuildDHCPOptions(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		DHCP     metal3api.DHCP
+		Expected string
+	}{
+		{
+			Scenario: "main-range-only DHCP emits no per-range options",
+			DHCP:     metal3api.DHCP{GatewayAddress: "10.0.0.1"},
+			Expected: "",
+		},
+		{
+			Scenario: "two extra ranges with gateways",
+			DHCP: metal3api.DHCP{
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+				},
+			},
+			Expected: "tag:range_1,option:router,10.0.0.1;tag:range_2,option:router,192.168.1.1",
+		},
+		{
+			Scenario: "extra range without gateway emits nothing when the main gateway is unset",
+			DHCP: metal3api.DHCP{
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "tag:range_1,option:router,10.0.0.1",
+		},
+		{
+			Scenario: "extra range without gateway suppresses the main router option",
+			DHCP: metal3api.DHCP{
+				GatewayAddress: "172.16.0.1",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "10.0.0.0/24", RangeBegin: "10.0.0.10", RangeEnd: "10.0.0.100", GatewayAddress: "10.0.0.1"},
+					{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200"},
+				},
+			},
+			Expected: "tag:range_1,option:router,10.0.0.1;tag:range_2,option:router",
+		},
+		{
+			Scenario: "IPv6 extra range needs no router suppression",
+			DHCP: metal3api.DHCP{
+				GatewayAddress: "172.16.0.1",
+				ExtraRanges: []metal3api.DHCPRange{
+					{NetworkCIDR: "fd69:158d:692a:1::/64", RangeBegin: "fd69:158d:692a:1::3000", RangeEnd: "fd69:158d:692a:1::3fff"},
+				},
+			},
+			Expected: "",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, buildDHCPOptions(&tc.DHCP))
+		})
+	}
+}
+
+// TestGatewayIPWithExtraRanges asserts that the main-range GATEWAY_IP is
+// passed through unchanged when extra ranges (with their own per-range
+// gateways) are also configured.
+func TestGatewayIPWithExtraRanges(t *testing.T) {
+	ironic := &metal3api.Ironic{
+		Spec: metal3api.IronicSpec{
+			Networking: metal3api.Networking{
+				Interface: "eth0",
+				IPAddress: "10.0.0.5",
+				DHCP: &metal3api.DHCP{
+					NetworkCIDR:    "10.0.0.0/24",
+					RangeBegin:     "10.0.0.10",
+					RangeEnd:       "10.0.0.100",
+					GatewayAddress: "10.0.0.1",
+					ExtraRanges: []metal3api.DHCPRange{
+						{NetworkCIDR: "192.168.1.0/24", RangeBegin: "192.168.1.10", RangeEnd: "192.168.1.200", GatewayAddress: "192.168.1.1"},
+					},
+				},
+			},
+		},
+	}
+	c := newDnsmasqContainer(VersionInfo{}, ironic)
+	gotEnv := ""
+	for _, e := range c.Env {
+		if e.Name == "GATEWAY_IP" {
+			gotEnv = e.Value
+			break
+		}
+	}
+	assert.Equal(t, "10.0.0.1", gotEnv)
 }

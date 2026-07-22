@@ -638,13 +638,61 @@ func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.Conta
 	return ironicPorts, httpdPorts
 }
 
+// rangeTag returns the auto-generated dnsmasq tag for an extra range: its
+// 1-based position in the extraRanges list.
+func rangeTag(idx int) string {
+	return fmt.Sprintf("range_%d", idx+1)
+}
+
 func buildDHCPRange(dhcp *metal3api.DHCP) string {
-	prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR)
-	if err != nil {
-		return "" // don't disable your webhooks people
+	var parts []string
+
+	if dhcp.NetworkCIDR != "" && dhcp.RangeBegin != "" && dhcp.RangeEnd != "" {
+		if prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR); err == nil {
+			parts = append(parts, fmt.Sprintf("%s,%s,%s", dhcp.RangeBegin, dhcp.RangeEnd, prefixToNetmask(prefix)))
+		}
 	}
 
-	return fmt.Sprintf("%s,%s,%d", dhcp.RangeBegin, dhcp.RangeEnd, prefix.Bits())
+	for i, r := range dhcp.ExtraRanges {
+		prefix, err := netip.ParsePrefix(r.NetworkCIDR)
+		if err != nil {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("set:%s,%s,%s,%s",
+			rangeTag(i), r.RangeBegin, r.RangeEnd, prefixToNetmask(prefix)))
+	}
+
+	return strings.Join(parts, ";")
+}
+
+// buildDHCPOptions is the single source of truth for per-range dhcp-option
+// directives. The ironic-image template splits the value on ";" and emits one
+// "dhcp-option=" line per item, so DHCP_RANGE must not also carry any
+// "dhcp-option=" content (would render twice).
+func buildDHCPOptions(dhcp *metal3api.DHCP) string {
+	var parts []string
+	for i, r := range dhcp.ExtraRanges {
+		if r.GatewayAddress != "" {
+			parts = append(parts, fmt.Sprintf("tag:%s,option:router,%s", rangeTag(i), r.GatewayAddress))
+			continue
+		}
+
+		if dhcp.GatewayAddress == "" {
+			continue
+		}
+
+		// The main GatewayAddress renders as an untagged option:router that
+		// dnsmasq would otherwise serve to every range. A router from the
+		// main subnet is unreachable from any other IPv4 subnet, so emit a
+		// valueless tagged option to suppress it for extra ranges that do
+		// not define their own gateway. IPv6 clients never receive the
+		// DHCPv4-only option:router, so they need no suppression.
+		if prefix, err := netip.ParsePrefix(r.NetworkCIDR); err == nil && prefix.Addr().Is6() {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("tag:%s,option:router", rangeTag(i)))
+	}
+	return strings.Join(parts, ";")
 }
 
 func buildDNSIP(dhcp *metal3api.DHCP) string {
@@ -689,6 +737,30 @@ func newURLProbeHandler(https bool, port int, path string, requiresOk bool) core
 	}
 }
 
+// dhcpFamilies reports which address families the configured DHCP CIDRs
+// (main and extra ranges) cover, determining the ports dnsmasq listens on:
+// 67 for DHCPv4 and 547 for DHCPv6. Unparsable CIDRs count as IPv4 to keep
+// the pre-existing default of probing port 67.
+func dhcpFamilies(dhcp *metal3api.DHCP) (hasV4, hasV6 bool) {
+	cidrs := make([]string, 0, len(dhcp.ExtraRanges)+1)
+	if dhcp.NetworkCIDR != "" {
+		cidrs = append(cidrs, dhcp.NetworkCIDR)
+	}
+	for _, r := range dhcp.ExtraRanges {
+		cidrs = append(cidrs, r.NetworkCIDR)
+	}
+
+	for _, cidr := range cidrs {
+		prefix, err := netip.ParsePrefix(cidr)
+		if err == nil && prefix.Addr().Is6() {
+			hasV6 = true
+		} else {
+			hasV4 = true
+		}
+	}
+	return
+}
+
 func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
@@ -700,22 +772,32 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 
 	envVars = appendStringEnv(envVars,
 		"DNS_IP", buildDNSIP(dhcp))
+
 	envVars = appendStringEnv(envVars,
 		"GATEWAY_IP", dhcp.GatewayAddress)
+
+	envVars = appendStringEnv(envVars,
+		"DHCP_OPTIONS", buildDHCPOptions(dhcp))
 	envVars = appendListOfStringsEnv(envVars,
 		"DHCP_HOSTS", dhcp.Hosts, ";")
 	envVars = appendListOfStringsEnv(envVars,
 		"DHCP_IGNORE", dhcp.Ignore, ",")
 
-	// IPv6-only deployments need port 547 (DHCPv6) instead of 67 (DHCPv4); TFTP port 69 is unchanged.
-	dhcpPort := 67
-	if prefix, err := netip.ParsePrefix(dhcp.NetworkCIDR); err == nil && prefix.Addr().Is6() {
-		dhcpPort = 547
+	// IPv4 deployments listen on port 67 (DHCPv4), IPv6 ones on 547 (DHCPv6),
+	// mixed-family ones on both; TFTP port 69 is unchanged.
+	hasV4, hasV6 := dhcpFamilies(dhcp)
+	checks := make([]string, 0, 3)
+	if hasV4 || !hasV6 {
+		checks = append(checks, "ss -lun | grep :67")
 	}
+	if hasV6 {
+		checks = append(checks, "ss -lun | grep :547")
+	}
+	checks = append(checks, "ss -lun | grep :69")
 
 	probe := newProbe(corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
-			Command: []string{"sh", "-c", fmt.Sprintf("ss -lun | grep :%d && ss -lun | grep :69", dhcpPort)},
+			Command: []string{"sh", "-c", strings.Join(checks, " && ")},
 		},
 	})
 
