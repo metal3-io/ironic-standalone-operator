@@ -187,6 +187,11 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return errors.New("credentialsName, host and name are required on database")
 	}
 
+	if ironic.Networking.DisableHostNetwork &&
+		(ironic.Networking.BindInterface || ironic.Networking.DHCP != nil || ironic.Networking.Interface != "" || ironic.Networking.IPAddress != "" || len(ironic.Networking.MACAddresses) > 0 || ironic.Networking.Keepalived != nil) {
+		return errors.New("networking.disableHostNetwork cannot be set to true together with networking.bindInterface or networking.dhcp or networking.interface or networking.ipAddress or networking.macAddresses or networking.keepalived")
+	}
+
 	if err := validateIP(ironic.Networking.IPAddress); err != nil {
 		return err
 	}
@@ -195,8 +200,15 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return err
 	}
 
-	if ironic.Networking.Ingress != nil && ironic.Networking.ExternalIP != "" {
-		return errors.New("networking.ingress and networking.externalIP cannot be set at the same time")
+	if ironic.Networking.ExternalIP != "" &&
+		(ironic.Networking.Ingress != nil || ironic.Networking.ExternalCallbackURL != "" || ironic.Networking.ImageServerExternalURL != "") {
+		return errors.New("networking.externalIP cannot be set together with networking.ingress or networking.externalCallbackURL or networking.imageServerExternalURL")
+	}
+
+	if ironic.Networking.Ingress == nil &&
+		((ironic.Networking.ImageServerExternalURL != "" && ironic.Networking.ExternalCallbackURL == "") ||
+			(ironic.Networking.ImageServerExternalURL == "" && ironic.Networking.ExternalCallbackURL != "")) {
+		return errors.New("when networking.ingress is not set, networking.externalCallbackURL and networking.imageServerExternalURL must be set together")
 	}
 
 	if ironic.HighAvailability && ironic.Networking.IPAddress != "" {
