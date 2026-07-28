@@ -510,6 +510,244 @@ func TestIronicPortEnvVars(t *testing.T) {
 	}
 }
 
+func TestProvisioningIPFieldRef(t *testing.T) {
+	testCases := []struct {
+		name               string
+		disableHostNetwork bool
+		expectedFieldPath  string
+	}{
+		{
+			name:               "host networking enabled uses hostIP",
+			disableHostNetwork: false,
+			expectedFieldPath:  "status.hostIP",
+		},
+		{
+			name:               "host networking disabled uses podIP",
+			disableHostNetwork: true,
+			expectedFieldPath:  "status.podIP",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						DisableHostNetwork: tc.disableHostNetwork,
+					},
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer, "ironic container should exist")
+
+			var provisioningIPEnv *corev1.EnvVar
+			for i := range ironicContainer.Env {
+				if ironicContainer.Env[i].Name == "PROVISIONING_IP" {
+					provisioningIPEnv = &ironicContainer.Env[i]
+					break
+				}
+			}
+			require.NotNil(t, provisioningIPEnv, "PROVISIONING_IP env var should be present")
+
+			require.NotNil(t, provisioningIPEnv.ValueFrom, "PROVISIONING_IP should be sourced from a fieldRef")
+			require.NotNil(t, provisioningIPEnv.ValueFrom.FieldRef, "PROVISIONING_IP should be sourced from a fieldRef")
+			assert.Equal(t, tc.expectedFieldPath, provisioningIPEnv.ValueFrom.FieldRef.FieldPath)
+			assert.Empty(t, provisioningIPEnv.Value, "PROVISIONING_IP should not have a static value when using fieldRef")
+		})
+	}
+}
+
+func TestHostNetworkPodSettings(t *testing.T) {
+	testCases := []struct {
+		name                string
+		disableHostNetwork  bool
+		expectedHostNetwork bool
+		expectedDNSPolicy   corev1.DNSPolicy
+	}{
+		{
+			name:                "host networking enabled",
+			disableHostNetwork:  false,
+			expectedHostNetwork: true,
+			expectedDNSPolicy:   corev1.DNSClusterFirstWithHostNet,
+		},
+		{
+			name:                "host networking disabled",
+			disableHostNetwork:  true,
+			expectedHostNetwork: false,
+			expectedDNSPolicy:   corev1.DNSClusterFirst,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						DisableHostNetwork: tc.disableHostNetwork,
+					},
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expectedHostNetwork, podTemplate.Spec.HostNetwork, "HostNetwork mismatch")
+			assert.Equal(t, tc.expectedDNSPolicy, podTemplate.Spec.DNSPolicy, "DNSPolicy mismatch")
+		})
+	}
+}
+
+func TestExternalURLEnvVars(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		ingress                *metal3api.Ingress
+		externalCallbackURL    string
+		imageServerExternalURL string
+		expectVarsSet          bool
+		expectedCallbackURL    string
+		expectedImageServerURL string
+	}{
+		{
+			name:                   "ingress only, URLs derived from ingress host",
+			ingress:                &metal3api.Ingress{Host: "ironic.example.com"},
+			expectVarsSet:          true,
+			expectedCallbackURL:    "https://ironic.example.com",
+			expectedImageServerURL: "https://ironic.example.com",
+		},
+		{
+			name:                   "ingress with externalCallbackURL override",
+			ingress:                &metal3api.Ingress{Host: "ironic.example.com"},
+			externalCallbackURL:    "https://callback.example.com",
+			expectVarsSet:          true,
+			expectedCallbackURL:    "https://callback.example.com",
+			expectedImageServerURL: "https://ironic.example.com",
+		},
+		{
+			name:                   "ingress with imageServerExternalURL override",
+			ingress:                &metal3api.Ingress{Host: "ironic.example.com"},
+			imageServerExternalURL: "https://image.example.com",
+			expectVarsSet:          true,
+			expectedCallbackURL:    "https://ironic.example.com",
+			expectedImageServerURL: "https://image.example.com",
+		},
+		{
+			name:                   "ingress with both URLs overridden",
+			ingress:                &metal3api.Ingress{Host: "ironic.example.com"},
+			externalCallbackURL:    "https://callback.example.com",
+			imageServerExternalURL: "https://image.example.com",
+			expectVarsSet:          true,
+			expectedCallbackURL:    "https://callback.example.com",
+			expectedImageServerURL: "https://image.example.com",
+		},
+		{
+			name:                   "no ingress, both external URLs provided",
+			externalCallbackURL:    "https://callback.example.com",
+			imageServerExternalURL: "https://image.example.com",
+			expectVarsSet:          true,
+			expectedCallbackURL:    "https://callback.example.com",
+			expectedImageServerURL: "https://image.example.com",
+		},
+		{
+			name:                "no ingress, only externalCallbackURL provided",
+			externalCallbackURL: "https://callback.example.com",
+			expectVarsSet:       false,
+		},
+		{
+			name:                   "no ingress, only imageServerExternalURL provided",
+			imageServerExternalURL: "https://image.example.com",
+			expectVarsSet:          false,
+		},
+		{
+			name:          "no ingress, no external URLs",
+			expectVarsSet: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("abcd"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Networking: metal3api.Networking{
+						Ingress:                tc.ingress,
+						ExternalCallbackURL:    tc.externalCallbackURL,
+						ImageServerExternalURL: tc.imageServerExternalURL,
+					},
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			var ironicContainer *corev1.Container
+			for i := range podTemplate.Spec.Containers {
+				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
+					ironicContainer = &podTemplate.Spec.Containers[i]
+					break
+				}
+			}
+			require.NotNil(t, ironicContainer, "ironic container should exist")
+
+			envMap := make(map[string]string)
+			for _, env := range ironicContainer.Env {
+				envMap[env.Name] = env.Value
+			}
+
+			if tc.expectVarsSet {
+				assert.Equal(t, tc.expectedCallbackURL, envMap["IRONIC_EXTERNAL_CALLBACK_URL"])
+				assert.Equal(t, tc.expectedImageServerURL, envMap["IRONIC_EXTERNAL_HTTP_URL"])
+			} else {
+				_, hasCallback := envMap["IRONIC_EXTERNAL_CALLBACK_URL"]
+				_, hasHTTP := envMap["IRONIC_EXTERNAL_HTTP_URL"]
+				assert.False(t, hasCallback, "IRONIC_EXTERNAL_CALLBACK_URL should not be set")
+				assert.False(t, hasHTTP, "IRONIC_EXTERNAL_HTTP_URL should not be set")
+			}
+		})
+	}
+}
+
 func TestPrometheusExporterEnvVars(t *testing.T) {
 	testCases := []struct {
 		name                   string

@@ -95,13 +95,17 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 		networkingProvided = true
 	}
 	if !networkingProvided {
+		fieldPath := "status.hostIP"
+		if ironic.Spec.Networking.DisableHostNetwork {
+			fieldPath = "status.podIP"
+		}
 		result = append(result,
 			corev1.EnvVar{
 				Name: "PROVISIONING_IP",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
 						APIVersion: "v1",
-						FieldPath:  "status.hostIP",
+						FieldPath:  fieldPath,
 					},
 				},
 			},
@@ -410,10 +414,25 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 
 	result = appendStringEnv(result, "IRONIC_EXTERNAL_IP", resources.Ironic.Spec.Networking.ExternalIP)
 
+	var externalCallbackURL, imageServerExternalURL string
 	if resources.Ironic.Spec.Networking.Ingress != nil {
-		ingressHost := resources.Ironic.Spec.Networking.Ingress.Host
-		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", "https://"+ingressHost)
-		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", "https://"+ingressHost)
+		externalCallbackURL = "https://" + resources.Ironic.Spec.Networking.Ingress.Host
+		imageServerExternalURL = "https://" + resources.Ironic.Spec.Networking.Ingress.Host
+		// allow overrides of the external URLs when ingress is used
+		if resources.Ironic.Spec.Networking.ExternalCallbackURL != "" {
+			externalCallbackURL = resources.Ironic.Spec.Networking.ExternalCallbackURL
+		}
+		if resources.Ironic.Spec.Networking.ImageServerExternalURL != "" {
+			imageServerExternalURL = resources.Ironic.Spec.Networking.ImageServerExternalURL
+		}
+	} else if resources.Ironic.Spec.Networking.ExternalCallbackURL != "" && resources.Ironic.Spec.Networking.ImageServerExternalURL != "" {
+		// only set the external URLs when both are provided, to avoid misconfiguration
+		externalCallbackURL = resources.Ironic.Spec.Networking.ExternalCallbackURL
+		imageServerExternalURL = resources.Ironic.Spec.Networking.ImageServerExternalURL
+	}
+	if externalCallbackURL != "" && imageServerExternalURL != "" {
+		result = appendStringEnv(result, "IRONIC_EXTERNAL_CALLBACK_URL", externalCallbackURL)
+		result = appendStringEnv(result, "IRONIC_EXTERNAL_HTTP_URL", imageServerExternalURL)
 	}
 
 	// Add sensor data environment variables when PrometheusExporter is enabled
@@ -1031,6 +1050,12 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
+	hostNetwork := !resources.Ironic.Spec.Networking.DisableHostNetwork
+	dnsPolicy := corev1.DNSClusterFirstWithHostNet
+	if !hostNetwork {
+		dnsPolicy = corev1.DNSClusterFirst
+	}
+
 	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -1041,12 +1066,11 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Annotations: annotations,
 		},
 		Spec: corev1.PodSpec{
-			Containers:     containers,
-			InitContainers: initContainers,
-			Volumes:        volumes,
-			// Ironic needs to be accessed by external machines
-			HostNetwork:                  true,
-			DNSPolicy:                    corev1.DNSClusterFirstWithHostNet,
+			Containers:                   containers,
+			InitContainers:               initContainers,
+			Volumes:                      volumes,
+			HostNetwork:                  hostNetwork,
+			DNSPolicy:                    dnsPolicy,
 			NodeSelector:                 resources.Ironic.Spec.NodeSelector,
 			AutomountServiceAccountToken: ptr.To(false),
 		},
