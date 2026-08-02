@@ -64,13 +64,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "37.0",
+					Version: "38.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version370,
-				IronicImage:            "quay.io/metal3-io/ironic:release-37.0",
+				InstalledVersion:       metal3api.Version380,
+				IronicImage:            "quay.io/metal3-io/ironic:release-38.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
@@ -81,13 +81,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "35.0",
+					Version: "37.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version350,
-				IronicImage:            "quay.io/metal3-io/ironic:release-35.0",
+				InstalledVersion:       metal3api.Version370,
+				IronicImage:            "quay.io/metal3-io/ironic:release-37.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
@@ -149,6 +149,12 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 		{
 			name:          "PrometheusExporter with version 37.0",
 			version:       metal3api.Version370,
+			enabled:       true,
+			expectedError: "",
+		},
+		{
+			name:          "PrometheusExporter with version 38.0",
+			version:       metal3api.Version380,
 			enabled:       true,
 			expectedError: "",
 		},
@@ -292,6 +298,11 @@ func TestBMCCAVersionCheck(t *testing.T) {
 		expectedError string
 	}{
 		{
+			name:          "BMCCA with version 38.0",
+			version:       metal3api.Version380,
+			expectedError: "",
+		},
+		{
 			name:          "BMCCA with version 37.0",
 			version:       metal3api.Version370,
 			expectedError: "",
@@ -368,6 +379,10 @@ func TestNetworkingVersionCheck(t *testing.T) {
 		{
 			name:    "networking with latest version",
 			version: metal3api.VersionLatest,
+		},
+		{
+			name:    "networking with version 38.0",
+			version: metal3api.Version380,
 		},
 		{
 			name:    "networking with version 37.0",
