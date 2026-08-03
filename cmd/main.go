@@ -159,7 +159,7 @@ func main() {
 
 	setupLog.Info("enabling features", "FeatureGate", metal3iov1alpha1.CurrentFeatureGate.String())
 
-	versionInfo, err := ironic.NewVersionInfo(ironicImages, ironicVersion, databaseImage)
+	versionInfo, err := ironic.NewVersionInfo(ironicImages, ironicVersion)
 	if err != nil {
 		setupLog.Error(err, "invalid ironic-version")
 		os.Exit(1)
