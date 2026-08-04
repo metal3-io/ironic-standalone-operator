@@ -14,7 +14,6 @@ const (
 var (
 	// NOTE(dtantsur): defaultVersion must be updated after branching.
 	defaultVersion                = metal3api.VersionLatest
-	defaultMariaDBImage           = defaultRegistry + "/mariadb:latest"
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
 
@@ -29,14 +28,13 @@ var (
 type VersionInfo struct {
 	InstalledVersion       metal3api.Version
 	IronicImage            string
-	MariaDBImage           string
 	RamdiskDownloaderImage string
 	AgentBranch            string
 	KeepalivedImage        string
 }
 
 // Creates a version info from images and version.
-func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databaseImage string) (result VersionInfo, err error) {
+func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string) (result VersionInfo, err error) {
 	if ironicVersion != "" {
 		parsedVersion, err := metal3api.ParseVersion(ironicVersion)
 		if err != nil {
@@ -68,12 +66,6 @@ func NewVersionInfo(ironicImages metal3api.Images, ironicVersion string, databas
 
 	if ironicImages.DeployRamdiskBranch != "" {
 		result.AgentBranch = ironicImages.DeployRamdiskBranch
-	}
-
-	if databaseImage != "" {
-		result.MariaDBImage = databaseImage
-	} else {
-		result.MariaDBImage = defaultMariaDBImage
 	}
 
 	return result, nil

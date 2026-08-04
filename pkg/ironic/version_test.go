@@ -32,7 +32,6 @@ func TestWithIronicOverrides(t *testing.T) {
 				IronicImage:            "quay.io/metal3-io/ironic:latest",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
-				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
 			},
 		},
 		{
@@ -56,7 +55,6 @@ func TestWithIronicOverrides(t *testing.T) {
 				IronicImage:            "myorg/ironic:tag",
 				KeepalivedImage:        "myorg/keepalived:tag",
 				RamdiskDownloaderImage: "myorg/ramdisk-downloader:tag",
-				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
 			},
 		},
 		{
@@ -73,7 +71,6 @@ func TestWithIronicOverrides(t *testing.T) {
 				IronicImage:            "quay.io/metal3-io/ironic:release-38.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
-				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
 			},
 		},
 		{
@@ -90,7 +87,6 @@ func TestWithIronicOverrides(t *testing.T) {
 				IronicImage:            "quay.io/metal3-io/ironic:release-37.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
-				MariaDBImage:           "quay.io/metal3-io/mariadb:latest",
 			},
 		},
 		{
@@ -108,7 +104,7 @@ func TestWithIronicOverrides(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			defaults, err := NewVersionInfo(tc.DefaultIronicImages, tc.DefaultIronicVersion, tc.DefaultDatabaseImage)
+			defaults, err := NewVersionInfo(tc.DefaultIronicImages, tc.DefaultIronicVersion)
 			require.NoError(t, err)
 			result, err := defaults.WithIronicOverrides(&tc.Ironic)
 			if tc.ExpectError != "" {

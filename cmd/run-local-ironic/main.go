@@ -84,7 +84,7 @@ func main() {
 		tempFile.Close() // Close immediately, we just need the name
 	}
 
-	versionInfo, err := ironic.NewVersionInfo(metal3api.Images{}, "", "")
+	versionInfo, err := ironic.NewVersionInfo(metal3api.Images{}, "")
 	if err != nil {
 		// This cannot happen in reality
 		setupLog.Error(err, "invalid ironic version")
