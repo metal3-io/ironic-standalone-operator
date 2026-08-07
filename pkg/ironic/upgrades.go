@@ -5,8 +5,11 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
@@ -115,25 +118,52 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 	}
 	toVersion := cctx.VersionInfo.InstalledVersion
 
+	name := fmt.Sprintf("%s-%s-%s-to-%s", resources.Ironic.Name, phase, fromVersion, cctx.VersionInfo.InstalledVersion)
+	template := newMigrationTemplate(cctx, resources.Ironic, phase)
+
+	// The Job's spec.template is immutable after creation. If a not-yet-started
+	// Job already exists with a stale template (e.g. an override was added
+	// after the Job was created), it has to be deleted and recreated instead
+	// of silently keeping the stale template forever.
+	var existing batchv1.Job
+	getErr := cctx.Client.Get(cctx.Context, client.ObjectKey{Name: name, Namespace: resources.Ironic.Namespace}, &existing)
+	switch {
+	case getErr == nil:
+		if existing.Status.StartTime == nil && !equality.Semantic.DeepEqual(existing.Spec.Template.Spec.Tolerations, template.Spec.Tolerations) {
+			cctx.Logger.Info("recreating upgrade job to pick up updated pod template", "Job", name, "Phase", phase)
+			if deleteErr := cctx.Client.Delete(cctx.Context, &existing); deleteErr != nil && !k8serrors.IsNotFound(deleteErr) {
+				return transientError(deleteErr)
+			}
+			return updated()
+		}
+	case k8serrors.IsNotFound(getErr):
+	default:
+		return transientError(getErr)
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s-to-%s", resources.Ironic.Name, phase, fromVersion, cctx.VersionInfo.InstalledVersion),
+			Name:      name,
 			Namespace: resources.Ironic.Namespace,
 		},
 	}
 
-	template := newMigrationTemplate(cctx, resources.Ironic, phase)
-
 	result, err := controllerutil.CreateOrUpdate(cctx.Context, cctx.Client, job, func() error {
-		if job.Labels == nil {
+		isNewJob := job.CreationTimestamp.IsZero()
+		if isNewJob {
 			cctx.Logger.Info("creating a new upgrade job", "Phase", phase, "From", fromVersion, "To", toVersion.String())
+		}
+		if job.Labels == nil {
 			job.Labels = make(map[string]string, 2)
 		}
 		job.Labels[metal3api.IronicServiceLabel] = resources.Ironic.Name
 		job.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
 		job.Spec.TTLSecondsAfterFinished = ptr.To(jobTTLSeconds)
-		mergePodTemplates(&job.Spec.Template, template)
+		if isNewJob {
+			// Job's spec.template is immutable after creation, so it can only be set here.
+			mergePodTemplates(&job.Spec.Template, template)
+		}
 		job.Spec.PodReplacementPolicy = ptr.To(batchv1.Failed)
 
 		return controllerutil.SetControllerReference(resources.Ironic, job, cctx.Scheme)
