@@ -16,6 +16,7 @@ jobs:
       CLUSTER_TYPE: minikube
       LOGDIR: /tmp/logs
       JUNIT_OUTPUT: /tmp/logs/report.xml
+      CONTAINER_RUNTIME: docker
     strategy:
       matrix:
         include:
