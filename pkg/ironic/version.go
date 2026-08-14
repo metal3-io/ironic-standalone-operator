@@ -13,12 +13,9 @@ const (
 
 var (
 	// NOTE(dtantsur): defaultVersion must be updated after branching.
-	defaultVersion                = metal3api.VersionLatest
+	defaultVersion                = metal3api.Version380
 	defaultRamdiskDownloaderImage = defaultRegistry + "/ironic-ipa-downloader:latest"
 	defaultKeepalivedImage        = defaultRegistry + "/keepalived:latest"
-
-	versionBMCCA      = metal3api.Version330
-	versionNetworking = metal3api.Version350
 
 	// versionMultiRangeDHCP gates ExtraRanges: split DHCP_RANGE and
 	// DHCP_OPTIONS support lands in Ironic 37.0.
@@ -113,14 +110,6 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 // requested features. Must be called before EnsureIronic or
 // EnsureIronicNetworking.
 func CheckVersion(resources Resources, version metal3api.Version) error {
-	if (resources.BMCCASecret != nil || resources.BMCCAConfigMap != nil) && version.Compare(versionBMCCA) < 0 {
-		return errors.New("using tls.bmcCA or tls.bmcCAName is only possible for Ironic 33.0 or newer")
-	}
-
-	if resources.Ironic.IsNetworkingServiceEnabled() && version.Compare(versionNetworking) < 0 {
-		return errors.New("networking service is only supported in Ironic 35.0 or newer")
-	}
-
 	if dhcp := resources.Ironic.Spec.Networking.DHCP; dhcp != nil && len(dhcp.ExtraRanges) > 0 && version.Compare(versionMultiRangeDHCP) < 0 {
 		return errors.New("networking.dhcp.extraRanges requires Ironic 37.0 or newer")
 	}
