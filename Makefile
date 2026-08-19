@@ -20,6 +20,8 @@ ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 APIS_DIR := api
 TEST_DIR := test
 BIN_DIR := bin
+TOOLS_DIR := hack/tools
+TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
 
 # CONTAINER_RUNTIME defines the container tool to be used for building images.
 CONTAINER_RUNTIME ?= docker
