@@ -3,6 +3,7 @@ package ironic
 import (
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 
@@ -113,6 +114,25 @@ func TestExpectedContainers(t *testing.T) {
 		},
 	}
 
+	privilegeEscalationAllowlist := []string{"dnsmasq", "keepalived"}
+
+	securityAsserts := func(cont *corev1.Container) {
+		assert.Truef(t, *cont.SecurityContext.ReadOnlyRootFilesystem,
+			"container %s must run with read only root filesystem", cont.Name)
+		assert.Falsef(t, ptr.Deref(cont.SecurityContext.Privileged, false),
+			"container %s must not run as privileged", cont.Name)
+		assert.NotEqualf(t, 0, ptr.Deref(cont.SecurityContext.RunAsUser, 0),
+			"container %s must use RunAsUser", cont.Name)
+		assert.NotEqualf(t, 0, ptr.Deref(cont.SecurityContext.RunAsUser, 0),
+			"container %s must use RunAsUser", cont.Name)
+		if !slices.Contains(privilegeEscalationAllowlist, cont.Name) {
+			// FIXME(dtantsur): true is the default, this statement only checks that we don't explicitly set it to true.
+			// Change the default in Deref to true once fixed.
+			assert.Falsef(t, ptr.Deref(cont.SecurityContext.AllowPrivilegeEscalation, false),
+				"container %s must not allow privilege escalations", cont.Name)
+		}
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
 			cctx := ControllerContext{}
@@ -137,6 +157,10 @@ func TestExpectedContainers(t *testing.T) {
 				var containerNames []string
 				for _, cont := range podTemplate.Spec.Containers {
 					containerNames = append(containerNames, cont.Name)
+					securityAsserts(&cont)
+				}
+				for _, cont := range podTemplate.Spec.InitContainers {
+					securityAsserts(&cont)
 				}
 
 				assert.ElementsMatch(t, tc.ExpectedContainerNames, containerNames)
