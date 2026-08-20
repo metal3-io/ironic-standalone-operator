@@ -2382,7 +2382,7 @@ func TestGatewayIPWithExtraRanges(t *testing.T) {
 			},
 		},
 	}
-	c := newDnsmasqContainer(VersionInfo{}, ironic)
+	c := newDnsmasqContainer(VersionInfo{}, ironic, corev1.VolumeMount{})
 	gotEnv := ""
 	for _, e := range c.Env {
 		if e.Name == "GATEWAY_IP" {
