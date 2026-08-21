@@ -233,6 +233,14 @@ guide](https://github.com/metal3-io/metal3-docs/tree/main/docs/user-guide/src):
 Milestones must also be updated in the Prow configuration
 ([example](https://github.com/metal3-io/project-infra/pull/1035)).
 
+### Update IrSO release used in BMO E2E tests
+
+Update the IrSO release used in BMO E2E tests to the new release version. Also
+consider updating the Ironic version(s), if the new IrSO release supports a newer
+Ironic version.
+
+[Prior art](https://github.com/metal3-io/baremetal-operator/pull/3466).
+
 ## Additional actions outside this repository
 
 Further additional actions are required in the Metal3 project after IrSO release.
