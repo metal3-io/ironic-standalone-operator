@@ -71,6 +71,7 @@ func TestBuildNetworkingDeployment(t *testing.T) {
 		ExpectTLSVolume                bool
 		ExpectTrustedCAVolume          bool
 		ExpectedSwitchConfigSecretName string
+		ExpectedTolerations            []corev1.Toleration
 	}{
 		{
 			Scenario: "basic networking deployment",
@@ -309,6 +310,47 @@ func TestBuildNetworkingDeployment(t *testing.T) {
 			},
 			ExpectedSwitchConfigSecretName: "custom-switch-config",
 		},
+		{
+			Scenario: "networking deployment with tolerations override",
+			Ironic: &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ironic",
+					Namespace: "test-namespace",
+				},
+				Spec: metal3api.IronicSpec{
+					NetworkingService: &metal3api.NetworkingService{
+						Enabled: true,
+					},
+					Overrides: &metal3api.Overrides{
+						Tolerations: []corev1.Toleration{
+							{
+								Key:      "node-role.kubernetes.io/control-plane",
+								Operator: corev1.TolerationOpExists,
+								Effect:   corev1.TaintEffectNoSchedule,
+							},
+						},
+					},
+				},
+			},
+			SwitchConfigSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-ironic-switch-config",
+					ResourceVersion: "123",
+				},
+			},
+			APISecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-api-cert",
+				},
+			},
+			ExpectedTolerations: []corev1.Toleration{
+				{
+					Key:      "node-role.kubernetes.io/control-plane",
+					Operator: corev1.TolerationOpExists,
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -402,6 +444,9 @@ func TestBuildNetworkingDeployment(t *testing.T) {
 
 			// Verify hostNetwork is false (no privileged networking)
 			assert.False(t, deployment.Spec.Template.Spec.HostNetwork)
+
+			// Verify tolerations override propagates to the networking pod
+			assert.Equal(t, tc.ExpectedTolerations, deployment.Spec.Template.Spec.Tolerations)
 
 			// Verify volumes
 			volumeMap := make(map[string]corev1.Volume)

@@ -120,6 +120,7 @@ func mergePodTemplates(target *corev1.PodTemplateSpec, source corev1.PodTemplate
 	if source.Spec.NodeSelector != nil {
 		target.Spec.NodeSelector = source.Spec.NodeSelector
 	}
+	target.Spec.Tolerations = source.Spec.Tolerations
 	if source.Spec.RestartPolicy != "" {
 		target.Spec.RestartPolicy = source.Spec.RestartPolicy
 	}
@@ -431,6 +432,10 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 
 	// Merge volumes: replace if name matches, otherwise append
 	podTemplate.Spec.Volumes = applyVolumeOverrides(podTemplate.Spec.Volumes, overrides.Volumes)
+
+	if overrides.Tolerations != nil {
+		podTemplate.Spec.Tolerations = overrides.Tolerations
+	}
 
 	return podTemplate
 }
