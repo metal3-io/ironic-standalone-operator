@@ -623,34 +623,37 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 	return volumes, mounts
 }
 
+func containerPort(name string, port int32, disableHostNetwork bool) corev1.ContainerPort {
+	result := corev1.ContainerPort{
+		Name:          name,
+		Protocol:      corev1.ProtocolTCP,
+		ContainerPort: port,
+	}
+	if !disableHostNetwork {
+		result.HostPort = port
+	}
+	return result
+}
+
 func buildIronicHttpdPorts(ironic *metal3api.Ironic) (ironicPorts []corev1.ContainerPort, httpdPorts []corev1.ContainerPort) {
 	httpdPorts = []corev1.ContainerPort{
-		{
-			Name:          imagesPortName,
-			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: ironic.Spec.Networking.ImageServerPort,
-			HostPort:      ironic.Spec.Networking.ImageServerPort,
-		},
+		containerPort(imagesPortName, ironic.Spec.Networking.ImageServerPort,
+			ironic.Spec.Networking.DisableHostNetwork),
 	}
 
-	apiPort := corev1.ContainerPort{
-		Name:          ironicPortName,
-		Protocol:      corev1.ProtocolTCP,
-		ContainerPort: ironic.Spec.Networking.APIPort,
-		HostPort:      ironic.Spec.Networking.APIPort,
-	}
+	apiPort := containerPort(ironicPortName, ironic.Spec.Networking.APIPort,
+		ironic.Spec.Networking.DisableHostNetwork)
 
 	if ironic.Spec.TLS.CertificateName == "" {
 		ironicPorts = append(ironicPorts, apiPort)
 	} else {
 		httpdPorts = append(httpdPorts, apiPort)
 		if !ironic.Spec.TLS.DisableVirtualMediaTLS {
-			httpdPorts = append(httpdPorts, corev1.ContainerPort{
-				Name:          imagesTLSPortName,
-				Protocol:      corev1.ProtocolTCP,
-				ContainerPort: ironic.Spec.Networking.ImageServerTLSPort,
-				HostPort:      ironic.Spec.Networking.ImageServerTLSPort,
-			})
+			httpdPorts = append(httpdPorts, containerPort(
+				imagesTLSPortName,
+				ironic.Spec.Networking.ImageServerTLSPort,
+				ironic.Spec.Networking.DisableHostNetwork),
+			)
 		}
 	}
 
@@ -992,10 +995,31 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 	return container
 }
 
+func enforcePortValues(networking *metal3api.Networking) {
+	if networking.APIPort == 0 {
+		networking.APIPort = 6385
+	}
+	if networking.ImageServerPort == 0 {
+		networking.ImageServerPort = 6180
+	}
+	if networking.ImageServerTLSPort == 0 {
+		networking.ImageServerTLSPort = 6183
+	}
+	if networking.PrometheusExporterPort == 0 {
+		networking.PrometheusExporterPort = 9608
+	}
+	if networking.RPCPort == 0 {
+		networking.RPCPort = 6189
+	}
+}
+
 func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.PodTemplateSpec, error) {
 	if len(resources.APISecret.Data[htpasswdKey]) == 0 {
 		return corev1.PodTemplateSpec{}, errors.New("no htpasswd in the API secret")
 	}
+
+	// Sanity: ensure port values are correct even if the webhook is disabled/malfunctioning
+	enforcePortValues(&resources.Ironic.Spec.Networking)
 
 	var ipaDownloaderVars []corev1.EnvVar
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,

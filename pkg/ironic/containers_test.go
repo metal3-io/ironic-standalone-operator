@@ -3,6 +3,8 @@ package ironic
 import (
 	"fmt"
 	"net/netip"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,7 +19,10 @@ import (
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
-const ironicContainerName = "ironic"
+const (
+	ironicContainerName = "ironic"
+	httpdContainerName  = "httpd"
+)
 
 func TestExpectedContainers(t *testing.T) {
 	testCases := []struct {
@@ -432,24 +437,84 @@ func TestTrustedCAConfigMap(t *testing.T) {
 	}
 }
 
-func TestIronicPortEnvVars(t *testing.T) {
+func TestIronicPorts(t *testing.T) {
 	testCases := []struct {
-		name               string
-		apiPort            int32
-		expectedListenPort string
-		expectedAccessPort string
+		name                string
+		spec                metal3api.IronicSpec
+		expectedPort        int32
+		expectedIronicPorts []int32
+		expectedHttpdPorts  []int32
+		expectNoHostPort    bool
 	}{
 		{
-			name:               "standard API port",
-			apiPort:            6385,
-			expectedListenPort: "6385",
-			expectedAccessPort: "6385",
+			name: "standard API port",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{},
+			},
+			expectedPort:        6385,
+			expectedIronicPorts: []int32{6385},
+			expectedHttpdPorts:  []int32{6180},
 		},
 		{
-			name:               "custom API port",
-			apiPort:            6388,
-			expectedListenPort: "6388",
-			expectedAccessPort: "6388",
+			name: "standard API port without host networking",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DisableHostNetwork: true,
+				},
+			},
+			expectedPort:        6385,
+			expectedIronicPorts: []int32{6385},
+			expectedHttpdPorts:  []int32{6180},
+			expectNoHostPort:    true,
+		},
+		{
+			name: "custom API port",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					APIPort: 6388,
+				},
+			},
+			expectedPort:        6388,
+			expectedIronicPorts: []int32{6388},
+			expectedHttpdPorts:  []int32{6180},
+		},
+		{
+			name: "custom HTTPD port",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					ImageServerPort: 6388,
+				},
+			},
+			expectedPort:        6385,
+			expectedIronicPorts: []int32{6385},
+			expectedHttpdPorts:  []int32{6388},
+		},
+		{
+			name: "standard API port with TLS",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{},
+				TLS: metal3api.TLS{
+					CertificateName: "my-tls",
+				},
+			},
+			expectedPort:        6385,
+			expectedIronicPorts: []int32{},
+			expectedHttpdPorts:  []int32{6180, 6183, 6385},
+		},
+		{
+			name: "standard API port with TLS without host networking",
+			spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					DisableHostNetwork: true,
+				},
+				TLS: metal3api.TLS{
+					CertificateName: "my-tls",
+				},
+			},
+			expectedPort:        6385,
+			expectedIronicPorts: []int32{},
+			expectedHttpdPorts:  []int32{6180, 6183, 6385},
+			expectNoHostPort:    true,
 		},
 	}
 
@@ -466,47 +531,61 @@ func TestIronicPortEnvVars(t *testing.T) {
 					Namespace: "test",
 					Name:      "test",
 				},
-				Spec: metal3api.IronicSpec{
-					Networking: metal3api.Networking{
-						APIPort: tc.apiPort,
-					},
-				},
+				Spec: tc.spec,
 			}
 
 			resources := Resources{Ironic: ironic, APISecret: secret}
 			podTemplate, err := newIronicPodTemplate(cctx, resources)
 			require.NoError(t, err)
 
-			// Find the ironic container
-			var ironicContainer *corev1.Container
-			for i := range podTemplate.Spec.Containers {
-				if podTemplate.Spec.Containers[i].Name == ironicContainerName {
-					ironicContainer = &podTemplate.Spec.Containers[i]
-					break
+			var ironicContainer, httpdContainer *corev1.Container
+			for _, cont := range podTemplate.Spec.Containers {
+				if cont.Name == ironicContainerName {
+					ironicContainer = new(cont)
+				}
+				if cont.Name == httpdContainerName {
+					httpdContainer = new(cont)
 				}
 			}
 			require.NotNil(t, ironicContainer, "ironic container should exist")
+			require.NotNil(t, httpdContainer, "httpd container should exist")
+
+			collectPorts := func(cont *corev1.Container) []int32 {
+				result := make([]int32, 0, len(cont.Ports))
+				for _, port := range cont.Ports {
+					result = append(result, port.ContainerPort)
+					expectedHostPort := port.ContainerPort
+					if tc.expectNoHostPort {
+						expectedHostPort = 0
+					}
+					assert.Equal(t, expectedHostPort, port.HostPort)
+				}
+				return result
+			}
+
+			// Check for configured ports
+			ironicPorts := collectPorts(ironicContainer)
+			httpdPorts := collectPorts(httpdContainer)
+			slices.Sort(ironicPorts)
+			slices.Sort(httpdPorts)
+
+			assert.Equal(t, tc.expectedIronicPorts, ironicPorts)
+			assert.Equal(t, tc.expectedHttpdPorts, httpdPorts)
 
 			// Check for IRONIC_LISTEN_PORT and IRONIC_ACCESS_PORT env vars
-			var foundListenPort, foundAccessPort bool
 			var listenPortValue, accessPortValue string
 			for _, env := range ironicContainer.Env {
 				if env.Name == "IRONIC_LISTEN_PORT" {
-					foundListenPort = true
 					listenPortValue = env.Value
 				}
 				if env.Name == "IRONIC_ACCESS_PORT" {
-					foundAccessPort = true
 					accessPortValue = env.Value
 				}
 			}
 
-			assert.True(t, foundListenPort, "IRONIC_LISTEN_PORT env var should be present")
-			assert.True(t, foundAccessPort, "IRONIC_ACCESS_PORT env var should be present")
-			assert.Equal(t, tc.expectedListenPort, listenPortValue, "IRONIC_LISTEN_PORT value mismatch")
-			assert.Equal(t, tc.expectedAccessPort, accessPortValue, "IRONIC_ACCESS_PORT value mismatch")
-			// Both ports should always be the same
-			assert.Equal(t, listenPortValue, accessPortValue, "IRONIC_LISTEN_PORT and IRONIC_ACCESS_PORT should have the same value")
+			expectedPort := strconv.Itoa(int(tc.expectedPort))
+			assert.Equal(t, expectedPort, listenPortValue, "IRONIC_LISTEN_PORT value mismatch")
+			assert.Equal(t, expectedPort, accessPortValue, "IRONIC_ACCESS_PORT value mismatch")
 		})
 	}
 }
