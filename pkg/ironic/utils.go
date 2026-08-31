@@ -494,3 +494,18 @@ func volumeForSecretOrConfigMap(name string, secret *corev1.Secret, configMap *c
 
 	return nil
 }
+
+// A version of net.JoinHostPort that has an optional port and schema.
+func joinURL(scheme, host, port string) string {
+	result := host
+	if strings.Contains(result, ":") {
+		result = "[" + result + "]"
+	}
+	if scheme != "" {
+		result = scheme + "://" + result
+	}
+	if port != "" {
+		result = result + ":" + port
+	}
+	return result
+}

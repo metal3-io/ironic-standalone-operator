@@ -313,6 +313,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return err
 	}
 
+	if err := validateIP(ironic.Networking.AccessIP); err != nil {
+		return err
+	}
+
 	if err := validateIP(ironic.Networking.ExternalIP); err != nil {
 		return err
 	}
@@ -330,6 +334,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.HighAvailability && ironic.Networking.IPAddress != "" {
 		return errors.New("networking.ipAddress makes no sense with highly available architecture")
+	}
+
+	if ironic.HighAvailability && ironic.Networking.AccessIP != "" {
+		return errors.New("networking.accessIP cannot be used with highly available architecture")
 	}
 
 	if ironic.Networking.DHCP != nil {
