@@ -33,7 +33,7 @@ fi
 
 mkdir -p "${LOGDIR}"
 make build-run-local-ironic
-sudo ./bin/run-local-ironic --input "${IRONIC}" \
+sudo timeout 5m ./bin/run-local-ironic --input "${IRONIC}" \
     --output "${LOGDIR}/generated-${SCENARIO}.yaml" --verbose
 
 # podman returns before containers fully start, so give it a graceful period
