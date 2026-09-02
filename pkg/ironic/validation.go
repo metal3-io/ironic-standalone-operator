@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
@@ -81,6 +84,48 @@ func validateURL(urlStr string, fieldName string) error {
 		}
 	default:
 		return fmt.Errorf("%s: unsupported protocol %q (must be file://, http://, https://, or oci://)", fieldName, parsed.Scheme)
+	}
+
+	return nil
+}
+
+func validateTolerations(tolerations []corev1.Toleration) error {
+	for i, t := range tolerations {
+		switch t.Operator {
+		case "", corev1.TolerationOpEqual, corev1.TolerationOpExists, corev1.TolerationOpLt, corev1.TolerationOpGt:
+		default:
+			return fmt.Errorf("overrides.tolerations[%d]: invalid operator %q", i, t.Operator)
+		}
+
+		if t.Key == "" && t.Operator != corev1.TolerationOpExists {
+			return fmt.Errorf("overrides.tolerations[%d]: operator must be %q when key is empty", i, corev1.TolerationOpExists)
+		}
+
+		if t.Key != "" {
+			if errs := validation.IsQualifiedName(t.Key); len(errs) > 0 {
+				return fmt.Errorf("overrides.tolerations[%d]: invalid key %q: %s", i, t.Key, strings.Join(errs, "; "))
+			}
+		}
+
+		if t.Operator == corev1.TolerationOpExists && t.Value != "" {
+			return fmt.Errorf("overrides.tolerations[%d]: value must be empty when operator is %q", i, corev1.TolerationOpExists)
+		}
+
+		if t.Value != "" {
+			if errs := validation.IsValidLabelValue(t.Value); len(errs) > 0 {
+				return fmt.Errorf("overrides.tolerations[%d]: invalid value %q: %s", i, t.Value, strings.Join(errs, "; "))
+			}
+		}
+
+		switch t.Effect {
+		case "", corev1.TaintEffectNoSchedule, corev1.TaintEffectPreferNoSchedule, corev1.TaintEffectNoExecute:
+		default:
+			return fmt.Errorf("overrides.tolerations[%d]: invalid effect %q", i, t.Effect)
+		}
+
+		if t.TolerationSeconds != nil && t.Effect != corev1.TaintEffectNoExecute {
+			return fmt.Errorf("overrides.tolerations[%d]: tolerationSeconds is only valid with effect %q", i, corev1.TaintEffectNoExecute)
+		}
 	}
 
 	return nil
@@ -417,6 +462,9 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Overrides != nil {
 		if err := validateAgentImages(ironic.Overrides.AgentImages); err != nil {
+			return err
+		}
+		if err := validateTolerations(ironic.Overrides.Tolerations); err != nil {
 			return err
 		}
 	}
