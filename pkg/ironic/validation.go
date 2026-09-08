@@ -396,6 +396,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
+	if ironic.PrometheusExporter != nil && ironic.PrometheusExporter.Enabled && !metal3api.CurrentFeatureGate.Enabled(metal3api.FeaturePrometheusExporter) {
+		return errors.New("Prometheus exporter is disabled via feature gate") //nolint:staticcheck // Prometheus is capitalized as a proper name
+	}
+
 	if ironic.HighAvailability && !metal3api.CurrentFeatureGate.Enabled(metal3api.FeatureHighAvailability) {
 		return errors.New("highly available architecture is disabled via feature gate")
 	}
