@@ -2,8 +2,8 @@ name: Periodic Functional Tests release-0.10
 
 on:
   schedule:
-  # Run every day at 03:25 UTC (it is recommended to avoid running at the start of the hour)
-  - cron: '25 3 * * *'
+  # Run every day at 05:20 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '20 5 * * *'
   workflow_dispatch:
 
 permissions: {}
