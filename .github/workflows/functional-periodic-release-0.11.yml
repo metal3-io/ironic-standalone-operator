@@ -1,9 +1,9 @@
-name: Periodic Functional Tests release-0.7
+name: Periodic Functional Tests release-0.11
 
 on:
   schedule:
-  # Run every day at 05:20 UTC (it is recommended to avoid running at the start of the hour)
-  - cron: '20 5 * * *'
+  # Run every day at 04:20 UTC (it is recommended to avoid running at the start of the hour)
+  - cron: '20 4 * * *'
   workflow_dispatch:
 
 permissions: {}
@@ -13,7 +13,7 @@ jobs:
     if: github.repository == 'metal3-io/ironic-standalone-operator'
     uses: ./.github/workflows/functional.yml
     with:
-      ref: release-0.7
+      ref: release-0.11
       fail-fast: false
     permissions:
       checks: write
