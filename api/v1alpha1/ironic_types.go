@@ -581,6 +581,10 @@ type Overrides struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
+	// Tolerations to add to each pod (including upgrade jobs), e.g. to allow scheduling on control plane nodes.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
 	// Volumes to add to the main Ironic pod (and upgrade jobs).
 	// Use this together with volumeMounts on overridden containers to mount
 	// additional ConfigMaps, Secrets or PersistentVolumeClaims.

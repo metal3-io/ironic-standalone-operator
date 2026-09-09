@@ -237,6 +237,11 @@ func buildNetworkingDeployment(cctx ControllerContext, resources Resources) *app
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
 
+	var tolerations []corev1.Toleration
+	if resources.Ironic.Spec.Overrides != nil {
+		tolerations = resources.Ironic.Spec.Overrides.Tolerations
+	}
+
 	podTemplate := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      labels,
@@ -248,6 +253,7 @@ func buildNetworkingDeployment(cctx ControllerContext, resources Resources) *app
 			},
 			Volumes:      volumes,
 			NodeSelector: resources.Ironic.Spec.NodeSelector,
+			Tolerations:  tolerations,
 		},
 	}
 

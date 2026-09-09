@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -1417,6 +1418,128 @@ func TestValidateIronic(t *testing.T) {
 				},
 			},
 			ExpectedError: "duplicate provider network type",
+		},
+		{
+			Scenario: "valid toleration with Exists operator and no key",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "valid toleration with key and Equal operator",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "node-role.kubernetes.io/control-plane",
+							Operator: corev1.TolerationOpEqual,
+							Value:    "true",
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "valid toleration with tolerationSeconds and NoExecute",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               "example.com/taint",
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoExecute,
+							TolerationSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "toleration with invalid operator",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Key: "example.com/taint", Operator: "Invalid"},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: invalid operator "Invalid"`,
+		},
+		{
+			Scenario: "toleration with empty key and non-Exists operator",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpEqual, Value: "true"},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: operator must be "Exists" when key is empty`,
+		},
+		{
+			Scenario: "toleration with invalid key",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Key: "not a valid key!", Operator: corev1.TolerationOpExists},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: invalid key "not a valid key!"`,
+		},
+		{
+			Scenario: "toleration with value set on Exists operator",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Key: "example.com/taint", Operator: corev1.TolerationOpExists, Value: "true"},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: value must be empty when operator is "Exists"`,
+		},
+		{
+			Scenario: "toleration with invalid value",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Key: "example.com/taint", Operator: corev1.TolerationOpEqual, Value: "not valid!"},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: invalid value "not valid!"`,
+		},
+		{
+			Scenario: "toleration with invalid effect",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{Key: "example.com/taint", Operator: corev1.TolerationOpExists, Effect: "Invalid"},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: invalid effect "Invalid"`,
+		},
+		{
+			Scenario: "toleration with tolerationSeconds on non-NoExecute effect",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:               "example.com/taint",
+							Operator:          corev1.TolerationOpExists,
+							Effect:            corev1.TaintEffectNoSchedule,
+							TolerationSeconds: ptr.To(int64(30)),
+						},
+					},
+				},
+			},
+			ExpectedError: `overrides.tolerations[0]: tolerationSeconds is only valid with effect "NoExecute"`,
 		},
 	}
 

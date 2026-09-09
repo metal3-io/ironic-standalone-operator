@@ -620,3 +620,80 @@ func TestApplyOverridesToPod(t *testing.T) {
 		})
 	}
 }
+
+func TestMergePodTemplatesTolerations(t *testing.T) {
+	toleration := corev1.Toleration{
+		Key:      "node-role.kubernetes.io/control-plane",
+		Operator: corev1.TolerationOpExists,
+		Effect:   corev1.TaintEffectNoSchedule,
+	}
+
+	t.Run("adds tolerations", func(t *testing.T) {
+		target := corev1.PodTemplateSpec{}
+		source := corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{Tolerations: []corev1.Toleration{toleration}},
+		}
+
+		mergePodTemplates(&target, source)
+
+		assert.Equal(t, []corev1.Toleration{toleration}, target.Spec.Tolerations)
+	})
+
+	t.Run("clears tolerations that are no longer configured", func(t *testing.T) {
+		target := corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{Tolerations: []corev1.Toleration{toleration}},
+		}
+		source := corev1.PodTemplateSpec{}
+
+		mergePodTemplates(&target, source)
+
+		assert.Nil(t, target.Spec.Tolerations)
+	})
+}
+
+func TestApplyOverridesToPodTolerations(t *testing.T) {
+	initial := corev1.PodTemplateSpec{}
+
+	testCases := []struct {
+		Scenario string
+
+		Overrides *metal3api.Overrides
+
+		ExpectedTolerations []corev1.Toleration
+	}{
+		{
+			Scenario: "No overrides",
+		},
+		{
+			Scenario:  "Empty overrides",
+			Overrides: &metal3api.Overrides{},
+		},
+		{
+			Scenario: "Add tolerations",
+			Overrides: &metal3api.Overrides{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "node-role.kubernetes.io/control-plane",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
+			},
+			ExpectedTolerations: []corev1.Toleration{
+				{
+					Key:      "node-role.kubernetes.io/control-plane",
+					Operator: corev1.TolerationOpExists,
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			result := applyOverridesToPod(tc.Overrides, *initial.DeepCopy())
+
+			assert.Equal(t, tc.ExpectedTolerations, result.Spec.Tolerations)
+		})
+	}
+}
