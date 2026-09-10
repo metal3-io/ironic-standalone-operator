@@ -6,14 +6,16 @@ import (
 )
 
 const (
-	FeatureHighAvailability featuregate.Feature = "HighAvailability"
-	FeatureOverrides        featuregate.Feature = "Overrides"
+	FeatureHighAvailability   featuregate.Feature = "HighAvailability"
+	FeatureOverrides          featuregate.Feature = "Overrides"
+	FeaturePrometheusExporter featuregate.Feature = "PrometheusExporter"
 )
 
 var (
 	availableFeatures = map[featuregate.Feature]featuregate.FeatureSpec{
-		FeatureHighAvailability: {Default: false, PreRelease: featuregate.Beta},
-		FeatureOverrides:        {Default: false, PreRelease: featuregate.Beta},
+		FeatureHighAvailability:   {Default: false, PreRelease: featuregate.Beta},
+		FeatureOverrides:          {Default: false, PreRelease: featuregate.Beta},
+		FeaturePrometheusExporter: {Default: true, PreRelease: featuregate.Beta},
 	}
 
 	CurrentFeatureGate = featuregate.NewFeatureGate()

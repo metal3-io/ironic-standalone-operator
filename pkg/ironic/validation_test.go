@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
@@ -1962,4 +1963,25 @@ func TestValidateProviderNetwork(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateIronicPrometheusExporterFeatureGate(t *testing.T) {
+	require.NoError(t, metal3api.CurrentFeatureGate.SetFromMap(map[string]bool{string(metal3api.FeaturePrometheusExporter): false}))
+	t.Cleanup(func() {
+		require.NoError(t, metal3api.CurrentFeatureGate.SetFromMap(map[string]bool{string(metal3api.FeaturePrometheusExporter): true}))
+	})
+
+	t.Run("enabled exporter rejected when gate is off", func(t *testing.T) {
+		err := ValidateIronic(&metal3api.IronicSpec{
+			PrometheusExporter: &metal3api.PrometheusExporter{Enabled: true},
+		}, nil)
+		assert.ErrorContains(t, err, "Prometheus exporter is disabled via feature gate")
+	})
+
+	t.Run("disabled exporter accepted when gate is off", func(t *testing.T) {
+		err := ValidateIronic(&metal3api.IronicSpec{
+			PrometheusExporter: &metal3api.PrometheusExporter{Enabled: false},
+		}, nil)
+		assert.NoError(t, err)
+	})
 }
