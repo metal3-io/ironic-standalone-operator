@@ -603,6 +603,7 @@ type PrometheusExporter struct {
 	// Enabled controls whether sensor data collection and metrics export is active.
 	// When true, configures Ironic to collect sensor data and deploys the
 	// ironic-prometheus-exporter container.
+	// Requires the PrometheusExporter feature gate to be set.
 	Enabled bool `json:"enabled"`
 
 	// BindAddress is the IP address the metrics endpoint listens on.
@@ -682,6 +683,7 @@ type IronicSpec struct {
 	// PrometheusExporter configures sensor data collection and Prometheus metrics export.
 	// When enabled, this configures Ironic to collect sensor data and deploys the
 	// ironic-prometheus-exporter container.
+	// Requires the PrometheusExporter feature gate to be set.
 	// +optional
 	PrometheusExporter *PrometheusExporter `json:"prometheusExporter,omitempty"`
 

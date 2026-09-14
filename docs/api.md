@@ -175,7 +175,8 @@ EXPERIMENTAL: requires feature gate Overrides.<br/>
         <td>
           PrometheusExporter configures sensor data collection and Prometheus metrics export.
 When enabled, this configures Ironic to collect sensor data and deploys the
-ironic-prometheus-exporter container.<br/>
+ironic-prometheus-exporter container.
+Requires the PrometheusExporter feature gate to be set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11850,6 +11851,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 PrometheusExporter configures sensor data collection and Prometheus metrics export.
 When enabled, this configures Ironic to collect sensor data and deploys the
 ironic-prometheus-exporter container.
+Requires the PrometheusExporter feature gate to be set.
 
 <table>
     <thead>
@@ -11866,7 +11868,8 @@ ironic-prometheus-exporter container.
         <td>
           Enabled controls whether sensor data collection and metrics export is active.
 When true, configures Ironic to collect sensor data and deploys the
-ironic-prometheus-exporter container.<br/>
+ironic-prometheus-exporter container.
+Requires the PrometheusExporter feature gate to be set.<br/>
         </td>
         <td>true</td>
       </tr><tr>
