@@ -39,6 +39,12 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    controller-runtime:
+      patterns: ["sigs.k8s.io/controller-runtime"]
+    sigs-yaml:
+      patterns: ["sigs.k8s.io/yaml"]
+    testify:
+      patterns: ["github.com/stretchr/testify"]
   ignore:
   # Ignore controller-runtime major and minor bumps as its upgraded manually.
   - dependency-name: "sigs.k8s.io/controller-runtime"
@@ -92,6 +98,12 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    controller-runtime:
+      patterns: ["sigs.k8s.io/controller-runtime"]
+    sigs-yaml:
+      patterns: ["sigs.k8s.io/yaml"]
+    testify:
+      patterns: ["github.com/stretchr/testify"]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
@@ -144,6 +156,12 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    controller-runtime:
+      patterns: ["sigs.k8s.io/controller-runtime"]
+    sigs-yaml:
+      patterns: ["sigs.k8s.io/yaml"]
+    testify:
+      patterns: ["github.com/stretchr/testify"]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
@@ -196,6 +214,12 @@ updates:
   groups:
     kubernetes:
       patterns: ["k8s.io/*"]
+    controller-runtime:
+      patterns: ["sigs.k8s.io/controller-runtime"]
+    sigs-yaml:
+      patterns: ["sigs.k8s.io/yaml"]
+    testify:
+      patterns: ["github.com/stretchr/testify"]
   ignore:
   # golang.org/x/* only releases minors no patches, so minors have to be allowed
   - dependency-name: "golang.org/x/*"
