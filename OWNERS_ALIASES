@@ -8,4 +8,5 @@ aliases:
   - Rozzii
   - tuminoid
 
-  # ironic-standalone-operator-reviewers:
+  ironic-standalone-operator-reviewers:
+  - smoshiur1237
