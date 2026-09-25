@@ -22,8 +22,14 @@ func ensureIronicIngress(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 		ingress.Labels[metal3api.IronicServiceLabel] = ironic.Name
 		ingress.Labels[metal3api.IronicVersionLabel] = cctx.VersionInfo.InstalledVersion.String()
 
-		if ingressSettings.Annotations != nil {
-			ingress.SetAnnotations(ingressSettings.Annotations)
+		// Merge instead of replacing: other controllers (ingress controllers,
+		// cluster management, external-dns) add their own annotations and would
+		// lose them on every reconcile.
+		if len(ingressSettings.Annotations) > 0 && ingress.Annotations == nil {
+			ingress.Annotations = make(map[string]string, len(ingressSettings.Annotations))
+		}
+		for key, value := range ingressSettings.Annotations {
+			ingress.Annotations[key] = value
 		}
 		if ingressSettings.IngressClassName != "" {
 			ingress.Spec.IngressClassName = &ingressSettings.IngressClassName
