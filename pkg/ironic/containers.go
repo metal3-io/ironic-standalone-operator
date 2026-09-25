@@ -783,7 +783,7 @@ func dhcpFamilies(dhcp *metal3api.DHCP) (hasV4, hasV6 bool) {
 	return
 }
 
-func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
+func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic, sharedVolumeMount corev1.VolumeMount) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
 	envVars := buildCommonEnvVars(ironic)
@@ -824,13 +824,15 @@ func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) core
 	})
 
 	return corev1.Container{
-		Name:    "dnsmasq",
-		Image:   versionInfo.IronicImage,
-		Command: []string{"/bin/rundnsmasq"},
-		Env:     envVars,
+		Name:         "dnsmasq",
+		Image:        versionInfo.IronicImage,
+		Command:      []string{"/bin/rundnsmasq"},
+		Env:          envVars,
+		VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:                ptr.To(ironicUser),
 			RunAsGroup:               ptr.To(ironicGroup),
+			ReadOnlyRootFilesystem:   ptr.To(true),
 			AllowPrivilegeEscalation: ptr.To(true),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
@@ -899,6 +901,7 @@ func newKeepalivedContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) c
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:                ptr.To(keepalivedUser),
 			RunAsGroup:               ptr.To(keepalivedGroup),
+			ReadOnlyRootFilesystem:   ptr.To(true),
 			Privileged:               ptr.To(false),
 			AllowPrivilegeEscalation: ptr.To(true),
 			Capabilities: &corev1.Capabilities{
@@ -950,8 +953,9 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 		},
 		VolumeMounts: []corev1.VolumeMount{volumeMount},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  ptr.To(ironicUser),
-			RunAsGroup: ptr.To(ironicGroup),
+			RunAsUser:              ptr.To(ironicUser),
+			RunAsGroup:             ptr.To(ironicGroup),
+			ReadOnlyRootFilesystem: ptr.To(true),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 			},
@@ -1048,8 +1052,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Env:          ipaDownloaderVars,
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  ptr.To(ironicUser),
-				RunAsGroup: ptr.To(ironicGroup),
+				RunAsUser:              ptr.To(ironicUser),
+				RunAsGroup:             ptr.To(ironicGroup),
+				ReadOnlyRootFilesystem: ptr.To(true),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -1091,8 +1096,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Env:          ironicEnvVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  ptr.To(ironicUser),
-				RunAsGroup: ptr.To(ironicGroup),
+				RunAsUser:              ptr.To(ironicUser),
+				RunAsGroup:             ptr.To(ironicGroup),
+				ReadOnlyRootFilesystem: ptr.To(true),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -1108,8 +1114,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Env:          httpdEnvVars,
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  ptr.To(ironicUser),
-				RunAsGroup: ptr.To(ironicGroup),
+				RunAsUser:              ptr.To(ironicUser),
+				RunAsGroup:             ptr.To(ironicGroup),
+				ReadOnlyRootFilesystem: ptr.To(true),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -1124,8 +1131,9 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Command:      []string{"/bin/runlogwatch.sh"},
 			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  ptr.To(ironicUser),
-				RunAsGroup: ptr.To(ironicGroup),
+				RunAsUser:              ptr.To(ironicUser),
+				RunAsGroup:             ptr.To(ironicGroup),
+				ReadOnlyRootFilesystem: ptr.To(true),
 				Capabilities: &corev1.Capabilities{
 					Drop: []corev1.Capability{"ALL"},
 				},
@@ -1137,7 +1145,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		dnsmasqContainer := newDnsmasqContainer(cctx.VersionInfo, resources.Ironic)
+		dnsmasqContainer := newDnsmasqContainer(cctx.VersionInfo, resources.Ironic, sharedVolumeMount)
 		containers = append(containers, dnsmasqContainer)
 	}
 
@@ -1162,7 +1170,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		dnsPolicy = corev1.DNSClusterFirst
 	}
 
-	return applyOverridesToPod(resources.Ironic.Spec.Overrides, corev1.PodTemplateSpec{
+	return applyOverridesToPod(resources.Ironic.Spec.Overrides, addDataVolumes(corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicAppLabel:     ironicDeploymentName(resources.Ironic),
@@ -1180,5 +1188,5 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			NodeSelector:                 resources.Ironic.Spec.NodeSelector,
 			AutomountServiceAccountToken: ptr.To(false),
 		},
-	}), nil
+	})), nil
 }
