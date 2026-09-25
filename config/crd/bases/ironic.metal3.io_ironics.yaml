@@ -5919,6 +5919,7 @@ spec:
                   PrometheusExporter configures sensor data collection and Prometheus metrics export.
                   When enabled, this configures Ironic to collect sensor data and deploys the
                   ironic-prometheus-exporter container.
+                  Requires the PrometheusExporter feature gate to be set.
                 properties:
                   bindAddress:
                     default: 0.0.0.0
@@ -5945,6 +5946,7 @@ spec:
                       Enabled controls whether sensor data collection and metrics export is active.
                       When true, configures Ironic to collect sensor data and deploys the
                       ironic-prometheus-exporter container.
+                      Requires the PrometheusExporter feature gate to be set.
                     type: boolean
                   sensorCollectionInterval:
                     default: 60
