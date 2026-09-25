@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.55.0
 	k8s.io/api v0.35.8
-	k8s.io/apimachinery v0.35.8
+	k8s.io/apimachinery v0.35.9
 	k8s.io/client-go v0.35.8
 	k8s.io/component-base v0.35.8
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
