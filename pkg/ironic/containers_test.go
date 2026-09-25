@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	ironicContainerName = "ironic"
-	httpdContainerName  = "httpd"
+	ironicContainerName            = "ironic"
+	httpdContainerName             = "httpd"
+	ramdiskDownloaderContainerName = "ramdisk-downloader"
 )
 
 func TestExpectedContainers(t *testing.T) {
@@ -432,6 +433,44 @@ func TestTrustedCAConfigMap(t *testing.T) {
 
 			if expectTrustedCA {
 				assert.Equal(t, tc.ExpectedEnvVarValue, webserverCACertValue, "WEBSERVER_CACERT_FILE value mismatch")
+			}
+
+			// Check the ramdisk-downloader init container: it should trust the
+			// same CA bundle as the ironic/httpd containers, via CURL_CA_BUNDLE
+			// and the same "trusted-ca" volume mount.
+			var downloaderContainer *corev1.Container
+			for i := range podTemplate.Spec.InitContainers {
+				if podTemplate.Spec.InitContainers[i].Name == ramdiskDownloaderContainerName {
+					downloaderContainer = &podTemplate.Spec.InitContainers[i]
+					break
+				}
+			}
+			require.NotNil(t, downloaderContainer, "ramdisk-downloader init container should exist")
+
+			var foundDownloaderMount bool
+			for _, mount := range downloaderContainer.VolumeMounts {
+				if mount.Name == trustedCAVolumeName {
+					foundDownloaderMount = true
+					if expectTrustedCA {
+						assert.Equal(t, tc.ExpectedVolumeMountPath, mount.MountPath)
+						assert.True(t, mount.ReadOnly)
+					}
+					break
+				}
+			}
+			assert.Equal(t, expectTrustedCA, foundDownloaderMount, "ramdisk-downloader trusted-ca volume mount existence mismatch")
+
+			var foundCurlCABundle bool
+			var curlCABundleValue string
+			for _, env := range downloaderContainer.Env {
+				if env.Name == "CURL_CA_BUNDLE" {
+					foundCurlCABundle = true
+					curlCABundleValue = env.Value
+				}
+			}
+			assert.Equal(t, expectTrustedCA, foundCurlCABundle, "CURL_CA_BUNDLE environment variable existence mismatch")
+			if expectTrustedCA {
+				assert.Equal(t, tc.ExpectedEnvVarValue, curlCABundleValue, "CURL_CA_BUNDLE value mismatch")
 			}
 		})
 	}
