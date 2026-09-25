@@ -361,7 +361,10 @@ $(RELEASE_NOTES_DIR):
 
 .PHONY: release-manifests
 release-manifests: $(KUSTOMIZE) $(RELEASE_DIR) ## Builds the manifests to publish with a release
+	@if [ -z "${RELEASE_TAG}" ]; then echo "RELEASE_TAG is not set"; exit 1; fi
 	$(KUSTOMIZE) build config/default > $(RELEASE_DIR)/install.yaml
+	@grep -q "image: $(IMG_NO_TAG):$(RELEASE_TAG)$$" $(RELEASE_DIR)/install.yaml || \
+		{ echo "ERROR: $(RELEASE_DIR)/install.yaml does not reference the expected image $(IMG_NO_TAG):$(RELEASE_TAG). Did 'kustomize edit set image' run before this target?"; exit 1; }
 
 .PHONY: release-notes
 release-notes: $(RELEASE_NOTES_DIR) $(TOOLS_DIR)/go.mod ## Generates release notes for the given tag
