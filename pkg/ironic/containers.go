@@ -221,7 +221,12 @@ func databaseClientEnvVars(db *metal3api.Database) []corev1.EnvVar {
 	return envVars
 }
 
-func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
+// resolveTrustedCACertPath returns the in-container path to the trusted CA
+// bundle file selected from resources.TrustedCASecret/TrustedCAConfigMap,
+// honoring an explicitly requested key (spec.tls.trustedCA.key) and falling
+// back to the first key (sorted) otherwise. Returns "" if no trusted CA is
+// configured or the resource has no data.
+func resolveTrustedCACertPath(cctx ControllerContext, resources Resources) string {
 	var keys []string
 	var resourceName string
 	var namespace string
@@ -239,11 +244,11 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 		namespace = resources.TrustedCAConfigMap.Namespace
 		resourceKind = metal3api.ResourceKindConfigMap
 	default:
-		return nil
+		return ""
 	}
 
 	if len(keys) == 0 {
-		return nil
+		return ""
 	}
 
 	// Get the TrustedCA reference to check if a specific key was requested
@@ -270,7 +275,14 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 	}
 
 	// Build the path to the CA bundle file
-	caPath := fmt.Sprintf("%s/ca/trusted/%s", certsDir, selectedKey)
+	return fmt.Sprintf("%s/ca/trusted/%s", certsDir, selectedKey)
+}
+
+func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
+	caPath := resolveTrustedCACertPath(cctx, resources)
+	if caPath == "" {
+		return nil
+	}
 
 	return []corev1.EnvVar{
 		{
@@ -1040,13 +1052,30 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	volumes, mounts := buildIronicVolumesAndMounts(resources)
 	sharedVolumeMount := mounts[0]
 
+	downloaderVolumeMounts := []corev1.VolumeMount{sharedVolumeMount}
+
+	// Let the ramdisk-downloader init container trust the same CA bundle as
+	// Ironic itself (spec.tls.trustedCA), so it can fetch the IPA
+	// kernel/ramdisk from an image server with a custom/self-signed
+	// certificate. CURL_CA_BUNDLE is honored natively by curl.
+	if caPath := resolveTrustedCACertPath(cctx, resources); caPath != "" {
+		ipaDownloaderVars = appendStringEnv(ipaDownloaderVars, "CURL_CA_BUNDLE", caPath)
+
+		for _, m := range mounts {
+			if m.Name == trustedCAVolumeName {
+				downloaderVolumeMounts = append(downloaderVolumeMounts, m)
+				break
+			}
+		}
+	}
+
 	var initContainers []corev1.Container
 	if !resources.Ironic.Spec.DeployRamdisk.DisableDownloader {
 		initContainers = append(initContainers, corev1.Container{
 			Name:         "ramdisk-downloader",
 			Image:        cctx.VersionInfo.RamdiskDownloaderImage,
 			Env:          ipaDownloaderVars,
-			VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
+			VolumeMounts: downloaderVolumeMounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:  ptr.To(ironicUser),
 				RunAsGroup: ptr.To(ironicGroup),
