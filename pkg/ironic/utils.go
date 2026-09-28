@@ -72,25 +72,32 @@ func mergeContainers(target, source []corev1.Container) []corev1.Container {
 	}
 
 	for idx, src := range source {
-		dest := &target[idx]
-		dest.Name = src.Name
-		dest.Image = src.Image
-		dest.Command = src.Command
-		dest.Ports = src.Ports
-		dest.Env = src.Env
-		dest.EnvFrom = src.EnvFrom
-		dest.VolumeMounts = src.VolumeMounts
-		dest.SecurityContext = src.SecurityContext
+		existing := target[idx]
+
+		// Preserve fields that the API server defaults when the operator
+		// (or user overrides) did not explicitly set them.
+		if src.TerminationMessagePath == "" {
+			src.TerminationMessagePath = existing.TerminationMessagePath
+		}
+		if src.TerminationMessagePolicy == "" {
+			src.TerminationMessagePolicy = existing.TerminationMessagePolicy
+		}
+		if src.ImagePullPolicy == "" {
+			src.ImagePullPolicy = existing.ImagePullPolicy
+		}
+
+		// Preserve server-defaulted probe timing while updating the handler.
 		if src.LivenessProbe != nil {
-			dest.LivenessProbe = updateProbe(dest.LivenessProbe, src.LivenessProbe.ProbeHandler)
-		} else {
-			dest.LivenessProbe = nil
+			src.LivenessProbe = updateProbe(existing.LivenessProbe, src.LivenessProbe.ProbeHandler)
 		}
 		if src.ReadinessProbe != nil {
-			dest.ReadinessProbe = updateProbe(dest.ReadinessProbe, src.ReadinessProbe.ProbeHandler)
-		} else {
-			dest.ReadinessProbe = nil
+			src.ReadinessProbe = updateProbe(existing.ReadinessProbe, src.ReadinessProbe.ProbeHandler)
 		}
+		if src.StartupProbe != nil {
+			src.StartupProbe = updateProbe(existing.StartupProbe, src.StartupProbe.ProbeHandler)
+		}
+
+		target[idx] = src
 	}
 
 	return target
