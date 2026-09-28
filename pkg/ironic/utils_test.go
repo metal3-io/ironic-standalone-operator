@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -631,6 +632,15 @@ func TestMergeContainersPreservesServerDefaults(t *testing.T) {
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 		ImagePullPolicy:          corev1.PullIfNotPresent,
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/",
+					Scheme: corev1.URISchemeHTTP,
+					Port:   intstr.FromInt(42),
+				},
+			},
+		},
 	}}
 
 	source := []corev1.Container{{
@@ -639,6 +649,13 @@ func TestMergeContainersPreservesServerDefaults(t *testing.T) {
 		Command:    []string{"/bin/new"},
 		Env:        []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
 		WorkingDir: "/workhere",
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(42),
+				},
+			},
+		},
 	}}
 
 	result := mergeContainers(target, source)
@@ -648,11 +665,14 @@ func TestMergeContainersPreservesServerDefaults(t *testing.T) {
 	assert.Equal(t, []string{"/bin/new"}, result[0].Command)
 	assert.Equal(t, []corev1.EnvVar{{Name: "FOO", Value: "bar"}}, result[0].Env)
 	assert.Equal(t, "/workhere", result[0].WorkingDir)
+	assert.Equal(t, int32(42), result[0].ReadinessProbe.HTTPGet.Port.IntVal)
 
 	// Server-defaulted fields must be preserved
 	assert.Equal(t, "/dev/termination-log", result[0].TerminationMessagePath)
 	assert.Equal(t, corev1.TerminationMessageReadFile, result[0].TerminationMessagePolicy)
 	assert.Equal(t, corev1.PullIfNotPresent, result[0].ImagePullPolicy)
+	assert.Equal(t, corev1.URISchemeHTTP, result[0].ReadinessProbe.HTTPGet.Scheme)
+	assert.Equal(t, "/", result[0].ReadinessProbe.HTTPGet.Path)
 
 	// Idempotency: repeated calls don't change the result
 	expected := []corev1.Container{*result[0].DeepCopy()}
@@ -705,18 +725,46 @@ func TestMergeContainersOverrideDefaultedFields(t *testing.T) {
 		TerminationMessagePath:   "/dev/termination-log",
 		TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 		ImagePullPolicy:          corev1.PullIfNotPresent,
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{Command: []string{"true"}},
+			},
+			InitialDelaySeconds: probeInitialDelay,
+			TimeoutSeconds:      probeTimeout,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    probeFailureThreshold,
+		},
 	}}
 
 	source := []corev1.Container{{
 		Name:            "ironic",
 		Image:           "new-image",
 		ImagePullPolicy: corev1.PullAlways,
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{Command: []string{"true"}},
+			},
+			TimeoutSeconds: 42,
+		},
 	}}
+	expectedProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{Command: []string{"true"}},
+		},
+		InitialDelaySeconds: probeInitialDelay,
+		TimeoutSeconds:      42,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    probeFailureThreshold,
+	}
 
 	result := mergeContainers(target, source)
 
 	// User-specified override must win over the server default
 	assert.Equal(t, corev1.PullAlways, result[0].ImagePullPolicy)
+	assert.Truef(t, equality.Semantic.DeepEqual(result[0].LivenessProbe, expectedProbe),
+		"probes must match after mergeContainers: %v != %v", result[0].LivenessProbe, expectedProbe)
 	// Other server defaults still preserved
 	assert.Equal(t, "/dev/termination-log", result[0].TerminationMessagePath)
 	assert.Equal(t, corev1.TerminationMessageReadFile, result[0].TerminationMessagePolicy)
