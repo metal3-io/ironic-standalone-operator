@@ -61,13 +61,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "38.0",
+					Version: "39.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version380,
-				IronicImage:            "quay.io/metal3-io/ironic:release-38.0",
+				InstalledVersion:       metal3api.Version390,
+				IronicImage:            "quay.io/metal3-io/ironic:release-39.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 			},
@@ -77,13 +77,13 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Ironic: metal3api.Ironic{
 				Spec: metal3api.IronicSpec{
-					Version: "37.0",
+					Version: "38.0",
 				},
 			},
 
 			Expected: VersionInfo{
-				InstalledVersion:       metal3api.Version370,
-				IronicImage:            "quay.io/metal3-io/ironic:release-37.0",
+				InstalledVersion:       metal3api.Version380,
+				IronicImage:            "quay.io/metal3-io/ironic:release-38.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 			},
@@ -124,12 +124,6 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "PrometheusExporter with version 35.0",
-			version:       metal3api.Version350,
-			enabled:       true,
-			expectedError: "",
-		},
-		{
 			name:          "PrometheusExporter with version 37.0",
 			version:       metal3api.Version370,
 			enabled:       true,
@@ -138,6 +132,12 @@ func TestPrometheusExporterVersionCheck(t *testing.T) {
 		{
 			name:          "PrometheusExporter with version 38.0",
 			version:       metal3api.Version380,
+			enabled:       true,
+			expectedError: "",
+		},
+		{
+			name:          "PrometheusExporter with version 39.0",
+			version:       metal3api.Version390,
 			enabled:       true,
 			expectedError: "",
 		},
@@ -192,11 +192,11 @@ func TestMultiRangeDHCPVersionCheck(t *testing.T) {
 	}{
 		{
 			name:    "no DHCP at all",
-			version: metal3api.Version350,
+			version: metal3api.Version370,
 		},
 		{
 			name:    "DHCP without ExtraRanges on older version (allowed)",
-			version: metal3api.Version350,
+			version: metal3api.Version370,
 			dhcp: &metal3api.DHCP{
 				NetworkCIDR: "192.0.2.0/24",
 				RangeBegin:  "192.0.2.10",
@@ -229,7 +229,7 @@ func TestMultiRangeDHCPVersionCheck(t *testing.T) {
 		},
 		{
 			name:    "ExtraRanges on 35.0 is rejected",
-			version: metal3api.Version350,
+			version: metal3api.Version{Major: 35, Minor: 0},
 			dhcp: &metal3api.DHCP{
 				NetworkCIDR: "192.0.2.0/24",
 				RangeBegin:  "192.0.2.10",
