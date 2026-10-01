@@ -260,3 +260,56 @@ func TestMultiRangeDHCPVersionCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestHttpdLogLevelVersionCheck(t *testing.T) {
+	testCases := []struct {
+		name          string
+		version       metal3api.Version
+		overrides     *metal3api.Overrides
+		expectedError string
+	}{
+		{
+			name:    "no overrides on older version",
+			version: metal3api.Version370,
+		},
+		{
+			name:      "overrides without HttpdLogLevel on older version (allowed)",
+			version:   metal3api.Version370,
+			overrides: &metal3api.Overrides{Labels: map[string]string{"foo": "bar"}},
+		},
+		{
+			name:      "HttpdLogLevel on latest version",
+			version:   metal3api.VersionLatest,
+			overrides: &metal3api.Overrides{HttpdLogLevel: "warn"},
+		},
+		{
+			name:      "HttpdLogLevel on 38.0 is allowed",
+			version:   metal3api.Version380,
+			overrides: &metal3api.Overrides{HttpdLogLevel: "warn"},
+		},
+		{
+			name:          "HttpdLogLevel on 37.0 is rejected",
+			version:       metal3api.Version370,
+			overrides:     &metal3api.Overrides{HttpdLogLevel: "warn"},
+			expectedError: "overrides.httpdLogLevel requires Ironic 38.0 or newer",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
+				Spec: metal3api.IronicSpec{
+					Overrides: tc.overrides,
+				},
+			}
+			err := CheckVersion(Resources{Ironic: ironic}, tc.version)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
