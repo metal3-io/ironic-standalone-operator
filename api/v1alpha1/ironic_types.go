@@ -30,9 +30,9 @@ const (
 
 var (
 	VersionLatest = Version{}
+	Version390    = Version{Major: 39, Minor: 0}
 	Version380    = Version{Major: 38, Minor: 0}
 	Version370    = Version{Major: 37, Minor: 0}
-	Version350    = Version{Major: 35, Minor: 0}
 )
 
 // SupportedVersions is a mapping of supported versions to container image tags.
@@ -42,9 +42,9 @@ var (
 // expectations.
 var SupportedVersions = map[Version]string{
 	VersionLatest: "latest",
+	Version390:    "release-39.0",
 	Version380:    "release-38.0",
 	Version370:    "release-37.0",
-	Version350:    "release-35.0",
 }
 
 // Inspection defines inspection settings.
