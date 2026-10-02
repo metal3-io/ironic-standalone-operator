@@ -203,6 +203,22 @@ don't allow major or minor bumps in release branches.
 
 [Prior art](https://github.com/metal3-io/ironic-standalone-operator/pull/295)
 
+### Periodic functional test workflows
+
+Periodic functional test workflows must exist for every release branch that
+is currently `Supported` or `Tested`, per the [version support
+policy](https://book.metal3.io/version_support.html#ironic-standalone-operator).
+
+For a new release branch, copy an existing
+`.github/workflows/functional-periodic-release-X.Y.yml`, rename it for the
+new branch, and update the workflow `name`, the `ref` under `with:`, and the
+`cron` schedule so it doesn't collide with the other periodic runs.
+
+Release branches that are End-of-Life should have their periodic workflow
+removed in the same PR.
+
+[Prior art](https://github.com/metal3-io/ironic-standalone-operator/pull/843)
+
 ### Branch protection rules
 
 Branch protection rules need to be applied to the new release branch. Copy the
