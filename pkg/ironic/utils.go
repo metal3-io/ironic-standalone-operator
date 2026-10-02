@@ -61,6 +61,54 @@ type Resources struct {
 	SwitchCredentialsSecret *corev1.Secret
 }
 
+// mergeProbe moves fields from source into target, while keeping the semantics of default values:
+// source value of 0 means "keep the default", so any existing value in the target is unchanged.
+func mergeProbe(target, source *corev1.Probe) *corev1.Probe {
+	if source == nil {
+		return target
+	}
+	if target == nil {
+		target = &corev1.Probe{}
+	}
+	// This field doesn't have server-side defaults and can be copied over
+	target.TerminationGracePeriodSeconds = source.TerminationGracePeriodSeconds
+	// These fields have server-side defaults, so we cannot just copy them since it would create a reconcile loop.
+	// Copy only explicitly set values until we find a better solution (probably server-side apply).
+	newHandler := source.ProbeHandler.DeepCopy()
+	if newHandler.HTTPGet != nil && target.HTTPGet != nil {
+		if newHandler.HTTPGet.Scheme == "" {
+			newHandler.HTTPGet.Scheme = target.HTTPGet.Scheme
+		}
+		if newHandler.HTTPGet.Path == "" {
+			newHandler.HTTPGet.Path = target.HTTPGet.Path
+		}
+	}
+	if newHandler.TCPSocket != nil && target.TCPSocket != nil && newHandler.TCPSocket.Host == "" {
+		newHandler.TCPSocket.Host = target.TCPSocket.Host
+	}
+	target.ProbeHandler = *newHandler
+
+	if source.InitialDelaySeconds != 0 {
+		target.InitialDelaySeconds = source.InitialDelaySeconds
+	}
+	if source.TimeoutSeconds != 0 {
+		target.TimeoutSeconds = source.TimeoutSeconds
+	}
+	if source.PeriodSeconds != 0 {
+		target.PeriodSeconds = source.PeriodSeconds
+	}
+	if source.SuccessThreshold != 0 {
+		target.SuccessThreshold = source.SuccessThreshold
+	}
+	if source.FailureThreshold != 0 {
+		target.FailureThreshold = source.FailureThreshold
+	}
+	return target
+}
+
+// mergeContainers copies containers from source into target, while keeping values with known server-side defaults.
+// TerminationMessagePath, TerminationMessagePolicy and ImagePullPolicy are not modified if their source value is an empty string.
+// Probes are handled via mergeProbe. This approach avoids infinite reconcile loops.
 func mergeContainers(target, source []corev1.Container) []corev1.Container {
 	if len(source) == 0 {
 		return source
@@ -72,25 +120,32 @@ func mergeContainers(target, source []corev1.Container) []corev1.Container {
 	}
 
 	for idx, src := range source {
-		dest := &target[idx]
-		dest.Name = src.Name
-		dest.Image = src.Image
-		dest.Command = src.Command
-		dest.Ports = src.Ports
-		dest.Env = src.Env
-		dest.EnvFrom = src.EnvFrom
-		dest.VolumeMounts = src.VolumeMounts
-		dest.SecurityContext = src.SecurityContext
+		existing := target[idx]
+
+		// Preserve fields that the API server defaults when the operator
+		// (or user overrides) did not explicitly set them.
+		if src.TerminationMessagePath == "" {
+			src.TerminationMessagePath = existing.TerminationMessagePath
+		}
+		if src.TerminationMessagePolicy == "" {
+			src.TerminationMessagePolicy = existing.TerminationMessagePolicy
+		}
+		if src.ImagePullPolicy == "" {
+			src.ImagePullPolicy = existing.ImagePullPolicy
+		}
+
+		// Preserve server-defaulted probe timing while updating the handler.
 		if src.LivenessProbe != nil {
-			dest.LivenessProbe = updateProbe(dest.LivenessProbe, src.LivenessProbe.ProbeHandler)
-		} else {
-			dest.LivenessProbe = nil
+			src.LivenessProbe = mergeProbe(existing.LivenessProbe, src.LivenessProbe)
 		}
 		if src.ReadinessProbe != nil {
-			dest.ReadinessProbe = updateProbe(dest.ReadinessProbe, src.ReadinessProbe.ProbeHandler)
-		} else {
-			dest.ReadinessProbe = nil
+			src.ReadinessProbe = mergeProbe(existing.ReadinessProbe, src.ReadinessProbe)
 		}
+		if src.StartupProbe != nil {
+			src.StartupProbe = mergeProbe(existing.StartupProbe, src.StartupProbe)
+		}
+
+		target[idx] = src
 	}
 
 	return target
@@ -249,28 +304,15 @@ func buildEndpoints(ips []string, port int, includeProto string) (endpoints []st
 	return
 }
 
-func updateProbe(current *corev1.Probe, handler corev1.ProbeHandler) *corev1.Probe {
-	if current == nil {
-		current = &corev1.Probe{}
-	}
-	current.ProbeHandler = handler
+func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
 	// NOTE(dtantsur): we want some delay because Ironic does not start instantly.
 	// Also be conservative about failing the pod since Ironic restarts are not cheap (the database is wiped).
-	// Only apply defaults for fields the user has not explicitly set (zero value = not set).
-	if current.InitialDelaySeconds == 0 {
-		current.InitialDelaySeconds = probeInitialDelay
+	return &corev1.Probe{
+		ProbeHandler:        handler,
+		InitialDelaySeconds: probeInitialDelay,
+		TimeoutSeconds:      probeTimeout,
+		FailureThreshold:    probeFailureThreshold,
 	}
-	if current.TimeoutSeconds == 0 {
-		current.TimeoutSeconds = probeTimeout
-	}
-	if current.FailureThreshold == 0 {
-		current.FailureThreshold = probeFailureThreshold
-	}
-	return current
-}
-
-func newProbe(handler corev1.ProbeHandler) *corev1.Probe {
-	return updateProbe(nil, handler) // TODO: remove
 }
 
 func appendStringEnv(envVars []corev1.EnvVar, name string, value string) []corev1.EnvVar {

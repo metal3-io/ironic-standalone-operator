@@ -1103,14 +1103,15 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	httpdLivenessProbe := newProbe(httpdHandler)
 	httpdReadinessProbe := newProbe(httpdHandler)
 
-	// Apply explicit probe overrides. DeepCopy avoids mutating the API object; updateProbe
-	// fills in timing defaults for any fields the user has not explicitly set.
+	// Apply explicit probe overrides. mergeProbe fills in timing defaults for any fields the user has not explicitly set.
 	if resources.Ironic.Spec.Overrides != nil {
+		// FIXME(dtantsur): stop applying IrSO defaults to user overrides.
+		// This will be a breaking change with a corresponding record in the release notes.
 		if p := resources.Ironic.Spec.Overrides.HttpdLivenessProbe; p != nil {
-			httpdLivenessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
+			httpdLivenessProbe = mergeProbe(newProbe(p.ProbeHandler), p)
 		}
 		if p := resources.Ironic.Spec.Overrides.HttpdReadinessProbe; p != nil {
-			httpdReadinessProbe = updateProbe(p.DeepCopy(), p.ProbeHandler)
+			httpdReadinessProbe = mergeProbe(newProbe(p.ProbeHandler), p)
 		}
 	}
 
