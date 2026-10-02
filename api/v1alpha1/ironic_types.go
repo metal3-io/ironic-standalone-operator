@@ -190,6 +190,21 @@ type KeepalivedConfig struct {
 
 // Networking defines networking settings for Ironic.
 type Networking struct {
+	// AccessIP is the IP address through which Ironic must be accessed for
+	// downloading cached images and for ramdisk callbacks. This setting
+	// overrides ipAddress (explicitly provided or implicitly derived) for
+	// external traffic.
+	//
+	// Unlike externalIP, this setting applies to all deployments, not just
+	// virtual media. If DHCP is enabled, accessIP will be used for
+	// downloading iPXE artifacts as well. Also unlike externalIP, this IP
+	// must be reachable from the Ironic pod as well.
+	//
+	// Cannot be provided for a highly available architecture since there
+	// is no way to access several image cache servers through the same IP.
+	// +optional
+	AccessIP string `json:"accessIP,omitempty"`
+
 	// APIPort is the public port used for Ironic.
 	// +kubebuilder:default=6385
 	// +kubebuilder:validation:Minimum=1
@@ -214,28 +229,38 @@ type Networking struct {
 	// +optional
 	DisableHostNetwork bool `json:"disableHostNetwork,omitempty"`
 
-	// ExternalCallbackURL for Ironic API server.
+	// ExternalCallbackURL is the URL that the ramdisk will use to call
+	// back into Ironic during a virtual media deployment.
 	// Set this option when your Ironic API server is not directly accessible.
-	// Setting this option, will override URL set by networking.ingress.host.
+	//
+	// Setting this option will override URL set by networking.ingress.host.
 	// Must be set together with networking.imageServerExternalURL or networking.ingress
-	// This should only be used with virtual media deployments.
 	// Cannot be set at the same time with networking.externalIP.
 	// +kubebuilder:validation:Format=uri
 	// +optional
 	ExternalCallbackURL string `json:"externalCallbackURL,omitempty"`
 
-	// ExternalIP is used for accessing API and the image server from remote hosts.
-	// This setting only applies to virtual media deployments. The IP will not be accessed from the cluster itself.
+	// ExternalIP is the IP address through which Ironic must be accessed for
+	// downloading cached images and for ramdisk callbacks during virtual
+	// media deployments. This setting overrides ipAddress (explicitly
+	// provided or implicitly derived) for external traffic.
+	//
+	// This setting applies only to virtual media deployments and overrides
+	// accessIP. Network boot deployments are not affected by it.
+	//
 	// Cannot be set at the same time with networking.ingress, networking.externalCallbackURL, or networking.imageServerExternalURL.
 	// +optional
 	ExternalIP string `json:"externalIP,omitempty"`
 
-	// ImageServerExternalURL is to set external HTTP URL for Image server.
+	// ImageServerExternalURL is the URL used for downloading virtual media
+	// ISO images and cached instance images during a virtual media
+	// deployment.
 	// Set this option when your image server is not directly accessible.
-	// Setting this option, will override URL set by networking.ingress.host.
+	//
+	// Setting this option will override URL set by networking.ingress.host.
 	// Must be set together with networking.externalCallbackURL or networking.ingress
 	// Cannot be set at the same time with networking.externalIP.
-	// This should only be used with virtual media deployments.
+	// This setting only affects virtual media deployments.
 	// +kubebuilder:validation:Format=uri
 	// +optional
 	ImageServerExternalURL string `json:"imageServerExternalURL,omitempty"`
@@ -255,7 +280,7 @@ type Networking struct {
 	// Configure Ingress resource for Ironic services.
 	// Set this option when you are planning to deploy Ironic in a public cluster and willing to use Ingress instead of IP address on the Host Network.
 	// The API and the image server will be accessible via the hostname specified in the ingress configuration.
-	// This should only be used with virtual media deployments.
+	// This setting only affects virtual media deployments.
 	// Cannot be set at the same time with networking.externalIP.
 	// +optional
 	Ingress *Ingress `json:"ingress,omitempty"`
