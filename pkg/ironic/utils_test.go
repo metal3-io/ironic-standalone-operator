@@ -5,7 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -619,6 +621,172 @@ func TestApplyOverridesToPod(t *testing.T) {
 			assert.Equal(t, tc.ExpectedEnvs, envs)
 		})
 	}
+}
+
+func TestMergeContainersPreservesServerDefaults(t *testing.T) {
+	// Simulate a server-returned container with defaults filled in
+	target := []corev1.Container{{
+		Name:                     "ironic",
+		Image:                    "old-image",
+		Command:                  []string{"/bin/old"},
+		TerminationMessagePath:   "/dev/termination-log",
+		TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+		ImagePullPolicy:          corev1.PullIfNotPresent,
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/",
+					Scheme: corev1.URISchemeHTTP,
+					Port:   intstr.FromInt(42),
+				},
+			},
+		},
+	}}
+
+	source := []corev1.Container{{
+		Name:       "ironic",
+		Image:      "new-image",
+		Command:    []string{"/bin/new"},
+		Env:        []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+		WorkingDir: "/workhere",
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.FromInt(42),
+				},
+			},
+		},
+	}}
+
+	result := mergeContainers(target, source)
+
+	// Operator-set fields must update
+	assert.Equal(t, "new-image", result[0].Image)
+	assert.Equal(t, []string{"/bin/new"}, result[0].Command)
+	assert.Equal(t, []corev1.EnvVar{{Name: "FOO", Value: "bar"}}, result[0].Env)
+	assert.Equal(t, "/workhere", result[0].WorkingDir)
+	assert.Equal(t, int32(42), result[0].ReadinessProbe.HTTPGet.Port.IntVal)
+
+	// Server-defaulted fields must be preserved
+	assert.Equal(t, "/dev/termination-log", result[0].TerminationMessagePath)
+	assert.Equal(t, corev1.TerminationMessageReadFile, result[0].TerminationMessagePolicy)
+	assert.Equal(t, corev1.PullIfNotPresent, result[0].ImagePullPolicy)
+	assert.Equal(t, corev1.URISchemeHTTP, result[0].ReadinessProbe.HTTPGet.Scheme)
+	assert.Equal(t, "/", result[0].ReadinessProbe.HTTPGet.Path)
+
+	// Idempotency: repeated calls don't change the result
+	expected := []corev1.Container{*result[0].DeepCopy()}
+	result2 := mergeContainers(result, result)
+	assert.Truef(t, equality.Semantic.DeepEqual(expected, result2),
+		"mergeContainers must be idempotent: %v != %v", expected, result2)
+}
+
+func TestMergeContainersIdempotent(t *testing.T) {
+	// Simulate a server-returned container with all known defaults
+	target := []corev1.Container{{
+		Name:                     "ironic",
+		Image:                    "image",
+		Env:                      []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+		TerminationMessagePath:   "/dev/termination-log",
+		TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+		ImagePullPolicy:          corev1.PullIfNotPresent,
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{Command: []string{"true"}},
+			},
+			InitialDelaySeconds: probeInitialDelay,
+			TimeoutSeconds:      probeTimeout,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    probeFailureThreshold,
+		},
+	}}
+	expected := []corev1.Container{*target[0].DeepCopy()}
+
+	source := []corev1.Container{{
+		Name:  "ironic",
+		Image: "image",
+		Env:   []corev1.EnvVar{{Name: "FOO", Value: "bar"}},
+		LivenessProbe: newProbe(corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{Command: []string{"true"}},
+		}),
+	}}
+
+	// Idempotency: applying previously applied values doesn't change the result
+	result := mergeContainers(target, source)
+	assert.Truef(t, equality.Semantic.DeepEqual(expected, result),
+		"mergeContainers must be idempotent: %v != %v", expected, result)
+}
+
+func TestMergeContainersOverrideDefaultedFields(t *testing.T) {
+	target := []corev1.Container{{
+		Name:                     "ironic",
+		Image:                    "old-image",
+		TerminationMessagePath:   "/dev/termination-log",
+		TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+		ImagePullPolicy:          corev1.PullIfNotPresent,
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{Command: []string{"true"}},
+			},
+			InitialDelaySeconds: probeInitialDelay,
+			TimeoutSeconds:      probeTimeout,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    probeFailureThreshold,
+		},
+	}}
+
+	source := []corev1.Container{{
+		Name:            "ironic",
+		Image:           "new-image",
+		ImagePullPolicy: corev1.PullAlways,
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{Command: []string{"true"}},
+			},
+			TimeoutSeconds: 42,
+		},
+	}}
+	expectedProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{Command: []string{"true"}},
+		},
+		InitialDelaySeconds: probeInitialDelay,
+		TimeoutSeconds:      42,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    probeFailureThreshold,
+	}
+
+	result := mergeContainers(target, source)
+
+	// User-specified override must win over the server default
+	assert.Equal(t, corev1.PullAlways, result[0].ImagePullPolicy)
+	assert.Truef(t, equality.Semantic.DeepEqual(result[0].LivenessProbe, expectedProbe),
+		"probes must match after mergeContainers: %v != %v", result[0].LivenessProbe, expectedProbe)
+	// Other server defaults still preserved
+	assert.Equal(t, "/dev/termination-log", result[0].TerminationMessagePath)
+	assert.Equal(t, corev1.TerminationMessageReadFile, result[0].TerminationMessagePolicy)
+}
+
+func TestMergeContainersDifferentLengths(t *testing.T) {
+	target := []corev1.Container{
+		{Name: "ironic", Image: "old"},
+		{Name: "httpd", Image: "old"},
+	}
+
+	source := []corev1.Container{
+		{Name: "ironic", Image: "new"},
+		{Name: "httpd", Image: "new"},
+		{Name: "dnsmasq", Image: "new"},
+	}
+
+	result := mergeContainers(target, source)
+
+	assert.Len(t, result, 3)
+	assert.Equal(t, "ironic", result[0].Name)
+	assert.Equal(t, "dnsmasq", result[2].Name)
 }
 
 func TestMergePodTemplatesTolerations(t *testing.T) {
