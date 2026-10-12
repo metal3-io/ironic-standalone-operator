@@ -117,6 +117,20 @@ help: ## Display this help.
 manifests: controller-gen crdoc ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	CRDOC=$(CRDOC) ./hack/gen-api-doc.sh
+	$(MAKE) helm-sync
+
+HELM_CHART_DIR ?= chart/ironic-standalone-operator
+
+.PHONY: helm-sync
+helm-sync: ## Copy the generated CRD and manager role into the Helm chart.
+	mkdir -p $(HELM_CHART_DIR)/files/crds $(HELM_CHART_DIR)/files/rbac
+	cp config/crd/bases/ironic.metal3.io_ironics.yaml $(HELM_CHART_DIR)/files/crds/
+	cp config/rbac/role.yaml $(HELM_CHART_DIR)/files/rbac/
+
+.PHONY: helm-lint
+helm-lint: ## Lint the Helm chart (requires helm).
+	helm lint --strict $(HELM_CHART_DIR)
+	helm lint --strict $(HELM_CHART_DIR) --set watchNamespace=ironic
 
 .PHONY: modules
 modules: ## Runs go mod to ensure proper vendoring.
