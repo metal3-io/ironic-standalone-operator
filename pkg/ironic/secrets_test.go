@@ -202,7 +202,7 @@ func TestSecretVersionAnnotations(t *testing.T) {
 				"password": []byte("secret123"),
 			},
 			ExpectedAnnotationKey: "ironic.metal3.io/api-secret-version",
-			ExpectedHashValue:     "cf08d4bc4bc1d3f3",
+			ExpectedHashValue:     "d9ab4722976729ee3be458f3bc652126e8ed4297e4fa2f05632d92317356fda8",
 		},
 		{
 			Scenario:   "tls-secret",
@@ -212,7 +212,7 @@ func TestSecretVersionAnnotations(t *testing.T) {
 				"tls.key": []byte("key-data"),
 			},
 			ExpectedAnnotationKey: "ironic.metal3.io/tls-secret-version",
-			ExpectedHashValue:     "7d8157e8f00016ad",
+			ExpectedHashValue:     "41b814de6978e1e9bbaa5520ec7988c28228e77ac98422a9b7173a8ab91a835a",
 		},
 		{
 			Scenario:   "single-field-secret",
@@ -221,14 +221,14 @@ func TestSecretVersionAnnotations(t *testing.T) {
 				"password": []byte("dbpassword"),
 			},
 			ExpectedAnnotationKey: "ironic.metal3.io/database-version",
-			ExpectedHashValue:     "febbbb8e799c80ef",
+			ExpectedHashValue:     "487745f63f2b3980402dd732c333d65d32f80ce7ee342d1955501b0af660bd9f",
 		},
 		{
 			Scenario:              "empty-secret",
 			SecretType:            "empty",
 			SecretData:            map[string][]byte{},
 			ExpectedAnnotationKey: "ironic.metal3.io/empty-version",
-			ExpectedHashValue:     "cbf29ce484222325",
+			ExpectedHashValue:     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		},
 		{
 			Scenario:   "multi-field-secret",
@@ -239,7 +239,7 @@ func TestSecretVersionAnnotations(t *testing.T) {
 				"field3": []byte("value3"),
 			},
 			ExpectedAnnotationKey: "ironic.metal3.io/complex-version",
-			ExpectedHashValue:     "6f31daf5e0e1cffe",
+			ExpectedHashValue:     "7549f265c52de5c1dea2bd192d34f5c31452bb2d45352fa8ad4469d5055b4434",
 		},
 		{
 			Scenario:   "binary-data",
@@ -248,7 +248,7 @@ func TestSecretVersionAnnotations(t *testing.T) {
 				"cert": {0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd},
 			},
 			ExpectedAnnotationKey: "ironic.metal3.io/binary-version",
-			ExpectedHashValue:     "544d65200b58101e",
+			ExpectedHashValue:     "ffb95ee4f4809f6893b1fe84b096325cb57a34817d2fc4bf03710fc7ec36fcdf",
 		},
 	}
 
@@ -269,4 +269,32 @@ func TestSecretVersionAnnotations(t *testing.T) {
 			assert.Equal(t, tc.ExpectedHashValue, annotations[tc.ExpectedAnnotationKey])
 		})
 	}
+}
+
+func TestSecretVersionAnnotationsNoBinaryCollision(t *testing.T) {
+	// These two secrets differ but serialize identically under a NUL-delimited
+	// scheme, so they must still hash differently to trigger a pod rollout.
+	hashOf := func(data map[string][]byte) string {
+		secret := &corev1.Secret{Data: data}
+		return secretVersionAnnotations("api", secret)["ironic.metal3.io/api-version"]
+	}
+
+	first := hashOf(map[string][]byte{"a": []byte("x"), "b\x00y": []byte("z")})
+	second := hashOf(map[string][]byte{"a": []byte("x\x00b"), "y": []byte("z")})
+	assert.NotEqual(t, first, second)
+}
+
+func TestSecretVersionAnnotationsNoConcatCollision(t *testing.T) {
+	// Two distinct secrets whose keys and values concatenate to the same byte
+	// stream ("passwordxusernameusernamey") when no field boundary is encoded.
+	// They must hash differently, otherwise a changed secret would not trigger
+	// a pod rollout.
+	hashOf := func(data map[string][]byte) string {
+		secret := &corev1.Secret{Data: data}
+		return secretVersionAnnotations("api", secret)["ironic.metal3.io/api-version"]
+	}
+
+	first := hashOf(map[string][]byte{"password": []byte("xusername"), "username": []byte("y")})
+	second := hashOf(map[string][]byte{"password": []byte("x"), "username": []byte("usernamey")})
+	assert.NotEqual(t, first, second)
 }
