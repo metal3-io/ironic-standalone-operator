@@ -2,9 +2,9 @@ package ironic
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"hash/fnv"
 	"maps"
 	"math/big"
 	"slices"
@@ -161,14 +161,19 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*c
 
 func secretVersionAnnotations(secretType string, secret *corev1.Secret) map[string]string {
 	// Hash all data fields to detect changes
-	h := fnv.New64a()
+	h := sha256.New()
 
 	// Sort keys for consistent hash ordering
 	keys := slices.Sorted(maps.Keys(secret.Data))
 
+	// Hash each key and value into fixed-width digests so field boundaries are
+	// unambiguous. Writing keys/values directly would let different secrets
+	// concatenate to the same bytes and hash identically, skipping a rollout.
 	for _, k := range keys {
-		h.Write([]byte(k))
-		h.Write(secret.Data[k])
+		keyHash := sha256.Sum256([]byte(k))
+		valueHash := sha256.Sum256(secret.Data[k])
+		h.Write(keyHash[:])
+		h.Write(valueHash[:])
 	}
 
 	hash := hex.EncodeToString(h.Sum(nil))
