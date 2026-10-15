@@ -20,6 +20,10 @@ var (
 	// versionMultiRangeDHCP gates ExtraRanges: split DHCP_RANGE and
 	// DHCP_OPTIONS support lands in Ironic 37.0.
 	versionMultiRangeDHCP = metal3api.Version370
+
+	// versionHttpdLogLevel gates overrides.httpdLogLevel: IRONIC_HTTPD_LOGLEVEL
+	// support lands in Ironic 38.0.
+	versionHttpdLogLevel = metal3api.Version380
 )
 
 type VersionInfo struct {
@@ -112,6 +116,10 @@ func (versionInfo VersionInfo) WithIronicOverrides(ironic *metal3api.Ironic) (Ve
 func CheckVersion(resources Resources, version metal3api.Version) error {
 	if dhcp := resources.Ironic.Spec.Networking.DHCP; dhcp != nil && len(dhcp.ExtraRanges) > 0 && version.Compare(versionMultiRangeDHCP) < 0 {
 		return errors.New("networking.dhcp.extraRanges requires Ironic 37.0 or newer")
+	}
+
+	if overrides := resources.Ironic.Spec.Overrides; overrides != nil && overrides.HttpdLogLevel != "" && version.Compare(versionHttpdLogLevel) < 0 {
+		return errors.New("overrides.httpdLogLevel requires Ironic 38.0 or newer")
 	}
 
 	return nil
