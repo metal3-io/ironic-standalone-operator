@@ -96,6 +96,10 @@ func lastTag(latestTag string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("parsing semver for %s: %w", latestTag, err)
 		}
+		// Minor release tag: guard against underflow that would wrap to a huge, unresolvable tag.
+		if semVersion.Minor == 0 {
+			return "", fmt.Errorf("release tag v%s has Minor=0; cannot compute previous minor release tag", latestTag)
+		}
 		semVersion.Minor--
 		lastReleaseTag := fmt.Sprintf("v%s", semVersion.String())
 		return lastReleaseTag, nil
@@ -106,6 +110,10 @@ func lastTag(latestTag string) (string, error) {
 	semVersion, err := semver.New(latestTag)
 	if err != nil {
 		return "", fmt.Errorf("parsing semver for %s: %w", latestTag, err)
+	}
+	// Patch release tag: guard against underflow that would wrap to a huge, unresolvable tag.
+	if semVersion.Patch == 0 {
+		return "", fmt.Errorf("release tag v%s has Patch=0; cannot compute previous patch release tag", latestTag)
 	}
 	semVersion.Patch--
 	lastReleaseTag := fmt.Sprintf("v%s", semVersion.String())
