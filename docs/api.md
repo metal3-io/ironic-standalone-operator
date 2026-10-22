@@ -12058,7 +12058,12 @@ HighAvailability feature gate to be set.<br/>
         <td>
           TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
 to use when validating TLS connections to image servers and other services.
-The resource should contain one or more CA certificates in PEM format.<br/>
+The resource should contain one or more CA certificates in PEM format.
+The CA is also injected into the deployment/inspection ramdisk, and the ramdisk
+validates TLS connections to Ironic and to image servers using it (together with
+the CA of the Ironic certificate). Certificates presented to the ramdisk must
+therefore be signed by one of these CAs. To disable the validation in the
+ramdisk, add ipa-insecure=1 to the extra kernel parameters.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12070,6 +12075,8 @@ to use when validating TLS connections to image servers and other services.
 The configmap should contain one or more CA certificates in PEM format.
 If the configmap contains multiple keys, only the first key will be used and
 a warning will be logged.
+The CA is also used by the deployment/inspection ramdisk to validate TLS
+connections, see TrustedCA for details.
 
 Deprecated: Use TrustedCA instead. This field will be removed in a future release.<br/>
         </td>
@@ -12124,6 +12131,11 @@ Supported in Ironic 32.0 or newer.
 TrustedCA is a reference to a ConfigMap or Secret containing the CA certificate(s)
 to use when validating TLS connections to image servers and other services.
 The resource should contain one or more CA certificates in PEM format.
+The CA is also injected into the deployment/inspection ramdisk, and the ramdisk
+validates TLS connections to Ironic and to image servers using it (together with
+the CA of the Ironic certificate). Certificates presented to the ramdisk must
+therefore be signed by one of these CAs. To disable the validation in the
+ramdisk, add ipa-insecure=1 to the extra kernel parameters.
 
 <table>
     <thead>
