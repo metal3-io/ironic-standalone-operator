@@ -568,6 +568,14 @@ type Overrides struct {
 	// +optional
 	HttpdLivenessProbe *corev1.Probe `json:"httpdLivenessProbe,omitempty"`
 
+	// HttpdLogLevel sets the Apache LogLevel used by httpd for Ironic API requests.
+	// This only takes effect when TLS is enabled, since only then does httpd
+	// serve the Ironic API. If not set, the image default (debug) is used.
+	// Requires Ironic 38.0 or newer.
+	// +kubebuilder:validation:Enum=emerg;alert;crit;error;warn;notice;info;debug;trace1;trace2;trace3;trace4;trace5;trace6;trace7;trace8
+	// +optional
+	HttpdLogLevel string `json:"httpdLogLevel,omitempty"`
+
 	// HttpdReadinessProbe overrides the httpd container readiness probe.
 	// +optional
 	HttpdReadinessProbe *corev1.Probe `json:"httpdReadinessProbe,omitempty"`
