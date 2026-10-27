@@ -584,10 +584,27 @@ spec:
                     description: Extra annotations to add to each pod (including upgrade
                       jobs).
                     type: object
+                  containerOverrideMode:
+                    default: replace
+                    description: |-
+                      ContainerOverrideMode defines how containers and init containers whose name
+                      matches an existing container are applied.
+                      With `replace` (the default), the override container replaces the existing one.
+                      With `merge`, the override container is merged into the existing one:
+                      image, command, args, workingDir, imagePullPolicy and terminationMessagePolicy
+                      replace the existing values when not empty; securityContext, probes, lifecycle
+                      and resources replace the existing values when set; env, volumeMounts and ports
+                      are merged by name, replacing items with the same name and appending new ones;
+                      envFrom is appended.
+                    enum:
+                    - replace
+                    - merge
+                    type: string
                   containers:
                     description: |-
                       Containers to append to the main Ironic pod.
-                      If a container name matches an existing container, the existing container is replaced.
+                      If a container name matches an existing container, the existing container is
+                      replaced or merged, depending on ContainerOverrideMode.
                     items:
                       description: A single application container that you want to
                         run within a pod.
@@ -2507,7 +2524,8 @@ spec:
                   initContainers:
                     description: |-
                       InitContainers to append to the main Ironic pod.
-                      If a container name matches an existing init container, the existing init container is replaced.
+                      If a container name matches an existing init container, the existing init container is
+                      replaced or merged, depending on ContainerOverrideMode.
                     items:
                       description: A single application container that you want to
                         run within a pod.

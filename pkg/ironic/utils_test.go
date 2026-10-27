@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -191,7 +192,7 @@ func TestApplyContainerOverrides(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			result := applyContainerOverrides(tc.Existing, tc.Overrides)
+			result := applyContainerOverrides(tc.Existing, tc.Overrides, metal3api.ContainerOverrideModeReplace)
 
 			var names []string
 			for _, cont := range result {
@@ -864,4 +865,123 @@ func TestApplyOverridesToPodTolerations(t *testing.T) {
 			assert.Equal(t, tc.ExpectedTolerations, result.Spec.Tolerations)
 		})
 	}
+}
+
+func TestContainerOverridesMerge(t *testing.T) {
+	existing := []corev1.Container{
+		{
+			Name:    "ironic",
+			Image:   "ironic:v1",
+			Command: []string{"/bin/runironic"},
+			Env: []corev1.EnvVar{
+				{Name: "A", Value: "1"},
+				{Name: "B", Value: "2"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "config", MountPath: "/etc/ironic"},
+			},
+			Ports: []corev1.ContainerPort{
+				{Name: "api", ContainerPort: 6385},
+			},
+			SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+			LivenessProbe:   &corev1.Probe{TimeoutSeconds: 10},
+		},
+		{Name: "httpd", Image: "httpd:v1"},
+	}
+
+	overrides := []corev1.Container{
+		{
+			Name:  "ironic",
+			Image: "downstream/ironic:v2",
+			Env: []corev1.EnvVar{
+				{Name: "B", Value: "20"},
+				{Name: "C", Value: "3"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+			},
+			Ports: []corev1.ContainerPort{
+				{ContainerPort: 9999},
+			},
+		},
+		{Name: "extra", Image: "extra:v1"},
+	}
+
+	result := applyContainerOverrides(existing, overrides, metal3api.ContainerOverrideModeMerge)
+
+	assert.Equal(t, []corev1.Container{
+		{
+			Name:    "ironic",
+			Image:   "downstream/ironic:v2",
+			Command: []string{"/bin/runironic"},
+			Env: []corev1.EnvVar{
+				{Name: "A", Value: "1"},
+				{Name: "B", Value: "20"},
+				{Name: "C", Value: "3"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "config", MountPath: "/etc/ironic"},
+				{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+			},
+			Ports: []corev1.ContainerPort{
+				{Name: "api", ContainerPort: 6385},
+				{ContainerPort: 9999},
+			},
+			SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+			LivenessProbe:   &corev1.Probe{TimeoutSeconds: 10},
+		},
+		{Name: "httpd", Image: "httpd:v1"},
+		{Name: "extra", Image: "extra:v1"},
+	}, result)
+
+	// The existing containers are not modified.
+	assert.Equal(t, "ironic:v1", existing[0].Image)
+	assert.Len(t, existing[0].Env, 2)
+}
+
+func TestContainerOverridesMergeReplacesPointerFields(t *testing.T) {
+	existing := []corev1.Container{{
+		Name:            "ironic",
+		SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+		ReadinessProbe:  &corev1.Probe{TimeoutSeconds: 10},
+	}}
+	overrides := []corev1.Container{{
+		Name:            "ironic",
+		SecurityContext: &corev1.SecurityContext{},
+		ReadinessProbe:  &corev1.Probe{TimeoutSeconds: 30},
+	}}
+
+	result := applyContainerOverrides(existing, overrides, metal3api.ContainerOverrideModeMerge)
+
+	assert.Equal(t, &corev1.SecurityContext{}, result[0].SecurityContext)
+	assert.Equal(t, int32(30), result[0].ReadinessProbe.TimeoutSeconds)
+}
+
+func TestApplyOverridesToPodMergeMode(t *testing.T) {
+	podTemplate := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:         "ironic",
+				Image:        "ironic:v1",
+				VolumeMounts: []corev1.VolumeMount{{Name: "config", MountPath: "/etc/ironic"}},
+			}},
+		},
+	}
+	overrides := &metal3api.Overrides{
+		ContainerOverrideMode: metal3api.ContainerOverrideModeMerge,
+		Containers: []corev1.Container{{
+			Name:         "ironic",
+			VolumeMounts: []corev1.VolumeMount{{Name: "downstream-config", MountPath: "/etc/downstream/config"}},
+		}},
+		Volumes: []corev1.Volume{{Name: "downstream-config"}},
+	}
+
+	result := applyOverridesToPod(overrides, podTemplate)
+
+	assert.Equal(t, "ironic:v1", result.Spec.Containers[0].Image)
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "config", MountPath: "/etc/ironic"},
+		{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+	}, result.Spec.Containers[0].VolumeMounts)
+	assert.Equal(t, []corev1.Volume{{Name: "downstream-config"}}, result.Spec.Volumes)
 }

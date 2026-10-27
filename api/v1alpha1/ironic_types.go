@@ -549,6 +549,17 @@ type Database struct {
 	TLSCertificateName string `json:"tlsCertificateName,omitempty"`
 }
 
+// ContainerOverrideMode defines how override containers are applied to existing containers.
+// +kubebuilder:validation:Enum=replace;merge
+type ContainerOverrideMode string
+
+const (
+	// ContainerOverrideModeReplace replaces an existing container with the override container of the same name.
+	ContainerOverrideModeReplace ContainerOverrideMode = "replace"
+	// ContainerOverrideModeMerge merges the override container into the existing container of the same name.
+	ContainerOverrideModeMerge ContainerOverrideMode = "merge"
+)
+
 type Overrides struct {
 	// Extra annotations to add to each pod (including upgrade jobs).
 	// +optional
@@ -559,8 +570,22 @@ type Overrides struct {
 	// +optional
 	AgentImages []AgentImages `json:"agentImages,omitempty"`
 
+	// ContainerOverrideMode defines how containers and init containers whose name
+	// matches an existing container are applied.
+	// With `replace` (the default), the override container replaces the existing one.
+	// With `merge`, the override container is merged into the existing one:
+	// image, command, args, workingDir, imagePullPolicy and terminationMessagePolicy
+	// replace the existing values when not empty; securityContext, probes, lifecycle
+	// and resources replace the existing values when set; env, volumeMounts and ports
+	// are merged by name, replacing items with the same name and appending new ones;
+	// envFrom is appended.
+	// +kubebuilder:default=replace
+	// +optional
+	ContainerOverrideMode ContainerOverrideMode `json:"containerOverrideMode,omitempty"`
+
 	// Containers to append to the main Ironic pod.
-	// If a container name matches an existing container, the existing container is replaced.
+	// If a container name matches an existing container, the existing container is
+	// replaced or merged, depending on ContainerOverrideMode.
 	// +optional
 	Containers []corev1.Container `json:"containers,omitempty"`
 
@@ -573,7 +598,8 @@ type Overrides struct {
 	HttpdReadinessProbe *corev1.Probe `json:"httpdReadinessProbe,omitempty"`
 
 	// InitContainers to append to the main Ironic pod.
-	// If a container name matches an existing init container, the existing init container is replaced.
+	// If a container name matches an existing init container, the existing init container is
+	// replaced or merged, depending on ContainerOverrideMode.
 	// +optional
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
 
