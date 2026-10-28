@@ -1,0 +1,167 @@
+{{- if .Values.rbac.create }}
+{{- $fullname := include "irso.fullname" . }}
+{{- $subject := dict "kind" "ServiceAccount" "name" (include "irso.serviceAccountName" .) "namespace" .Release.Namespace }}
+{{- if .Values.watchNamespace }}
+# Namespaced mode: manager permissions are limited to the watched namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-manager-role
+  namespace: {{ .Values.watchNamespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+rules:
+  {{- include "irso.managerRules" . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-manager-rolebinding
+  namespace: {{ .Values.watchNamespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-manager-role
+subjects:
+- {{- toYaml $subject | nindent 2 }}
+{{- else }}
+# Cluster-wide mode: the operator watches Ironic resources in all namespaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-manager-role
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+rules:
+  {{- include "irso.managerRules" . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-manager-rolebinding
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-manager-role
+subjects:
+- {{- toYaml $subject | nindent 2 }}
+{{- end }}
+{{- if .Values.leaderElection.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullname }}-leader-election-role
+  namespace: {{ include "irso.leaderElectionNamespace" . }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullname }}-leader-election-rolebinding
+  namespace: {{ include "irso.leaderElectionNamespace" . }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullname }}-leader-election-role
+subjects:
+- {{- toYaml $subject | nindent 2 }}
+{{- end }}
+{{- if .Values.metrics.enabled }}
+---
+# Required by the authenticated/authorized metrics endpoint.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-metrics-auth-role
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullname }}-metrics-auth-rolebinding
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullname }}-metrics-auth-role
+subjects:
+- {{- toYaml $subject | nindent 2 }}
+---
+# Bind this to the service account that scrapes the metrics endpoint.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullname }}-metrics-reader
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+{{- end }}
+{{- end }}
