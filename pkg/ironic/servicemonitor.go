@@ -53,13 +53,12 @@ func ensureServiceMonitor(cctx ControllerContext, ironic *metal3api.Ironic) (Sta
 
 		return controllerutil.SetControllerReference(ironic, sm, cctx.Scheme)
 	})
-
+	if err != nil {
+		return transientError(err)
+	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("ServiceMonitor", "ServiceMonitor", sm.Name, "Status", result)
 		return updated()
-	}
-	if err != nil {
-		return transientError(err)
 	}
 
 	return ready()
