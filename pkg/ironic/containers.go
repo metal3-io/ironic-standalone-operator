@@ -47,18 +47,20 @@ const (
 )
 
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
+	apiPort := strconv.Itoa(int(ironic.Spec.Networking.APIPort))
+	imagePort := strconv.Itoa(int(ironic.Spec.Networking.ImageServerPort))
 	result := []corev1.EnvVar{
 		{
 			Name:  "IRONIC_LISTEN_PORT",
-			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
+			Value: apiPort,
 		},
 		{
 			Name:  "IRONIC_ACCESS_PORT",
-			Value: strconv.Itoa(int(ironic.Spec.Networking.APIPort)),
+			Value: apiPort,
 		},
 		{
 			Name:  "HTTP_PORT",
-			Value: strconv.Itoa(int(ironic.Spec.Networking.ImageServerPort)),
+			Value: imagePort,
 		},
 		{
 			Name:  "LISTEN_ALL_INTERFACES",
@@ -110,6 +112,31 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 				},
 			},
 		)
+	}
+
+	if ironic.Spec.Networking.AccessIP != "" {
+		apiScheme := "http"
+		if ironic.Spec.TLS.CertificateName != "" {
+			apiScheme = "https"
+		}
+		baseURL := joinURL(apiScheme, ironic.Spec.Networking.AccessIP, apiPort)
+		// NOTE(dtantsur): TLS support for image server is not ready yet
+		httpURL := joinURL("http", ironic.Spec.Networking.AccessIP, imagePort)
+		tftpURL := joinURL("tftp", ironic.Spec.Networking.AccessIP, "")
+		result = append(result, []corev1.EnvVar{
+			{
+				Name:  "IRONIC_BASE_URL",
+				Value: baseURL,
+			},
+			{
+				Name:  "IRONIC_HTTP_URL",
+				Value: httpURL,
+			},
+			{
+				Name:  "IRONIC_TFTP_URL",
+				Value: tftpURL,
+			},
+		}...)
 	}
 
 	if ironic.Spec.TLS.CertificateName != "" {
