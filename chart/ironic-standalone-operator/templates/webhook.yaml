@@ -1,0 +1,57 @@
+{{- if .Values.webhook.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "irso.webhookServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+spec:
+  ports:
+  - name: webhook
+    port: 443
+    protocol: TCP
+    targetPort: webhook-server
+  selector:
+    {{- include "irso.selectorLabels" . | nindent 4 }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "irso.fullname" . }}-validating-webhook-configuration
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $ "extra" (include "irso.caInjectionAnnotation" . | fromYaml)) }}
+webhooks:
+- name: validate-ironic.ironic.metal3.io
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ include "irso.webhookServiceName" . }}
+      namespace: {{ .Release.Namespace }}
+      path: /validate-ironic-metal3-io-v1alpha1-ironic
+      port: 443
+    {{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.existingSecret.caBundle }}
+    caBundle: {{ .Values.webhook.existingSecret.caBundle }}
+    {{- end }}
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+  sideEffects: None
+  {{- with .Values.watchNamespace }}
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: {{ . }}
+  {{- end }}
+  rules:
+  - apiGroups:
+    - ironic.metal3.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ironics
+{{- end }}

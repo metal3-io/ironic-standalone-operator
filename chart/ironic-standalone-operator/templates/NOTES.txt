@@ -1,0 +1,15 @@
+Ironic Standalone Operator {{ .Chart.AppVersion }} has been deployed to namespace {{ .Release.Namespace }}.
+
+{{- if .Values.watchNamespace }}
+
+Mode: namespaced. Only Ironic resources in namespace "{{ .Values.watchNamespace }}" are reconciled.
+{{- else }}
+
+Mode: cluster-wide. Ironic resources in all namespaces are reconciled.
+{{- end }}
+
+Check the operator:
+  kubectl -n {{ .Release.Namespace }} get deploy {{ include "irso.fullname" . }}-controller-manager
+
+Create an Ironic resource (see config/samples in the repository):
+  kubectl -n {{ default "<namespace>" .Values.watchNamespace }} apply -f ironic.yaml

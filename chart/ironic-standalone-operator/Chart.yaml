@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ironic-standalone-operator
+description: Ironic Standalone Operator (IrSO) - deploys and manages Ironic for Metal3
+type: application
+version: 0.12.0
+appVersion: "v0.12.0"
+home: https://github.com/metal3-io/ironic-standalone-operator
+sources:
+- https://github.com/metal3-io/ironic-standalone-operator
+keywords:
+- metal3
+- ironic
+- baremetal
+- operator
