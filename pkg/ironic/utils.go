@@ -385,10 +385,97 @@ func mergeMaps[M ~map[K]V, K, V comparable](m1 M, m2 M) M {
 	return result
 }
 
+// mergeByName returns existing with items that have the same name as an override
+// item replaced by it, followed by the override items with new names.
+// Items for which name returns an empty string are always appended.
+func mergeByName[T any](existing []T, overrides []T, name func(T) string) []T {
+	if len(overrides) == 0 {
+		return existing
+	}
+
+	result := make([]T, 0, len(existing)+len(overrides))
+	overrideMap := make(map[string]T, len(overrides))
+	for _, item := range overrides {
+		if n := name(item); n != "" {
+			overrideMap[n] = item
+		}
+	}
+
+	for _, item := range existing {
+		if override, found := overrideMap[name(item)]; found {
+			result = append(result, override)
+			delete(overrideMap, name(item))
+		} else {
+			result = append(result, item)
+		}
+	}
+
+	for _, item := range overrides {
+		n := name(item)
+		if n == "" {
+			result = append(result, item)
+		} else if _, stillInMap := overrideMap[n]; stillInMap {
+			result = append(result, item)
+		}
+	}
+
+	return result
+}
+
+// mergeContainer merges override into existing for ContainerOverrideModeMerge.
+func mergeContainer(existing, override corev1.Container) corev1.Container {
+	result := *existing.DeepCopy()
+
+	if override.Image != "" {
+		result.Image = override.Image
+	}
+	if len(override.Command) > 0 {
+		result.Command = override.Command
+	}
+	if len(override.Args) > 0 {
+		result.Args = override.Args
+	}
+	if override.WorkingDir != "" {
+		result.WorkingDir = override.WorkingDir
+	}
+	if override.ImagePullPolicy != "" {
+		result.ImagePullPolicy = override.ImagePullPolicy
+	}
+	if override.TerminationMessagePolicy != "" {
+		result.TerminationMessagePolicy = override.TerminationMessagePolicy
+	}
+	if override.SecurityContext != nil {
+		result.SecurityContext = override.SecurityContext
+	}
+	if override.LivenessProbe != nil {
+		result.LivenessProbe = override.LivenessProbe
+	}
+	if override.ReadinessProbe != nil {
+		result.ReadinessProbe = override.ReadinessProbe
+	}
+	if override.StartupProbe != nil {
+		result.StartupProbe = override.StartupProbe
+	}
+	if override.Lifecycle != nil {
+		result.Lifecycle = override.Lifecycle
+	}
+	if len(override.Resources.Limits) > 0 || len(override.Resources.Requests) > 0 || len(override.Resources.Claims) > 0 {
+		result.Resources = override.Resources
+	}
+
+	result.Env = mergeByName(result.Env, override.Env, func(e corev1.EnvVar) string { return e.Name })
+	result.VolumeMounts = mergeByName(result.VolumeMounts, override.VolumeMounts, func(m corev1.VolumeMount) string { return m.Name })
+	result.Ports = mergeByName(result.Ports, override.Ports, func(p corev1.ContainerPort) string { return p.Name })
+	result.EnvFrom = append(result.EnvFrom, override.EnvFrom...)
+
+	return result
+}
+
 // applyContainerOverrides merges override containers into existing containers.
-// If an override container has the same name as an existing container, it replaces the existing one.
+// If an override container has the same name as an existing container, it replaces the existing one,
+// or is merged into it when mode is ContainerOverrideModeMerge.
 // Otherwise, the override container is appended to the list.
-func applyContainerOverrides(existing []corev1.Container, overrides []corev1.Container) []corev1.Container {
+func applyContainerOverrides(existing []corev1.Container, overrides []corev1.Container, mode metal3api.ContainerOverrideMode) []corev1.Container {
 	if len(overrides) == 0 {
 		return existing
 	}
@@ -404,7 +491,11 @@ func applyContainerOverrides(existing []corev1.Container, overrides []corev1.Con
 	// First, add existing containers, replacing with overrides where names match
 	for _, container := range existing {
 		if override, found := overrideMap[container.Name]; found {
-			result = append(result, override)
+			if mode == metal3api.ContainerOverrideModeMerge {
+				result = append(result, mergeContainer(container, override))
+			} else {
+				result = append(result, override)
+			}
 			delete(overrideMap, container.Name)
 		} else {
 			result = append(result, container)
@@ -466,11 +557,11 @@ func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodT
 	podTemplate.Annotations = mergeMaps(podTemplate.Annotations, overrides.Annotations)
 	podTemplate.Labels = mergeMaps(podTemplate.Labels, overrides.Labels)
 
-	// Merge containers: replace if name matches, otherwise append
-	podTemplate.Spec.Containers = applyContainerOverrides(podTemplate.Spec.Containers, overrides.Containers)
+	// Merge containers: replace or merge if name matches, otherwise append
+	podTemplate.Spec.Containers = applyContainerOverrides(podTemplate.Spec.Containers, overrides.Containers, overrides.ContainerOverrideMode)
 
-	// Merge init containers: replace if name matches, otherwise append
-	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers)
+	// Merge init containers: replace or merge if name matches, otherwise append
+	podTemplate.Spec.InitContainers = applyContainerOverrides(podTemplate.Spec.InitContainers, overrides.InitContainers, overrides.ContainerOverrideMode)
 
 	// Merge volumes: replace if name matches, otherwise append
 	podTemplate.Spec.Volumes = applyVolumeOverrides(podTemplate.Spec.Volumes, overrides.Volumes)
