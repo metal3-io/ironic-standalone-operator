@@ -499,6 +499,10 @@ func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
 		)
 	}
 
+	if resources.Ironic.Spec.Overrides != nil {
+		result = appendStringEnv(result, "IRONIC_HTTPD_LOGLEVEL", resources.Ironic.Spec.Overrides.HttpdLogLevel)
+	}
+
 	return result
 }
 
