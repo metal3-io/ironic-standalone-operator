@@ -1226,7 +1226,7 @@ func TestValidateIronic(t *testing.T) {
 					},
 				},
 			},
-			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol",
+			ExpectedError: `overrides.agentImages[0].initramfs "not a url" contains invalid whitespace or control characters`,
 		},
 		{
 			Scenario: "agent images with unsupported kernel protocol",
@@ -1541,6 +1541,269 @@ func TestValidateIronic(t *testing.T) {
 				},
 			},
 			ExpectedError: `overrides.tolerations[0]: tolerationSeconds is only valid with effect "NoExecute"`,
+		},
+		{
+			Scenario: "valid interface name",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "eno1.100"},
+			},
+		},
+		{
+			Scenario: "interface name with space",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "eth 0"},
+			},
+			ExpectedError: "networking.interface",
+		},
+		{
+			Scenario: "interface name with shell metacharacters",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "eth0;id"},
+			},
+			ExpectedError: "not a valid interface name",
+		},
+		{
+			Scenario: "interface name longer than 15 characters",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "enx0011223344556"},
+			},
+			ExpectedError: "not a valid interface name",
+		},
+		{
+			Scenario: "valid MAC addresses",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					MACAddresses: []string{"00:11:22:33:44:55", "aa-bb-cc-dd-ee-ff"},
+				},
+			},
+		},
+		{
+			Scenario: "invalid MAC address",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					MACAddresses: []string{"not-a-mac"},
+				},
+			},
+			ExpectedError: "not a valid MAC address",
+		},
+		{
+			Scenario: "empty MAC address",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					MACAddresses: []string{""},
+				},
+			},
+			ExpectedError: "networking.macAddresses[0] must not be empty",
+		},
+		{
+			Scenario: "valid database host IP",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "2001:db8::1",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "database host is not a hostname or IP",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "not_a_host",
+					Name:            "ironic",
+				},
+			},
+			ExpectedError: "database.host",
+		},
+		{
+			Scenario: "database name with whitespace",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "example.com",
+					Name:            "ironic db",
+				},
+			},
+			ExpectedError: "database.name",
+		},
+		{
+			Scenario: "valid image references and ramdisk branch",
+			Ironic: metal3api.IronicSpec{
+				Images: metal3api.Images{
+					Ironic:                  "quay.io/example/ironic:latest",
+					Keepalived:              "quay.io/example/keepalived:1.2.3",
+					DeployRamdiskDownloader: "quay.io/example/downloader:latest",
+					DeployRamdiskBranch:     "stable/x.y",
+				},
+			},
+		},
+		{
+			Scenario: "image reference with newline",
+			Ironic: metal3api.IronicSpec{
+				Images: metal3api.Images{
+					Ironic: "quay.io/example/ironic:latest\nmalicious",
+				},
+			},
+			ExpectedError: "images.ironic",
+		},
+		{
+			Scenario: "ramdisk branch with space",
+			Ironic: metal3api.IronicSpec{
+				Images: metal3api.Images{DeployRamdiskBranch: "stable branch"},
+			},
+			ExpectedError: "images.deployRamdiskBranch",
+		},
+		{
+			Scenario: "valid inspection collectors and VLAN interfaces",
+			Ironic: metal3api.IronicSpec{
+				Inspection: metal3api.Inspection{
+					Collectors:     []string{"default", "pci-devices"},
+					VLANInterfaces: []string{"eth0", "enp94s0f0np0.100"},
+				},
+			},
+		},
+		{
+			Scenario: "collector containing the list separator",
+			Ironic: metal3api.IronicSpec{
+				Inspection: metal3api.Inspection{
+					Collectors: []string{"default,logs"},
+				},
+			},
+			ExpectedError: `inspection.collectors[0] "default,logs" must not contain ","`,
+		},
+		{
+			Scenario: "VLAN interface with whitespace",
+			Ironic: metal3api.IronicSpec{
+				Inspection: metal3api.Inspection{
+					VLANInterfaces: []string{"eth 0"},
+				},
+			},
+			ExpectedError: "inspection.vlanInterfaces[0]",
+		},
+		{
+			Scenario: "valid extraConfig and kernel parameters",
+			Ironic: metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe", Name: "boot_retry_timeout", Value: "1200"},
+					{Group: "agent", Name: "deploy_logs_collect", Value: "always on"},
+				},
+				DeployRamdisk: metal3api.DeployRamdisk{
+					ExtraKernelParams: "console=ttyS0,115200 quiet",
+					SSHKey:            "ssh-rsa AAAA user@host\n",
+				},
+			},
+		},
+		{
+			Scenario: "extraConfig group is not an environment name component",
+			Ironic: metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe group", Name: "timeout", Value: "10"},
+				},
+			},
+			ExpectedError: "extraConfig[0].group",
+		},
+		{
+			Scenario: "extraConfig value with newline",
+			Ironic: metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe", Name: "timeout", Value: "10\nmalicious"},
+				},
+			},
+			ExpectedError: "extraConfig[0].value",
+		},
+		{
+			Scenario: "kernel parameters with embedded newline",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{
+					ExtraKernelParams: "console=ttyS0\nquiet",
+				},
+			},
+			ExpectedError: "deployRamdisk.extraKernelParams",
+		},
+		{
+			Scenario: "SSH key with embedded newline",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{
+					SSHKey: "ssh-rsa\nAAAA",
+				},
+			},
+			ExpectedError: "deployRamdisk.sshKey",
+		},
+		{
+			Scenario: "valid DHCP host and ignore entries",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						Hosts:       []string{"00:11:22:33:44:55,192.168.1.20,host1"},
+						Ignore:      []string{"known"},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "DHCP host containing the list separator",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						Hosts:       []string{"00:11:22:33:44:55;192.168.1.20"},
+					},
+				},
+			},
+			ExpectedError: `networking.dhcp.hosts[0]`,
+		},
+		{
+			Scenario: "DHCP ignore entry containing the list separator",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					DHCP: &metal3api.DHCP{
+						NetworkCIDR: "192.168.1.0/24",
+						RangeBegin:  "192.168.1.10",
+						RangeEnd:    "192.168.1.100",
+						Ignore:      []string{"known,tag"},
+					},
+				},
+			},
+			ExpectedError: "networking.dhcp.ignore[0]",
+		},
+		{
+			Scenario: "Keepalived additional interface is not a valid name",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1;id"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0].interface",
+		},
+		{
+			Scenario: "agent image URL with embedded newline",
+			Ironic: metal3api.IronicSpec{
+				Overrides: &metal3api.Overrides{
+					AgentImages: []metal3api.AgentImages{
+						{
+							Kernel:    "http://example.com/ipa.kernel\nmalicious",
+							Initramfs: "http://example.com/ipa.initramfs",
+						},
+					},
+				},
+			},
+			ExpectedError: "overrides.agentImages[0].kernel",
 		},
 	}
 
