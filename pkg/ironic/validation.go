@@ -29,12 +29,12 @@ const (
 )
 
 var (
-	// interfaceNameRegexp matches a Linux interface name: at most IFNAMSIZ-1
-	// (15) characters, starting with a letter or digit.
-	interfaceNameRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,14}$`)
+	// interfaceNameRegexp matches a Linux interface name of at most IFNAMSIZ-1
+	// (15) characters. The kernel also rejects the names "." and "..".
+	interfaceNameRegexp = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,15}$`)
 	// vlanInterfaceRegexp matches an interface name or an <interface>.<vlan> pair.
 	// The combined value can be longer than a kernel interface name.
-	vlanInterfaceRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+	vlanInterfaceRegexp = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 	// envNameComponentRegexp matches characters that stay valid inside OS_<GROUP>__<NAME>.
 	envNameComponentRegexp = regexp.MustCompile(`^[-._a-zA-Z0-9]+$`)
 )
@@ -67,7 +67,7 @@ func validateInterfaceName(field, name string) error {
 	if name == "" {
 		return nil
 	}
-	if !interfaceNameRegexp.MatchString(name) {
+	if name == "." || name == ".." || !interfaceNameRegexp.MatchString(name) {
 		return fmt.Errorf("%s %q is not a valid interface name (letters, numbers, dots, underscores, and hyphens; max 15 characters)", field, name)
 	}
 	return nil
@@ -96,7 +96,11 @@ func validateHostOrIP(field, value string) error {
 	if _, err := netip.ParseAddr(value); err == nil {
 		return nil
 	}
-	if msgs := validation.IsDNS1123Subdomain(strings.ToLower(value)); len(msgs) > 0 {
+	// An absolute DNS name may end with a root dot. That dot is not part of
+	// the DNS-1123 subdomain check, and the original value is left unchanged
+	// for the container.
+	host := strings.TrimSuffix(value, ".")
+	if host == "" || len(validation.IsDNS1123Subdomain(strings.ToLower(host))) > 0 {
 		return fmt.Errorf("%s %q is not a valid hostname or IP address", field, value)
 	}
 	return nil
@@ -130,7 +134,7 @@ func validateVLANInterfaces(values []string) error {
 		if value == "" {
 			return fmt.Errorf("%s must not be empty", field)
 		}
-		if !vlanInterfaceRegexp.MatchString(value) {
+		if value == "." || value == ".." || !vlanInterfaceRegexp.MatchString(value) {
 			return fmt.Errorf("%s %q is not a valid interface or interface.vlan pair", field, value)
 		}
 	}
@@ -200,7 +204,53 @@ func validateContainerInputs(ironic *metal3api.IronicSpec) error {
 	if err := validateCopiedText("deployRamdisk.extraKernelParams", ironic.DeployRamdisk.ExtraKernelParams); err != nil {
 		return err
 	}
-	return validateCopiedText("deployRamdisk.sshKey", ironic.DeployRamdisk.SSHKey)
+	if err := validateCopiedText("deployRamdisk.sshKey", ironic.DeployRamdisk.SSHKey); err != nil {
+		return err
+	}
+	if ironic.Database != nil {
+		if err := validateHostOrIP("database.host", ironic.Database.Host); err != nil {
+			return err
+		}
+		if err := validateNoUnsafeCharacters("database.name", ironic.Database.Name); err != nil {
+			return err
+		}
+	}
+	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+		if err := validateDelimitedEntries("networking.dhcp.hosts", dhcp.Hosts, ";", true); err != nil {
+			return err
+		}
+		if err := validateDelimitedEntries("networking.dhcp.ignore", dhcp.Ignore, ",", true); err != nil {
+			return err
+		}
+	}
+	if ironic.Networking.Keepalived != nil && ironic.Networking.Keepalived.Enabled {
+		for i, entry := range ironic.Networking.Keepalived.AdditionalVIPs {
+			if err := validateInterfaceName(fmt.Sprintf("networking.keepalived.additionalVIPs[%d].interface", i), entry.Interface); err != nil {
+				return err
+			}
+		}
+	}
+	if ironic.Overrides != nil {
+		for i, img := range ironic.Overrides.AgentImages {
+			if err := validateNoUnsafeCharacters(fmt.Sprintf("overrides.agentImages[%d].kernel", i), strings.TrimSpace(img.Kernel)); err != nil {
+				return err
+			}
+			if err := validateNoUnsafeCharacters(fmt.Sprintf("overrides.agentImages[%d].initramfs", i), strings.TrimSpace(img.Initramfs)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateIronicAdmission validates an Ironic spec during admission.
+// Reconciliation continues to use ValidateIronic so an object stored before
+// these checks existed is still managed after an operator upgrade.
+func ValidateIronicAdmission(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) error {
+	if err := ValidateIronic(ironic, old); err != nil {
+		return err
+	}
+	return validateContainerInputs(ironic)
 }
 
 func validateIP(ip string) error {
@@ -236,10 +286,6 @@ func validateURL(urlStr string, fieldName string) error {
 	urlStr = strings.TrimSpace(urlStr)
 	if urlStr == "" {
 		return fmt.Errorf("%s: URL must not be empty", fieldName)
-	}
-
-	if err := validateNoUnsafeCharacters(fieldName, urlStr); err != nil {
-		return err
 	}
 
 	parsed, err := url.Parse(urlStr)
@@ -476,13 +522,6 @@ func ValidateDHCP(ironic *metal3api.IronicSpec) error {
 		}
 	}
 
-	if err := validateDelimitedEntries("networking.dhcp.hosts", dhcp.Hosts, ";", true); err != nil {
-		return err
-	}
-	if err := validateDelimitedEntries("networking.dhcp.ignore", dhcp.Ignore, ",", true); err != nil {
-		return err
-	}
-
 	return validateNoPoolOverlap(dhcp)
 }
 
@@ -535,14 +574,6 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 
 	if ironic.Database != nil && (ironic.Database.CredentialsName == "" || ironic.Database.Host == "" || ironic.Database.Name == "") {
 		return errors.New("credentialsName, host and name are required on database")
-	}
-	if ironic.Database != nil {
-		if err := validateHostOrIP("database.host", ironic.Database.Host); err != nil {
-			return err
-		}
-		if err := validateNoUnsafeCharacters("database.name", ironic.Database.Name); err != nil {
-			return err
-		}
 	}
 
 	if ironic.Networking.DisableHostNetwork &&
@@ -612,9 +643,6 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 			if entry.Interface == "" {
 				return fmt.Errorf("networking.keepalived.additionalVIPs[%d]: interface is required", i)
 			}
-			if err := validateInterfaceName(fmt.Sprintf("networking.keepalived.additionalVIPs[%d].interface", i), entry.Interface); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -678,7 +706,7 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		}
 	}
 
-	return validateContainerInputs(ironic)
+	return nil
 }
 
 func validateNetworkingService(ironic *metal3api.IronicSpec) error {

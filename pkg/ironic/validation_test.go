@@ -1226,7 +1226,7 @@ func TestValidateIronic(t *testing.T) {
 					},
 				},
 			},
-			ExpectedError: `overrides.agentImages[0].initramfs "not a url" contains invalid whitespace or control characters`,
+			ExpectedError: "overrides.agentImages[0].initramfs: unsupported protocol",
 		},
 		{
 			Scenario: "agent images with unsupported kernel protocol",
@@ -1549,6 +1549,26 @@ func TestValidateIronic(t *testing.T) {
 			},
 		},
 		{
+			Scenario: "interface name with a leading underscore",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "_provision"},
+			},
+		},
+		{
+			Scenario: "interface name is a single dot",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: "."},
+			},
+			ExpectedError: "not a valid interface name",
+		},
+		{
+			Scenario: "interface name is dotdot",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{Interface: ".."},
+			},
+			ExpectedError: "not a valid interface name",
+		},
+		{
 			Scenario: "interface name with space",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{Interface: "eth 0"},
@@ -1594,6 +1614,16 @@ func TestValidateIronic(t *testing.T) {
 				},
 			},
 			ExpectedError: "networking.macAddresses[0] must not be empty",
+		},
+		{
+			Scenario: "database host with a trailing DNS root dot",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "mariadb.database.svc.cluster.local.",
+					Name:            "ironic",
+				},
+			},
 		},
 		{
 			Scenario: "valid database host IP",
@@ -1659,7 +1689,7 @@ func TestValidateIronic(t *testing.T) {
 			Ironic: metal3api.IronicSpec{
 				Inspection: metal3api.Inspection{
 					Collectors:     []string{"default", "pci-devices"},
-					VLANInterfaces: []string{"eth0", "enp94s0f0np0.100"},
+					VLANInterfaces: []string{"eth0", "enp94s0f0np0.100", "_provision.100"},
 				},
 			},
 		},
@@ -1813,7 +1843,7 @@ func TestValidateIronic(t *testing.T) {
 				tc.OldIronic = &tc.Ironic
 			}
 
-			err := ValidateIronic(&tc.Ironic, tc.OldIronic)
+			err := ValidateIronicAdmission(&tc.Ironic, tc.OldIronic)
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -1821,6 +1851,28 @@ func TestValidateIronic(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateIronicLeavesStoredContainerInputs(t *testing.T) {
+	spec := metal3api.IronicSpec{
+		Database: &metal3api.Database{
+			CredentialsName: "test",
+			Host:            "mariadb.database.svc.cluster.local.",
+			Name:            "ironic db",
+		},
+		Networking: metal3api.Networking{
+			Interface: "eth 0",
+			DHCP: &metal3api.DHCP{
+				NetworkCIDR: "192.168.1.0/24",
+				RangeBegin:  "192.168.1.10",
+				RangeEnd:    "192.168.1.100",
+				Hosts:       []string{"00:11:22:33:44:55;192.168.1.20"},
+			},
+		},
+	}
+
+	require.NoError(t, ValidateIronic(&spec, nil))
+	require.Error(t, ValidateIronicAdmission(&spec, nil))
 }
 
 func TestValidateCASettings(t *testing.T) {
