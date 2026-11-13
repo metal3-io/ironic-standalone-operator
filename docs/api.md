@@ -284,6 +284,16 @@ Will not take effect if the host uses a pre-built ISO (either through its Prepro
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>ntpServer</b></td>
+        <td>string</td>
+        <td>
+          NTPServer is the NTP server (an IP address or a host name) the ramdisk syncs its clock with
+before talking to Ironic, which avoids failures caused by clock skew between the host and the control plane.
+Passed to the ramdisk as the ipa-ntp-server kernel parameter, so like ExtraKernelParams,
+it will not take effect if the host uses a pre-built ISO.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>sshKey</b></td>
         <td>string</td>
         <td>

@@ -98,6 +98,13 @@ spec:
                       ExtraKernelParams is a string with kernel parameters to pass to the provisioning/inspection ramdisk.
                       Will not take effect if the host uses a pre-built ISO (either through its PreprovisioningImage or via the DEPLOY_ISO_URL baremetal-operator parameter).
                     type: string
+                  ntpServer:
+                    description: |-
+                      NTPServer is the NTP server (an IP address or a host name) the ramdisk syncs its clock with
+                      before talking to Ironic, which avoids failures caused by clock skew between the host and the control plane.
+                      Passed to the ramdisk as the ipa-ntp-server kernel parameter, so like ExtraKernelParams,
+                      it will not take effect if the host uses a pre-built ISO.
+                    type: string
                   sshKey:
                     description: SSHKey is the contents of the public key to inject
                       into the ramdisk for debugging purposes.

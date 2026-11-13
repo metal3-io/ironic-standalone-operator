@@ -358,6 +358,10 @@ func ValidateIronic(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) err
 		return err
 	}
 
+	if err := validateNTPServer(&ironic.DeployRamdisk); err != nil {
+		return err
+	}
+
 	if err := validateIP(ironic.Networking.ExternalIP); err != nil {
 		return err
 	}
@@ -617,4 +621,22 @@ func (resources *Resources) hasTrustedCAKey(key string) bool {
 	}
 
 	return false
+}
+
+func validateNTPServer(ramdisk *metal3api.DeployRamdisk) error {
+	server := ramdisk.NTPServer
+	if server == "" {
+		return nil
+	}
+	if net.ParseIP(server) == nil {
+		if errs := validation.IsDNS1123Subdomain(server); len(errs) > 0 {
+			return fmt.Errorf("deployRamdisk.ntpServer: %q is neither an IP address nor a valid host name: %s", server, strings.Join(errs, "; "))
+		}
+	}
+	for param := range strings.FieldsSeq(ramdisk.ExtraKernelParams) {
+		if strings.HasPrefix(param, "ipa-ntp-server=") {
+			return errors.New("deployRamdisk.ntpServer cannot be set together with ipa-ntp-server in deployRamdisk.extraKernelParams")
+		}
+	}
+	return nil
 }
