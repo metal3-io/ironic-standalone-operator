@@ -7,8 +7,10 @@ import (
 	"net/netip"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -25,6 +27,231 @@ const (
 	minVLAN = 1
 	maxVLAN = 4094
 )
+
+var (
+	// interfaceNameRegexp matches a Linux interface name of at most IFNAMSIZ-1
+	// (15) characters. The kernel also rejects the names "." and "..".
+	interfaceNameRegexp = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,15}$`)
+	// vlanInterfaceRegexp matches an interface name or an <interface>.<vlan> pair.
+	// The combined value can be longer than a kernel interface name.
+	vlanInterfaceRegexp = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+	// envNameComponentRegexp matches characters that stay valid inside OS_<GROUP>__<NAME>.
+	envNameComponentRegexp = regexp.MustCompile(`^[-._a-zA-Z0-9]+$`)
+)
+
+// validateNoControlCharacters rejects ASCII and Unicode control characters.
+// A normal space is allowed because some copied values, such as kernel
+// parameters and Ironic config values, use spaces.
+func validateNoControlCharacters(field, value string) error {
+	for _, r := range value {
+		if unicode.IsControl(r) || (unicode.IsSpace(r) && r != ' ') {
+			return fmt.Errorf("%s %q contains invalid control characters", field, value)
+		}
+	}
+	return nil
+}
+
+// validateNoUnsafeCharacters rejects whitespace and control characters in
+// values that are copied into a single container environment variable,
+// image reference, or joined list entry.
+func validateNoUnsafeCharacters(field, value string) error {
+	for _, r := range value {
+		if unicode.IsControl(r) || unicode.IsSpace(r) {
+			return fmt.Errorf("%s %q contains invalid whitespace or control characters", field, value)
+		}
+	}
+	return nil
+}
+
+func validateInterfaceName(field, name string) error {
+	if name == "" {
+		return nil
+	}
+	if name == "." || name == ".." || !interfaceNameRegexp.MatchString(name) {
+		return fmt.Errorf("%s %q is not a valid interface name (letters, numbers, dots, underscores, and hyphens; max 15 characters)", field, name)
+	}
+	return nil
+}
+
+func validateMACAddresses(macs []string) error {
+	for i, mac := range macs {
+		field := fmt.Sprintf("networking.macAddresses[%d]", i)
+		if mac == "" {
+			return fmt.Errorf("%s must not be empty", field)
+		}
+		if _, err := net.ParseMAC(mac); err != nil {
+			return fmt.Errorf("%s %q is not a valid MAC address", field, mac)
+		}
+	}
+	return nil
+}
+
+func validateHostOrIP(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	if err := validateNoUnsafeCharacters(field, value); err != nil {
+		return err
+	}
+	if _, err := netip.ParseAddr(value); err == nil {
+		return nil
+	}
+	// An absolute DNS name may end with a root dot. That dot is not part of
+	// the DNS-1123 subdomain check, and the original value is left unchanged
+	// for the container.
+	host := strings.TrimSuffix(value, ".")
+	if host == "" || len(validation.IsDNS1123Subdomain(strings.ToLower(host))) > 0 {
+		return fmt.Errorf("%s %q is not a valid hostname or IP address", field, value)
+	}
+	return nil
+}
+
+func validateDelimitedEntries(field string, values []string, delimiter string, allowSpaces bool) error {
+	for i, value := range values {
+		itemField := fmt.Sprintf("%s[%d]", field, i)
+		if value == "" {
+			return fmt.Errorf("%s must not be empty", itemField)
+		}
+		var err error
+		if allowSpaces {
+			err = validateNoControlCharacters(itemField, value)
+		} else {
+			err = validateNoUnsafeCharacters(itemField, value)
+		}
+		if err != nil {
+			return err
+		}
+		if strings.Contains(value, delimiter) {
+			return fmt.Errorf("%s %q must not contain %q", itemField, value, delimiter)
+		}
+	}
+	return nil
+}
+
+func validateVLANInterfaces(values []string) error {
+	for i, value := range values {
+		field := fmt.Sprintf("inspection.vlanInterfaces[%d]", i)
+		if value == "" {
+			return fmt.Errorf("%s must not be empty", field)
+		}
+		if value == "." || value == ".." || !vlanInterfaceRegexp.MatchString(value) {
+			return fmt.Errorf("%s %q is not a valid interface or interface.vlan pair", field, value)
+		}
+	}
+	return nil
+}
+
+func validateEnvNameComponent(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	if !envNameComponentRegexp.MatchString(value) {
+		return fmt.Errorf("%s %q must contain only letters, digits, '-', '_' and '.'", field, value)
+	}
+	return nil
+}
+
+func validateExtraConfig(configs []metal3api.ExtraConfig) error {
+	for i, cfg := range configs {
+		if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].group", i), cfg.Group); err != nil {
+			return err
+		}
+		if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].name", i), cfg.Name); err != nil {
+			return err
+		}
+		if err := validateNoControlCharacters(fmt.Sprintf("extraConfig[%d].value", i), cfg.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateCopiedText checks the value that will actually be copied into a
+// container. Leading and trailing whitespace is removed before that copy.
+func validateCopiedText(field, value string) error {
+	return validateNoControlCharacters(field, strings.TrimSpace(value))
+}
+
+func validateContainerInputs(ironic *metal3api.IronicSpec) error {
+	if err := validateInterfaceName("networking.interface", ironic.Networking.Interface); err != nil {
+		return err
+	}
+	if err := validateMACAddresses(ironic.Networking.MACAddresses); err != nil {
+		return err
+	}
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{"images.ironic", ironic.Images.Ironic},
+		{"images.keepalived", ironic.Images.Keepalived},
+		{"images.deployRamdiskDownloader", ironic.Images.DeployRamdiskDownloader},
+		{"images.deployRamdiskBranch", ironic.Images.DeployRamdiskBranch},
+	} {
+		if err := validateNoUnsafeCharacters(field.name, field.value); err != nil {
+			return err
+		}
+	}
+	if err := validateDelimitedEntries("inspection.collectors", ironic.Inspection.Collectors, ",", false); err != nil {
+		return err
+	}
+	if err := validateVLANInterfaces(ironic.Inspection.VLANInterfaces); err != nil {
+		return err
+	}
+	if err := validateExtraConfig(ironic.ExtraConfig); err != nil {
+		return err
+	}
+	if err := validateCopiedText("deployRamdisk.extraKernelParams", ironic.DeployRamdisk.ExtraKernelParams); err != nil {
+		return err
+	}
+	if err := validateCopiedText("deployRamdisk.sshKey", ironic.DeployRamdisk.SSHKey); err != nil {
+		return err
+	}
+	if ironic.Database != nil {
+		if err := validateHostOrIP("database.host", ironic.Database.Host); err != nil {
+			return err
+		}
+		if err := validateNoUnsafeCharacters("database.name", ironic.Database.Name); err != nil {
+			return err
+		}
+	}
+	if dhcp := ironic.Networking.DHCP; dhcp != nil {
+		if err := validateDelimitedEntries("networking.dhcp.hosts", dhcp.Hosts, ";", true); err != nil {
+			return err
+		}
+		if err := validateDelimitedEntries("networking.dhcp.ignore", dhcp.Ignore, ",", true); err != nil {
+			return err
+		}
+	}
+	if ironic.Networking.Keepalived != nil && ironic.Networking.Keepalived.Enabled {
+		for i, entry := range ironic.Networking.Keepalived.AdditionalVIPs {
+			if err := validateInterfaceName(fmt.Sprintf("networking.keepalived.additionalVIPs[%d].interface", i), entry.Interface); err != nil {
+				return err
+			}
+		}
+	}
+	if ironic.Overrides != nil {
+		for i, img := range ironic.Overrides.AgentImages {
+			if err := validateNoUnsafeCharacters(fmt.Sprintf("overrides.agentImages[%d].kernel", i), strings.TrimSpace(img.Kernel)); err != nil {
+				return err
+			}
+			if err := validateNoUnsafeCharacters(fmt.Sprintf("overrides.agentImages[%d].initramfs", i), strings.TrimSpace(img.Initramfs)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateIronicAdmission validates an Ironic spec during admission.
+// Reconciliation continues to use ValidateIronic so an object stored before
+// these checks existed is still managed after an operator upgrade.
+func ValidateIronicAdmission(ironic *metal3api.IronicSpec, old *metal3api.IronicSpec) error {
+	if err := ValidateIronic(ironic, old); err != nil {
+		return err
+	}
+	return validateContainerInputs(ironic)
+}
 
 func validateIP(ip string) error {
 	if ip == "" {

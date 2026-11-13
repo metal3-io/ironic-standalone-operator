@@ -101,13 +101,17 @@ type DHCP struct {
 
 	// Hosts is a set of DHCP host records to pass to dnsmasq.
 	// Check the dnsmasq documentation on dhcp-host for an explanation of the format.
-	// There is no API-side validation. Most users will leave this unset.
+	// Each record must not contain control characters or ';', which joins the list
+	// into one environment variable. The dnsmasq record syntax is not otherwise validated.
+	// Most users will leave this unset.
 	// +optional
 	Hosts []string `json:"hosts,omitempty"`
 
 	// Ignore is set of dnsmasq tags to ignore and not provide any DHCP.
 	// Check the dnsmasq documentation on dhcp-ignore for an explanation of the format.
-	// There is no API-side validation. Most users will leave this unset.
+	// Each entry must not contain control characters or ',', which joins the list
+	// into one environment variable. The dnsmasq tag syntax is not otherwise validated.
+	// Most users will leave this unset.
 	// +optional
 	Ignore []string `json:"ignore,omitempty"`
 

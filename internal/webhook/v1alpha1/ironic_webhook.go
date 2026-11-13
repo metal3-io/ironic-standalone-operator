@@ -43,13 +43,13 @@ type IronicCustomValidator struct{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
 func (r *IronicCustomValidator) ValidateCreate(_ context.Context, ironic *metal3api.Ironic) (admission.Warnings, error) {
 	ironiclog.Info("validate create", "name", ironic.Name)
-	return nil, validation.ValidateIronic(&ironic.Spec, nil)
+	return nil, validation.ValidateIronicAdmission(&ironic.Spec, nil)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *IronicCustomValidator) ValidateUpdate(_ context.Context, oldIronic, ironic *metal3api.Ironic) (admission.Warnings, error) {
 	ironiclog.Info("validate update", "name", ironic.Name)
-	return nil, validation.ValidateIronic(&ironic.Spec, &oldIronic.Spec)
+	return nil, validation.ValidateIronicAdmission(&ironic.Spec, &oldIronic.Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
