@@ -394,9 +394,15 @@ func (r *IronicReconciler) ensureAPISecret(cctx ironic.ControllerContext, ironic
 		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
 		return nil, true, err
 	}
-	if requeue {
-		cctx.Logger.Info("updating htpasswd", "Secret", apiSecret.Name)
+	cloudsChanged, err := ironic.UpdateCloudsYAML(apiSecret, ironicConf)
+	if err != nil {
+		_ = r.setNotReady(cctx, ironicConf, metal3api.IronicReasonFailed, err.Error())
+		return nil, true, err
+	}
+	if requeue || cloudsChanged {
+		cctx.Logger.Info("updating API secret", "Secret", apiSecret.Name, "Htpasswd", requeue, "CloudsYAML", cloudsChanged)
 		err = cctx.Client.Update(cctx.Context, apiSecret)
+		requeue = true
 	}
 
 	return apiSecret, requeue, err
