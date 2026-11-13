@@ -23,6 +23,35 @@ func TestValidateIronic(t *testing.T) {
 			Scenario: "empty",
 		},
 		{
+			Scenario: "ntpServer as IP address",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{NTPServer: "192.0.2.10"},
+			},
+		},
+		{
+			Scenario: "ntpServer as host name",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{NTPServer: "ntp.example.com"},
+			},
+		},
+		{
+			Scenario: "invalid ntpServer",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{NTPServer: "ntp.example.com ipa-debug=1"},
+			},
+			ExpectedError: "deployRamdisk.ntpServer: \"ntp.example.com ipa-debug=1\" is neither an IP address nor a valid host name",
+		},
+		{
+			Scenario: "ntpServer and ipa-ntp-server in extraKernelParams",
+			Ironic: metal3api.IronicSpec{
+				DeployRamdisk: metal3api.DeployRamdisk{
+					NTPServer:         "192.0.2.10",
+					ExtraKernelParams: "console=ttyS0 ipa-ntp-server=192.0.2.11",
+				},
+			},
+			ExpectedError: "deployRamdisk.ntpServer cannot be set together with ipa-ntp-server in deployRamdisk.extraKernelParams",
+		},
+		{
 			Scenario: "with database",
 			Ironic: metal3api.IronicSpec{
 				Database: &metal3api.Database{
