@@ -292,6 +292,26 @@ func buildTrustedCAEnvVars(cctx ControllerContext, resources Resources) []corev1
 	}
 }
 
+// buildIPAVerificationEnvVars makes IPA verify TLS connections (to Ironic and to
+// image servers) when a trusted CA is injected into the ramdisk. Without it
+// ironic-image defaults to IRONIC_IPA_INSECURE=1, which makes IPA ignore the CA.
+// The CA is injected by ironic-image if and only if WEBSERVER_CACERT_FILE is set,
+// so this must be called with the result of buildTrustedCAEnvVars and is a no-op
+// when no trusted CA is configured. It must be applied to every container that
+// renders IPA kernel parameters (ironic and httpd).
+func buildIPAVerificationEnvVars(trustedCAEnvVars []corev1.EnvVar) []corev1.EnvVar {
+	if len(trustedCAEnvVars) == 0 {
+		return nil
+	}
+
+	return []corev1.EnvVar{
+		{
+			Name:  "IRONIC_IPA_INSECURE",
+			Value: "0",
+		},
+	}
+}
+
 func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
 	result := buildCommonEnvVars(resources.Ironic)
 	result = append(result, []corev1.EnvVar{
@@ -394,30 +414,11 @@ func buildIronicEnvVars(cctx ControllerContext, resources Resources) []corev1.En
 	if resources.TrustedCAConfigMap != nil || resources.TrustedCASecret != nil {
 		trustedCAEnvVars := buildTrustedCAEnvVars(cctx, resources)
 		result = append(result, trustedCAEnvVars...)
+		result = append(result, buildIPAVerificationEnvVars(trustedCAEnvVars)...)
 
-		// When TLS is enabled, set IRONIC_CACERT_FILE for JSON-RPC TLS verification.
-		// Prefer the CA from the TLS secret (ca.crt, populated by cert-manager);
-		// fall back to the trusted CA bundle if the TLS secret lacks ca.crt.
-		if resources.TLSSecret != nil {
-			if _, hasCACert := resources.TLSSecret.Data["ca.crt"]; hasCACert {
-				result = append(result, corev1.EnvVar{
-					Name:  "IRONIC_CACERT_FILE",
-					Value: certsDir + "/ironic/ca.crt",
-				})
-			} else if len(trustedCAEnvVars) > 0 {
-				result = append(result, corev1.EnvVar{
-					Name:  "IRONIC_CACERT_FILE",
-					Value: trustedCAEnvVars[0].Value,
-				})
-			}
-		}
-	} else if resources.TLSSecret != nil {
-		if _, hasCACert := resources.TLSSecret.Data["ca.crt"]; hasCACert {
-			result = append(result, corev1.EnvVar{
-				Name:  "IRONIC_CACERT_FILE",
-				Value: certsDir + "/ironic/ca.crt",
-			})
-		}
+		result = append(result, buildIronicCACertEnvVars(resources, trustedCAEnvVars)...)
+	} else {
+		result = append(result, buildIronicCACertEnvVars(resources, nil)...)
 	}
 
 	if resources.Ironic.Spec.ExtraConfig != nil {
@@ -479,8 +480,35 @@ func formatProviderNetwork(pn *metal3api.ProviderNetworkConfig) string {
 	return val
 }
 
-func buildHttpdEnvVars(resources Resources) []corev1.EnvVar {
+// buildIronicCACertEnvVars sets IRONIC_CACERT_FILE (used for JSON-RPC TLS
+// verification and for building the CA bundle injected into IPA). It must be
+// identical for ironic and httpd: both write the shared /conf/ipa-tls.pem, and
+// without it ironic-image falls back to using the leaf certificate as the CA.
+// Prefer the CA from the TLS secret (ca.crt, populated by cert-manager); fall
+// back to the trusted CA bundle if the TLS secret lacks ca.crt.
+func buildIronicCACertEnvVars(resources Resources, trustedCAEnvVars []corev1.EnvVar) []corev1.EnvVar {
+	if resources.TLSSecret == nil {
+		return nil
+	}
+	if _, hasCACert := resources.TLSSecret.Data["ca.crt"]; hasCACert {
+		return []corev1.EnvVar{{Name: "IRONIC_CACERT_FILE", Value: certsDir + "/ironic/ca.crt"}}
+	}
+	if len(trustedCAEnvVars) > 0 {
+		return []corev1.EnvVar{{Name: "IRONIC_CACERT_FILE", Value: trustedCAEnvVars[0].Value}}
+	}
+	return nil
+}
+
+func buildHttpdEnvVars(cctx ControllerContext, resources Resources) []corev1.EnvVar {
 	result := buildCommonEnvVars(resources.Ironic)
+
+	// httpd renders inspector.ipxe, which must load the CA bundle into IPA
+	// (IRONIC_INJECT_IPA is derived from WEBSERVER_CACERT_FILE) and must pass the
+	// same ipa-insecure value as the ironic container.
+	trustedCAEnvVars := buildTrustedCAEnvVars(cctx, resources)
+	result = append(result, trustedCAEnvVars...)
+	result = append(result, buildIPAVerificationEnvVars(trustedCAEnvVars)...)
+	result = append(result, buildIronicCACertEnvVars(resources, trustedCAEnvVars)...)
 
 	// When TLS is used, httpd is responsible for authentication
 	if resources.TLSSecret != nil {
@@ -1116,7 +1144,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	}
 
 	ironicEnvVars := buildIronicEnvVars(cctx, resources)
-	httpdEnvVars := buildHttpdEnvVars(resources)
+	httpdEnvVars := buildHttpdEnvVars(cctx, resources)
 
 	containers := []corev1.Container{
 		{

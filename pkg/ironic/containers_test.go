@@ -1976,6 +1976,152 @@ func TestIronicCACertFile(t *testing.T) {
 	}
 }
 
+func TestIPAVerificationWithTrustedCA(t *testing.T) {
+	testCases := []struct {
+		name               string
+		trustedCA          *metal3api.ResourceReferenceWithKey
+		trustedCAConfigMap *corev1.ConfigMap
+		trustedCASecret    *corev1.Secret
+		tlsSecret          *corev1.Secret
+		expectedCAFile     string
+	}{
+		{
+			name: "no trustedCA keeps the ironic-image default",
+		},
+		{
+			name: "only TLS certificate keeps the ironic-image default",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+					"ca.crt":  []byte("ca"),
+				},
+			},
+		},
+		{
+			name: "trustedCA ConfigMap",
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string]string{"ca.crt": "cert"},
+			},
+			expectedCAFile: "/certs/ca/trusted/ca.crt",
+		},
+		{
+			name: "trustedCA Secret",
+			trustedCASecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string][]byte{"ca.crt": []byte("cert")},
+			},
+			expectedCAFile: "/certs/ca/trusted/ca.crt",
+		},
+		{
+			name: "trustedCA with a specific key",
+			trustedCA: &metal3api.ResourceReferenceWithKey{
+				ResourceReference: metal3api.ResourceReference{Name: "ca", Kind: metal3api.ResourceKindConfigMap},
+				Key:               "other.crt",
+			},
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data: map[string]string{
+					"ca.crt":    "cert",
+					"other.crt": "other",
+				},
+			},
+			expectedCAFile: "/certs/ca/trusted/other.crt",
+		},
+		{
+			name: "trustedCA with TLS",
+			tlsSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "test"},
+				Data: map[string][]byte{
+					"tls.crt": []byte("cert"),
+					"tls.key": []byte("key"),
+					"ca.crt":  []byte("ca"),
+				},
+			},
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+				Data:       map[string]string{"ca-bundle.crt": "cert"},
+			},
+			expectedCAFile: "/certs/ca/trusted/ca-bundle.crt",
+		},
+		{
+			// ironic-image does not inject an empty CA, so IPA must stay insecure.
+			name: "empty trustedCA ConfigMap keeps the ironic-image default",
+			trustedCAConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "test"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cctx := ControllerContext{}
+			apiSecret := &corev1.Secret{
+				Data: map[string][]byte{"htpasswd": []byte("abcd")},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
+				Spec:       metal3api.IronicSpec{},
+			}
+			ironic.Spec.TLS.TrustedCA = tc.trustedCA
+			if tc.tlsSecret != nil {
+				ironic.Spec.TLS.CertificateName = tc.tlsSecret.Name
+			}
+
+			resources := Resources{
+				Ironic:             ironic,
+				APISecret:          apiSecret,
+				TLSSecret:          tc.tlsSecret,
+				TrustedCAConfigMap: tc.trustedCAConfigMap,
+				TrustedCASecret:    tc.trustedCASecret,
+			}
+
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			// ironic renders ironic.conf and httpd renders inspector.ipxe, both
+			// of which pass ipa-insecure to IPA, so they must agree.
+			for _, name := range []string{ironicContainerName, httpdContainerName} {
+				var container *corev1.Container
+				for i := range podTemplate.Spec.Containers {
+					if podTemplate.Spec.Containers[i].Name == name {
+						container = &podTemplate.Spec.Containers[i]
+						break
+					}
+				}
+				require.NotNil(t, container, "%s container should exist", name)
+
+				envMap := make(map[string]string)
+				for _, env := range container.Env {
+					envMap[env.Name] = env.Value
+				}
+
+				if tc.expectedCAFile == "" {
+					assert.NotContains(t, envMap, "IRONIC_IPA_INSECURE", "%s: IRONIC_IPA_INSECURE should not be set", name)
+					assert.NotContains(t, envMap, "WEBSERVER_CACERT_FILE", "%s: WEBSERVER_CACERT_FILE should not be set", name)
+					continue
+				}
+
+				assert.Equal(t, "0", envMap["IRONIC_IPA_INSECURE"], "%s: IRONIC_IPA_INSECURE mismatch", name)
+				// The CA is only injected into IPA when WEBSERVER_CACERT_FILE is set.
+				assert.Equal(t, tc.expectedCAFile, envMap["WEBSERVER_CACERT_FILE"], "%s: WEBSERVER_CACERT_FILE mismatch", name)
+
+				// The file must actually be available in the container.
+				var foundMount bool
+				for _, mount := range container.VolumeMounts {
+					if mount.Name == trustedCAVolumeName {
+						foundMount = true
+						break
+					}
+				}
+				assert.True(t, foundMount, "%s: trusted-ca volume should be mounted", name)
+			}
+		})
+	}
+}
+
 func TestNetworkingServiceContainer(t *testing.T) {
 	testCases := []struct {
 		Scenario                string
