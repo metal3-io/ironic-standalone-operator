@@ -3,6 +3,10 @@ yaml-files:
 - '*.yml'
 - '.yamllint'
 
+# Helm templates are Go templates, not plain YAML.
+ignore: |
+  chart/*/templates/
+
 rules:
   trailing-spaces: enable
   key-duplicates: enable
