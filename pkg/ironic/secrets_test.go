@@ -11,6 +11,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
 
 func TestIsValidUser(t *testing.T) {
@@ -297,4 +299,115 @@ func TestSecretVersionAnnotationsNoConcatCollision(t *testing.T) {
 	first := hashOf(map[string][]byte{"password": []byte("xusername"), "username": []byte("y")})
 	second := hashOf(map[string][]byte{"password": []byte("x"), "username": []byte("usernamey")})
 	assert.NotEqual(t, first, second)
+}
+
+func TestGenerateCloudsYAML(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Spec     metal3api.IronicSpec
+		Expected string
+	}{
+		{
+			Scenario: "defaults",
+			Expected: `clouds:
+  internal:
+    auth:
+      password: secret
+      username: admin
+    auth_type: http_basic
+    baremetal_endpoint_override: http://ironic.test.svc:6385
+`,
+		},
+		{
+			Scenario: "TLS, custom port and host IP",
+			Spec: metal3api.IronicSpec{
+				TLS:        metal3api.TLS{CertificateName: "tls"},
+				Networking: metal3api.Networking{APIPort: 6443, IPAddress: "192.0.2.1"},
+			},
+			Expected: `clouds:
+  external:
+    auth:
+      password: secret
+      username: admin
+    auth_type: http_basic
+    baremetal_endpoint_override: https://192.0.2.1:6443
+  internal:
+    auth:
+      password: secret
+      username: admin
+    auth_type: http_basic
+    baremetal_endpoint_override: https://ironic.test.svc:6443
+`,
+		},
+		{
+			Scenario: "external IP wins over IP address, IPv6",
+			Spec: metal3api.IronicSpec{
+				Networking: metal3api.Networking{IPAddress: "192.0.2.1", ExternalIP: "2001:db8::1"},
+			},
+			Expected: `clouds:
+  external:
+    auth:
+      password: secret
+      username: admin
+    auth_type: http_basic
+    baremetal_endpoint_override: http://[2001:db8::1]:6385
+  internal:
+    auth:
+      password: secret
+      username: admin
+    auth_type: http_basic
+    baremetal_endpoint_override: http://ironic.test.svc:6385
+`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{Name: "ironic", Namespace: "test"},
+				Spec:       tc.Spec,
+			}
+			result, err := generateCloudsYAML(ironic, "admin", "secret")
+			require.NoError(t, err)
+			assert.Equal(t, tc.Expected, string(result))
+		})
+	}
+}
+
+func TestUpdateCloudsYAML(t *testing.T) {
+	ironic := &metal3api.Ironic{ObjectMeta: metav1.ObjectMeta{Name: "ironic", Namespace: "test"}}
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.BasicAuthUsernameKey: []byte("admin"),
+			corev1.BasicAuthPasswordKey: []byte("secret\n"),
+		},
+	}
+
+	changed, err := UpdateCloudsYAML(secret, ironic)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Contains(t, string(secret.Data[cloudsYAMLKey]), "password: secret\n")
+
+	changed, err = UpdateCloudsYAML(secret, ironic)
+	require.NoError(t, err)
+	assert.False(t, changed, "an up-to-date clouds.yaml must not be rewritten")
+
+	secret.Data[corev1.BasicAuthPasswordKey] = []byte("new-secret")
+	changed, err = UpdateCloudsYAML(secret, ironic)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Contains(t, string(secret.Data[cloudsYAMLKey]), "password: new-secret\n")
+
+	delete(secret.Data, corev1.BasicAuthUsernameKey)
+	_, err = UpdateCloudsYAML(secret, ironic)
+	require.Error(t, err)
+}
+
+func TestSecretVersionAnnotationsIgnoreKeys(t *testing.T) {
+	secret := &corev1.Secret{Data: map[string][]byte{"username": []byte("admin")}}
+	before := secretVersionAnnotations("api-secret", secret, cloudsYAMLKey)
+
+	secret.Data[cloudsYAMLKey] = []byte("clouds: {}")
+	assert.Equal(t, before, secretVersionAnnotations("api-secret", secret, cloudsYAMLKey))
+	assert.NotEqual(t, before, secretVersionAnnotations("api-secret", secret))
 }
