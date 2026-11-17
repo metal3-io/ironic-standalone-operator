@@ -24,6 +24,10 @@ func (v Version) Compare(other Version) int {
 		return 1
 	}
 
+	if other.IsLatest() {
+		return -1
+	}
+
 	if v.Major != other.Major {
 		return cmp.Compare(v.Major, other.Major)
 	}
