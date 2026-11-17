@@ -1593,9 +1593,27 @@ func TestValidateIronic(t *testing.T) {
 			Scenario: "valid MAC addresses",
 			Ironic: metal3api.IronicSpec{
 				Networking: metal3api.Networking{
-					MACAddresses: []string{"00:11:22:33:44:55", "aa-bb-cc-dd-ee-ff"},
+					MACAddresses: []string{"00:11:22:33:44:55", "AA:BB:CC:DD:EE:FF"},
 				},
 			},
+		},
+		{
+			Scenario: "MAC address with hyphens",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					MACAddresses: []string{"aa-bb-cc-dd-ee-ff"},
+				},
+			},
+			ExpectedError: "colon-separated MAC address",
+		},
+		{
+			Scenario: "MAC address with dots",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					MACAddresses: []string{"aabb.ccdd.eeff"},
+				},
+			},
+			ExpectedError: "colon-separated MAC address",
 		},
 		{
 			Scenario: "invalid MAC address",
@@ -1604,7 +1622,7 @@ func TestValidateIronic(t *testing.T) {
 					MACAddresses: []string{"not-a-mac"},
 				},
 			},
-			ExpectedError: "not a valid MAC address",
+			ExpectedError: "colon-separated MAC address",
 		},
 		{
 			Scenario: "empty MAC address",
@@ -1626,7 +1644,57 @@ func TestValidateIronic(t *testing.T) {
 			},
 		},
 		{
-			Scenario: "valid database host IP",
+			Scenario: "database host with a non-default port",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "db.example.com:3307",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "database host with a trailing DNS root dot and port",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "db.example.com.:3307",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "valid database host IPv4 with port",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "192.0.2.1:3306",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "valid bracketed database host IPv6",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "[2001:db8::1]",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "valid bracketed database host IPv6 with port",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "[2001:db8::1]:3307",
+					Name:            "ironic",
+				},
+			},
+		},
+		{
+			Scenario: "bare database host IPv6",
 			Ironic: metal3api.IronicSpec{
 				Database: &metal3api.Database{
 					CredentialsName: "test",
@@ -1634,6 +1702,18 @@ func TestValidateIronic(t *testing.T) {
 					Name:            "ironic",
 				},
 			},
+			ExpectedError: "must use brackets",
+		},
+		{
+			Scenario: "database host with an invalid port",
+			Ironic: metal3api.IronicSpec{
+				Database: &metal3api.Database{
+					CredentialsName: "test",
+					Host:            "db.example.com:99999",
+					Name:            "ironic",
+				},
+			},
+			ExpectedError: "invalid port",
 		},
 		{
 			Scenario: "database host is not a hostname or IP",
@@ -1822,28 +1902,35 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "networking.keepalived.additionalVIPs[0].interface",
 		},
 		{
-			Scenario: "agent image URL with embedded newline",
+			Scenario: "agent image URL with a space",
 			Ironic: metal3api.IronicSpec{
 				Overrides: &metal3api.Overrides{
 					AgentImages: []metal3api.AgentImages{
 						{
-							Kernel:    "http://example.com/ipa.kernel\nmalicious",
+							Kernel:    "http://example.com/ipa kernel",
 							Initramfs: "http://example.com/ipa.initramfs",
 						},
 					},
 				},
 			},
-			ExpectedError: "overrides.agentImages[0].kernel",
+			ExpectedError: "invalid whitespace",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
+			// Runtime checks keep treating a missing old object as an update of
+			// the same spec. Container-input checks still see a create unless
+			// the case set OldIronic.
+			admissionOld := tc.OldIronic
 			if tc.OldIronic == nil {
 				tc.OldIronic = &tc.Ironic
 			}
 
-			err := ValidateIronicAdmission(&tc.Ironic, tc.OldIronic)
+			err := ValidateIronic(&tc.Ironic, tc.OldIronic)
+			if err == nil {
+				err = validateContainerInputs(&tc.Ironic, admissionOld)
+			}
 			if tc.ExpectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -1873,6 +1960,16 @@ func TestValidateIronicLeavesStoredContainerInputs(t *testing.T) {
 
 	require.NoError(t, ValidateIronic(&spec, nil))
 	require.Error(t, ValidateIronicAdmission(&spec, nil))
+	// Finalizer removal is an update that does not change the spec.
+	require.NoError(t, ValidateIronicAdmission(&spec, &spec))
+
+	updated := spec
+	updated.Version = "37.0"
+	require.NoError(t, ValidateIronicAdmission(&updated, &spec))
+
+	changedInterface := spec
+	changedInterface.Networking.Interface = "eth0;id"
+	require.Error(t, ValidateIronicAdmission(&changedInterface, &spec))
 }
 
 func TestValidateCASettings(t *testing.T) {

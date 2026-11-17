@@ -49,6 +49,8 @@ func (r *IronicCustomValidator) ValidateCreate(_ context.Context, ironic *metal3
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
 func (r *IronicCustomValidator) ValidateUpdate(_ context.Context, oldIronic, ironic *metal3api.Ironic) (admission.Warnings, error) {
 	ironiclog.Info("validate update", "name", ironic.Name)
+	// Container-input checks compare against oldIronic, so an unchanged spec
+	// (including finalizer removal) is not rejected.
 	return nil, validation.ValidateIronicAdmission(&ironic.Spec, &oldIronic.Spec)
 }
 
