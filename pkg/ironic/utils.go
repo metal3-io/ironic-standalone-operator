@@ -441,8 +441,30 @@ func mergeContainer(existing, override corev1.Container) corev1.Container {
 	if override.ImagePullPolicy != "" {
 		result.ImagePullPolicy = override.ImagePullPolicy
 	}
+	if override.TerminationMessagePath != "" {
+		result.TerminationMessagePath = override.TerminationMessagePath
+	}
 	if override.TerminationMessagePolicy != "" {
 		result.TerminationMessagePolicy = override.TerminationMessagePolicy
+	}
+	if override.RestartPolicy != nil {
+		result.RestartPolicy = override.RestartPolicy
+	}
+	if len(override.RestartPolicyRules) > 0 {
+		result.RestartPolicyRules = override.RestartPolicyRules
+	}
+	if len(override.ResizePolicy) > 0 {
+		result.ResizePolicy = override.ResizePolicy
+	}
+	// The zero value can't be told apart from an unset field, so these can only be turned on.
+	if override.Stdin {
+		result.Stdin = true
+	}
+	if override.StdinOnce {
+		result.StdinOnce = true
+	}
+	if override.TTY {
+		result.TTY = true
 	}
 	if override.SecurityContext != nil {
 		result.SecurityContext = override.SecurityContext
@@ -464,7 +486,10 @@ func mergeContainer(existing, override corev1.Container) corev1.Container {
 	}
 
 	result.Env = mergeByName(result.Env, override.Env, func(e corev1.EnvVar) string { return e.Name })
-	result.VolumeMounts = mergeByName(result.VolumeMounts, override.VolumeMounts, func(m corev1.VolumeMount) string { return m.Name })
+	// A volume can be mounted at several paths (ironic-data, cert-ironic), so mounts
+	// and devices are keyed by path like in core/v1 rather than by volume name.
+	result.VolumeMounts = mergeByName(result.VolumeMounts, override.VolumeMounts, func(m corev1.VolumeMount) string { return m.MountPath })
+	result.VolumeDevices = mergeByName(result.VolumeDevices, override.VolumeDevices, func(d corev1.VolumeDevice) string { return d.DevicePath })
 	result.Ports = mergeByName(result.Ports, override.Ports, func(p corev1.ContainerPort) string { return p.Name })
 	result.EnvFrom = append(result.EnvFrom, override.EnvFrom...)
 
@@ -546,6 +571,20 @@ func applyVolumeOverrides(existing []corev1.Volume, overrides []corev1.Volume) [
 	}
 
 	return result
+}
+
+// applyOverridesToJobPod applies overrides to the pod of a database upgrade job.
+// Container and init container overrides are meant for the main Ironic pod: the
+// jobs run different containers, so the overrides would only be appended there,
+// e.g. as an image-less container for a partial override in merge mode.
+func applyOverridesToJobPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
+	if overrides == nil {
+		return podTemplate
+	}
+	jobOverrides := *overrides
+	jobOverrides.Containers = nil
+	jobOverrides.InitContainers = nil
+	return applyOverridesToPod(&jobOverrides, podTemplate)
 }
 
 func applyOverridesToPod(overrides *metal3api.Overrides, podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {

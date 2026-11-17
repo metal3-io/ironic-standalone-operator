@@ -1091,11 +1091,14 @@ Consider setting deployRamdisk.disableDownloader=true when using custom images.<
 matches an existing container are applied.
 With `replace` (the default), the override container replaces the existing one.
 With `merge`, the override container is merged into the existing one:
-image, command, args, workingDir, imagePullPolicy and terminationMessagePolicy
-replace the existing values when not empty; securityContext, probes, lifecycle
-and resources replace the existing values when set; env, volumeMounts and ports
-are merged by name, replacing items with the same name and appending new ones;
-envFrom is appended.<br/>
+image, command, args, workingDir, imagePullPolicy, terminationMessagePath and
+terminationMessagePolicy replace the existing values when not empty;
+securityContext, probes, lifecycle and restartPolicy replace them when set;
+resources, resizePolicy and restartPolicyRules replace them when not empty;
+stdin, stdinOnce and tty can only be turned on; env and ports are merged by
+name, volumeMounts by mountPath and volumeDevices by devicePath, replacing
+matching items and appending new ones; envFrom is appended.
+Container overrides only apply to the main Ironic pod, not to upgrade jobs.<br/>
           <br/>
             <i>Enum</i>: replace, merge<br/>
             <i>Default</i>: replace<br/>
