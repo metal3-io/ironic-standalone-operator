@@ -136,7 +136,7 @@ func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
 	}
 
 	result = appendStringEnv(result,
-		"IRONIC_KERNEL_PARAMS", strings.TrimSpace(ironic.Spec.DeployRamdisk.ExtraKernelParams))
+		"IRONIC_KERNEL_PARAMS", deployRamdiskKernelParams(&ironic.Spec.DeployRamdisk))
 
 	result = appendStringEnv(result,
 		"IRONIC_RAMDISK_SSH_KEY", strings.TrimSpace(ironic.Spec.DeployRamdisk.SSHKey))
@@ -1219,4 +1219,15 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			AutomountServiceAccountToken: ptr.To(false),
 		},
 	})), nil
+}
+
+// deployRamdiskKernelParams returns the kernel parameters for the ramdisk. Options
+// like the NTP server are passed through IRONIC_KERNEL_PARAMS since every
+// supported ironic-image version understands it.
+func deployRamdiskKernelParams(ramdisk *metal3api.DeployRamdisk) string {
+	params := strings.TrimSpace(ramdisk.ExtraKernelParams)
+	if ramdisk.NTPServer != "" {
+		params = strings.TrimSpace(params + " ipa-ntp-server=" + ramdisk.NTPServer)
+	}
+	return params
 }

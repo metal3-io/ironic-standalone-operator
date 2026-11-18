@@ -353,6 +353,13 @@ type DeployRamdisk struct {
 	// +optional
 	ExtraKernelParams string `json:"extraKernelParams,omitempty"`
 
+	// NTPServer is the NTP server (an IP address or a host name) the ramdisk syncs its clock with
+	// before talking to Ironic, which avoids failures caused by clock skew between the host and the control plane.
+	// Passed to the ramdisk as the ipa-ntp-server kernel parameter, so like ExtraKernelParams,
+	// it will not take effect if the host uses a pre-built ISO.
+	// +optional
+	NTPServer string `json:"ntpServer,omitempty"`
+
 	// SSHKey is the contents of the public key to inject into the ramdisk for debugging purposes.
 	// +optional
 	SSHKey string `json:"sshKey,omitempty"`
