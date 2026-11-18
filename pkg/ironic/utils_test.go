@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -191,7 +192,7 @@ func TestApplyContainerOverrides(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Scenario, func(t *testing.T) {
-			result := applyContainerOverrides(tc.Existing, tc.Overrides)
+			result := applyContainerOverrides(tc.Existing, tc.Overrides, metal3api.ContainerOverrideModeReplace)
 
 			var names []string
 			for _, cont := range result {
@@ -862,6 +863,229 @@ func TestApplyOverridesToPodTolerations(t *testing.T) {
 			result := applyOverridesToPod(tc.Overrides, *initial.DeepCopy())
 
 			assert.Equal(t, tc.ExpectedTolerations, result.Spec.Tolerations)
+		})
+	}
+}
+
+func TestContainerOverridesMerge(t *testing.T) {
+	existing := []corev1.Container{
+		{
+			Name:    "ironic",
+			Image:   "ironic:v1",
+			Command: []string{"/bin/runironic"},
+			Env: []corev1.EnvVar{
+				{Name: "A", Value: "1"},
+				{Name: "B", Value: "2"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "config", MountPath: "/etc/ironic"},
+			},
+			Ports: []corev1.ContainerPort{
+				{Name: "api", ContainerPort: 6385},
+			},
+			SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+			LivenessProbe:   &corev1.Probe{TimeoutSeconds: 10},
+		},
+		{Name: "httpd", Image: "httpd:v1"},
+	}
+
+	overrides := []corev1.Container{
+		{
+			Name:  "ironic",
+			Image: "downstream/ironic:v2",
+			Env: []corev1.EnvVar{
+				{Name: "B", Value: "20"},
+				{Name: "C", Value: "3"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+			},
+			Ports: []corev1.ContainerPort{
+				{ContainerPort: 9999},
+			},
+		},
+		{Name: "extra", Image: "extra:v1"},
+	}
+
+	result := applyContainerOverrides(existing, overrides, metal3api.ContainerOverrideModeMerge)
+
+	assert.Equal(t, []corev1.Container{
+		{
+			Name:    "ironic",
+			Image:   "downstream/ironic:v2",
+			Command: []string{"/bin/runironic"},
+			Env: []corev1.EnvVar{
+				{Name: "A", Value: "1"},
+				{Name: "B", Value: "20"},
+				{Name: "C", Value: "3"},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{Name: "config", MountPath: "/etc/ironic"},
+				{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+			},
+			Ports: []corev1.ContainerPort{
+				{Name: "api", ContainerPort: 6385},
+				{ContainerPort: 9999},
+			},
+			SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+			LivenessProbe:   &corev1.Probe{TimeoutSeconds: 10},
+		},
+		{Name: "httpd", Image: "httpd:v1"},
+		{Name: "extra", Image: "extra:v1"},
+	}, result)
+
+	// The existing containers are not modified.
+	assert.Equal(t, "ironic:v1", existing[0].Image)
+	assert.Len(t, existing[0].Env, 2)
+}
+
+func TestContainerOverridesMergeReplacesPointerFields(t *testing.T) {
+	existing := []corev1.Container{{
+		Name:            "ironic",
+		SecurityContext: &corev1.SecurityContext{RunAsUser: ptr.To(int64(997))},
+		ReadinessProbe:  &corev1.Probe{TimeoutSeconds: 10},
+	}}
+	overrides := []corev1.Container{{
+		Name:            "ironic",
+		SecurityContext: &corev1.SecurityContext{},
+		ReadinessProbe:  &corev1.Probe{TimeoutSeconds: 30},
+	}}
+
+	result := applyContainerOverrides(existing, overrides, metal3api.ContainerOverrideModeMerge)
+
+	assert.Equal(t, &corev1.SecurityContext{}, result[0].SecurityContext)
+	assert.Equal(t, int32(30), result[0].ReadinessProbe.TimeoutSeconds)
+}
+
+func TestApplyOverridesToPodMergeMode(t *testing.T) {
+	podTemplate := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:         "ironic",
+				Image:        "ironic:v1",
+				VolumeMounts: []corev1.VolumeMount{{Name: "config", MountPath: "/etc/ironic"}},
+			}},
+		},
+	}
+	overrides := &metal3api.Overrides{
+		ContainerOverrideMode: metal3api.ContainerOverrideModeMerge,
+		Containers: []corev1.Container{{
+			Name:         "ironic",
+			VolumeMounts: []corev1.VolumeMount{{Name: "downstream-config", MountPath: "/etc/downstream/config"}},
+		}},
+		Volumes: []corev1.Volume{{Name: "downstream-config"}},
+	}
+
+	result := applyOverridesToPod(overrides, podTemplate)
+
+	assert.Equal(t, "ironic:v1", result.Spec.Containers[0].Image)
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "config", MountPath: "/etc/ironic"},
+		{Name: "downstream-config", MountPath: "/etc/downstream/config"},
+	}, result.Spec.Containers[0].VolumeMounts)
+	assert.Equal(t, []corev1.Volume{{Name: "downstream-config"}}, result.Spec.Volumes)
+}
+
+func TestContainerOverridesMergeVolumeMountsByPath(t *testing.T) {
+	existing := []corev1.Container{{
+		Name: "ironic",
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "ironic-data", MountPath: "/data"},
+			{Name: "ironic-data", MountPath: "/conf"},
+			{Name: "cert-ironic", MountPath: "/certs/ironic", ReadOnly: true},
+		},
+	}}
+	overrides := []corev1.Container{{
+		Name: "ironic",
+		VolumeMounts: []corev1.VolumeMount{
+			// same path: replaces that mount only
+			{Name: "ironic-data", MountPath: "/conf", ReadOnly: true},
+			// same volume at a new path: added next to the existing mount
+			{Name: "cert-ironic", MountPath: "/certs/extra", ReadOnly: true},
+		},
+	}}
+
+	result := applyContainerOverrides(existing, overrides, metal3api.ContainerOverrideModeMerge)
+
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "ironic-data", MountPath: "/data"},
+		{Name: "ironic-data", MountPath: "/conf", ReadOnly: true},
+		{Name: "cert-ironic", MountPath: "/certs/ironic", ReadOnly: true},
+		{Name: "cert-ironic", MountPath: "/certs/extra", ReadOnly: true},
+	}, result[0].VolumeMounts)
+}
+
+func TestContainerOverridesMergeCarriesRemainingFields(t *testing.T) {
+	always := corev1.ContainerRestartPolicyAlways
+	existing := []corev1.Container{{
+		Name:          "ironic",
+		VolumeDevices: []corev1.VolumeDevice{{Name: "disk", DevicePath: "/dev/xvda"}},
+	}}
+	override := corev1.Container{
+		Name:                   "ironic",
+		TerminationMessagePath: "/tmp/termination-log",
+		RestartPolicy:          &always,
+		RestartPolicyRules: []corev1.ContainerRestartRule{{
+			Action: corev1.ContainerRestartRuleActionRestart,
+			ExitCodes: &corev1.ContainerRestartRuleOnExitCodes{
+				Operator: corev1.ContainerRestartRuleOnExitCodesOpIn,
+				Values:   []int32{42},
+			},
+		}},
+		ResizePolicy: []corev1.ContainerResizePolicy{{
+			ResourceName:  corev1.ResourceCPU,
+			RestartPolicy: corev1.NotRequired,
+		}},
+		VolumeDevices: []corev1.VolumeDevice{{Name: "extra-disk", DevicePath: "/dev/xvdb"}},
+		Stdin:         true,
+		StdinOnce:     true,
+		TTY:           true,
+	}
+
+	result := applyContainerOverrides(existing, []corev1.Container{override}, metal3api.ContainerOverrideModeMerge)[0]
+
+	assert.Equal(t, override.TerminationMessagePath, result.TerminationMessagePath)
+	assert.Equal(t, override.RestartPolicy, result.RestartPolicy)
+	assert.Equal(t, override.RestartPolicyRules, result.RestartPolicyRules)
+	assert.Equal(t, override.ResizePolicy, result.ResizePolicy)
+	assert.Equal(t, []corev1.VolumeDevice{
+		{Name: "disk", DevicePath: "/dev/xvda"},
+		{Name: "extra-disk", DevicePath: "/dev/xvdb"},
+	}, result.VolumeDevices)
+	assert.True(t, result.Stdin)
+	assert.True(t, result.StdinOnce)
+	assert.True(t, result.TTY)
+}
+
+func TestApplyOverridesToJobPodSkipsContainers(t *testing.T) {
+	toleration := corev1.Toleration{Key: "dedicated", Operator: corev1.TolerationOpExists}
+	podTemplate := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "database-upgrade", Image: "ironic:v1"}},
+		},
+	}
+
+	for _, mode := range []metal3api.ContainerOverrideMode{metal3api.ContainerOverrideModeReplace, metal3api.ContainerOverrideModeMerge} {
+		t.Run(string(mode), func(t *testing.T) {
+			overrides := &metal3api.Overrides{
+				ContainerOverrideMode: mode,
+				Containers: []corev1.Container{
+					{Name: "ironic", VolumeMounts: []corev1.VolumeMount{{Name: "extra", MountPath: "/extra"}}},
+					{Name: "sidecar", Image: "sidecar:v1"},
+				},
+				InitContainers: []corev1.Container{{Name: "init", Image: "init:v1"}},
+				Tolerations:    []corev1.Toleration{toleration},
+				Labels:         map[string]string{"team": "metal3"},
+			}
+
+			result := applyOverridesToJobPod(overrides, *podTemplate.DeepCopy())
+
+			assert.Equal(t, []corev1.Container{{Name: "database-upgrade", Image: "ironic:v1"}}, result.Spec.Containers)
+			assert.Empty(t, result.Spec.InitContainers)
+			assert.Equal(t, []corev1.Toleration{toleration}, result.Spec.Tolerations)
+			assert.Equal(t, "metal3", result.Labels["team"])
+			// the overrides themselves are left alone for the main pod
+			assert.Len(t, overrides.Containers, 2)
 		})
 	}
 }

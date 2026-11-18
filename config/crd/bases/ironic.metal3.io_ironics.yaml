@@ -584,10 +584,30 @@ spec:
                     description: Extra annotations to add to each pod (including upgrade
                       jobs).
                     type: object
+                  containerOverrideMode:
+                    default: replace
+                    description: |-
+                      ContainerOverrideMode defines how containers and init containers whose name
+                      matches an existing container are applied.
+                      With `replace` (the default), the override container replaces the existing one.
+                      With `merge`, the override container is merged into the existing one:
+                      image, command, args, workingDir, imagePullPolicy, terminationMessagePath and
+                      terminationMessagePolicy replace the existing values when not empty;
+                      securityContext, probes, lifecycle and restartPolicy replace them when set;
+                      resources, resizePolicy and restartPolicyRules replace them when not empty;
+                      stdin, stdinOnce and tty can only be turned on; env and ports are merged by
+                      name, volumeMounts by mountPath and volumeDevices by devicePath, replacing
+                      matching items and appending new ones; envFrom is appended.
+                      Container overrides only apply to the main Ironic pod, not to upgrade jobs.
+                    enum:
+                    - replace
+                    - merge
+                    type: string
                   containers:
                     description: |-
                       Containers to append to the main Ironic pod.
-                      If a container name matches an existing container, the existing container is replaced.
+                      If a container name matches an existing container, the existing container is
+                      replaced or merged, depending on ContainerOverrideMode.
                     items:
                       description: A single application container that you want to
                         run within a pod.
@@ -2507,7 +2527,8 @@ spec:
                   initContainers:
                     description: |-
                       InitContainers to append to the main Ironic pod.
-                      If a container name matches an existing init container, the existing init container is replaced.
+                      If a container name matches an existing init container, the existing init container is
+                      replaced or merged, depending on ContainerOverrideMode.
                     items:
                       description: A single application container that you want to
                         run within a pod.
