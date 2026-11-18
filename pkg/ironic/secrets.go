@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"net"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -15,6 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	metal3api "github.com/metal3-io/ironic-standalone-operator/api/v1alpha1"
 )
@@ -88,6 +91,9 @@ func htpasswdFromSecret(secret *corev1.Secret) (string, error) {
 
 const (
 	htpasswdKey = "htpasswd"
+	// cloudsYAMLKey holds a clouds.yaml for the baremetal CLI, so the
+	// secret can be mounted as /etc/openstack in a client container.
+	cloudsYAMLKey = "clouds.yaml"
 )
 
 func secretNeedsUpdating(secret *corev1.Secret, logger logr.Logger) bool {
@@ -159,12 +165,17 @@ func GenerateSecret(owner *metav1.ObjectMeta, name string, extraFields bool) (*c
 	return secret, nil
 }
 
-func secretVersionAnnotations(secretType string, secret *corev1.Secret) map[string]string {
+// secretVersionAnnotations hashes the secret's data so that pods are rolled
+// out when it changes. Keys in ignoreKeys are left out of the hash, for data
+// that the pods don't consume.
+func secretVersionAnnotations(secretType string, secret *corev1.Secret, ignoreKeys ...string) map[string]string {
 	// Hash all data fields to detect changes
 	h := sha256.New()
 
 	// Sort keys for consistent hash ordering
-	keys := slices.Sorted(maps.Keys(secret.Data))
+	keys := slices.DeleteFunc(slices.Sorted(maps.Keys(secret.Data)), func(k string) bool {
+		return slices.Contains(ignoreKeys, k)
+	})
 
 	// Hash each key and value into fixed-width digests so field boundaries are
 	// unambiguous. Writing keys/values directly would let different secrets
@@ -181,4 +192,80 @@ func secretVersionAnnotations(secretType string, secret *corev1.Secret) map[stri
 	return map[string]string{
 		fmt.Sprintf("ironic.metal3.io/%s-version", secretType): hash,
 	}
+}
+
+type cloudsConfig struct {
+	Clouds map[string]cloudConfig `json:"clouds"`
+}
+
+type cloudConfig struct {
+	AuthType                  string    `json:"auth_type"`
+	Auth                      cloudAuth `json:"auth"`
+	BaremetalEndpointOverride string    `json:"baremetal_endpoint_override"`
+}
+
+type cloudAuth struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// generateCloudsYAML builds a clouds.yaml with an "internal" cloud that uses
+// the Ironic service and, when the host IP is known from the spec, an
+// "external" cloud that uses the host IP.
+func generateCloudsYAML(ironic *metal3api.Ironic, user, password string) ([]byte, error) {
+	scheme := "http"
+	if ironic.Spec.TLS.CertificateName != "" {
+		scheme = "https"
+	}
+	port := ironic.Spec.Networking.APIPort
+	if port == 0 {
+		port = 6385
+	}
+	endpoint := func(host string) string {
+		return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, strconv.Itoa(int(port))))
+	}
+	cloud := func(host string) cloudConfig {
+		return cloudConfig{
+			AuthType:                  "http_basic",
+			Auth:                      cloudAuth{Username: user, Password: password},
+			BaremetalEndpointOverride: endpoint(host),
+		}
+	}
+
+	config := cloudsConfig{Clouds: map[string]cloudConfig{
+		"internal": cloud(fmt.Sprintf("%s.%s.svc", ironic.Name, ironic.Namespace)),
+	}}
+	if hostIP := ironic.Spec.Networking.ExternalIP; hostIP != "" {
+		config.Clouds["external"] = cloud(hostIP)
+	} else if hostIP := ironic.Spec.Networking.IPAddress; hostIP != "" {
+		config.Clouds["external"] = cloud(hostIP)
+	}
+
+	return yaml.Marshal(config)
+}
+
+// UpdateCloudsYAML makes sure the API secret has an up-to-date clouds.yaml.
+// It returns true if the secret was changed and needs saving.
+func UpdateCloudsYAML(secret *corev1.Secret, ironic *metal3api.Ironic) (bool, error) {
+	user, ok := secret.Data[corev1.BasicAuthUsernameKey]
+	if !ok {
+		return false, fmt.Errorf("missing username in secret %s/%s", secret.Namespace, secret.Name)
+	}
+	password, ok := secret.Data[corev1.BasicAuthPasswordKey]
+	if !ok {
+		return false, fmt.Errorf("missing password in secret %s/%s", secret.Namespace, secret.Name)
+	}
+
+	clouds, err := generateCloudsYAML(ironic, normalizeSecretValue(user), normalizeSecretValue(password))
+	if err != nil {
+		return false, fmt.Errorf("cannot generate clouds.yaml: %w", err)
+	}
+	if string(secret.Data[cloudsYAMLKey]) == string(clouds) {
+		return false, nil
+	}
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+	secret.Data[cloudsYAMLKey] = clouds
+	return true, nil
 }
