@@ -1099,6 +1099,18 @@ If a container name matches an existing container, the existing container is rep
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>httpdLogLevel</b></td>
+        <td>enum</td>
+        <td>
+          HttpdLogLevel sets the Apache LogLevel used by httpd for Ironic API requests.
+This only takes effect when TLS is enabled, since only then does httpd
+serve the Ironic API. If not set, the image default (debug) is used.
+Requires Ironic 38.0 or newer.<br/>
+          <br/>
+            <i>Enum</i>: emerg, alert, crit, error, warn, notice, info, debug, trace1, trace2, trace3, trace4, trace5, trace6, trace7, trace8<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#ironicspecoverrideshttpdreadinessprobe">httpdReadinessProbe</a></b></td>
         <td>object</td>
         <td>
