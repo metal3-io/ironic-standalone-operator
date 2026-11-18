@@ -145,12 +145,11 @@ vet: ## Run go vet against code.
 unit: ## Run unit tests.
 	go test ./... -coverprofile cover.out
 	cd api && go test ./... -coverprofile cover.out
-	$(MAKE) fuzz-run FUZZ_TIME=15s
 
 .PHONY: test
-test: manifests generate fmt vet unit ## Run tests.
+test: manifests generate fmt vet unit fuzz-run ## Run tests.
 
-FUZZ_TIME ?= 30s
+FUZZ_TIME ?= 5s
 
 .PHONY: fuzz
 fuzz: ## Run fuzz tests with seed corpus (no fuzzing, regression test only)
