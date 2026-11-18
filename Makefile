@@ -142,8 +142,9 @@ vet: ## Run go vet against code.
 	cd api && go vet ./...
 
 .PHONY: unit
-unit: ## Run unit tests.
-	go test ./... -coverprofile cover.out
+unit: setup-envtest ## Run unit tests.
+	assets="$$($(SETUP_ENVTEST) use --use-env -p path $(ENVTEST_K8S_VERSION))" && \
+	KUBEBUILDER_ASSETS="$$assets" go test ./... -coverprofile cover.out
 	cd api && go test ./... -coverprofile cover.out
 	$(MAKE) fuzz-run FUZZ_TIME=15s
 
@@ -252,12 +253,17 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 CRDOC ?= $(LOCALBIN)/crdoc
+SETUP_ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.2
 CONTROLLER_TOOLS_VERSION ?= v0.17.0
 GOLANGCI_LINT_VERSION ?= v2.10.1
 CRDOC_VERSION ?= v0.6.2
+# setup-envtest is tagged together with controller-runtime, so follow go.mod.
+SETUP_ENVTEST_VERSION ?= $(shell $(GO) list -m -f '{{.Version}}' sigs.k8s.io/controller-runtime)
+# Kubernetes version of the envtest binaries, keep in line with k8s.io/api in go.mod.
+ENVTEST_K8S_VERSION ?= 1.37.x
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
@@ -283,6 +289,12 @@ crdoc: $(CRDOC) ## Download crdoc locally if necessary. If wrong version is inst
 $(CRDOC): $(LOCALBIN)
 	test -s $(CRDOC) && $(CRDOC) --version | grep -q $(CRDOC_VERSION) || \
 	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@$(CRDOC_VERSION)
+
+.PHONY: setup-envtest
+setup-envtest: $(SETUP_ENVTEST) ## Download setup-envtest locally if necessary. If wrong version is installed, it will be overwritten.
+$(SETUP_ENVTEST): $(LOCALBIN)
+	test -s $(SETUP_ENVTEST) && $(SETUP_ENVTEST) version | grep -q $(SETUP_ENVTEST_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION)
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
