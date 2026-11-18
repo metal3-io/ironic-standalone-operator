@@ -1,0 +1,50 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "irso.fullname" . }}-metrics-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+    app.kubernetes.io/component: metrics
+  {{- include "irso.annotations" (dict "ctx" $) }}
+spec:
+  type: {{ .Values.metrics.service.type }}
+  ports:
+  - name: metrics
+    port: {{ .Values.metrics.service.port }}
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    {{- include "irso.selectorLabels" . | nindent 4 }}
+{{- if .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "irso.fullname" . }}-controller-manager-metrics-monitor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- include "irso.stringMap" . | trim | nindent 4 }}
+    {{- end }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+spec:
+  endpoints:
+  - port: metrics
+    path: /metrics
+    scheme: http
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    {{- with .Values.metrics.serviceMonitor.interval }}
+    interval: {{ . }}
+    {{- end }}
+    {{- with .Values.metrics.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ . }}
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "irso.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: metrics
+{{- end }}
+{{- end }}
