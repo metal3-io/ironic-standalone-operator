@@ -168,13 +168,13 @@ func ensureIronicUpgradeJob(cctx ControllerContext, resources Resources, phase u
 
 		return controllerutil.SetControllerReference(resources.Ironic, job, cctx.Scheme)
 	})
+	if err != nil {
+		return transientError(err)
+	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("ironic upgrade job", "Job", job.Name, "Status", result,
 			"Phase", phase, "From", fromVersion, "To", toVersion.String())
 		return updated()
-	}
-	if err != nil {
-		return transientError(err)
 	}
 
 	status, err := getJobStatus(cctx, job, fmt.Sprintf("%s-upgrade", phase))

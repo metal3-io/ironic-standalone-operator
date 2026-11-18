@@ -187,12 +187,12 @@ func ensureIronicService(cctx ControllerContext, ironic *metal3api.Ironic) (Stat
 
 		return controllerutil.SetControllerReference(ironic, service, cctx.Scheme)
 	})
+	if err != nil {
+		return transientError(err)
+	}
 	if result != controllerutil.OperationResultNone {
 		cctx.Logger.Info("ironic service", "Service", service.Name, "Status", result)
 		return updated()
-	}
-	if err != nil {
-		return transientError(err)
 	}
 
 	return getServiceStatus(service)
