@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,6 +66,56 @@ func TestBuildEndpoints(t *testing.T) {
 			result := buildEndpoints(tc.IPs, tc.Port, tc.IncludeProto)
 			assert.Equal(t, tc.Expected, result)
 		})
+	}
+}
+
+func TestAddDataVolumes(t *testing.T) {
+	podTemplate := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "c1",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "other-volume",
+							MountPath: "/other",
+						},
+					},
+				},
+				{
+					Name: "c2",
+				},
+			},
+		},
+	}
+	updated := addDataVolumes(podTemplate)
+
+	assert.Len(t, updated.Spec.Volumes, 3)
+	for _, vol := range updated.Spec.Volumes {
+		assert.NotNil(t, vol.EmptyDir)
+	}
+
+	for _, cont := range updated.Spec.Containers {
+		volumeNames := make([]string, 0, len(cont.VolumeMounts))
+		mountPaths := make([]string, 0, len(cont.VolumeMounts))
+		for _, vmount := range cont.VolumeMounts {
+			assert.NotContains(t, volumeNames, vmount.Name)
+			volumeNames = append(volumeNames, vmount.Name)
+			mountPaths = append(mountPaths, vmount.MountPath)
+			if vmount.MountPath == "/conf" {
+				assert.Equal(t, cont.Name, vmount.SubPath)
+			} else {
+				assert.Empty(t, vmount.SubPath)
+			}
+			assert.False(t, vmount.ReadOnly)
+		}
+		expected := []string{"/conf", "/data", "/tmp"}
+		if cont.Name == "c1" {
+			expected = append(expected, "/other")
+		}
+		slices.Sort(expected)
+		slices.Sort(mountPaths)
+		assert.Equal(t, expected, mountPaths)
 	}
 }
 

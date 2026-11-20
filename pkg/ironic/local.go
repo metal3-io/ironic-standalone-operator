@@ -171,6 +171,14 @@ func fixContainerForLocal(container corev1.Container) corev1.Container {
 	// Ports are neither necessary nor supported with host networking
 	container.Ports = nil
 
+	// SubPath support is buggy (directory doesn't get created)
+	volumeMounts := make([]corev1.VolumeMount, 0, len(container.VolumeMounts))
+	for _, vmount := range container.VolumeMounts {
+		vmount.SubPath = ""
+		volumeMounts = append(volumeMounts, vmount)
+	}
+	container.VolumeMounts = volumeMounts
+
 	return container
 }
 
