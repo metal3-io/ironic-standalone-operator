@@ -86,36 +86,46 @@ func TestAddDataVolumes(t *testing.T) {
 					Name: "c2",
 				},
 			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "other-volume",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
 		},
 	}
 	updated := addDataVolumes(podTemplate)
 
-	assert.Len(t, updated.Spec.Volumes, 3)
+	volumeNames := make([]string, 0, len(updated.Spec.Volumes))
 	for _, vol := range updated.Spec.Volumes {
 		assert.NotNil(t, vol.EmptyDir)
+		volumeNames = append(volumeNames, vol.Name)
 	}
+	slices.Sort(volumeNames)
+	assert.Equal(t,
+		[]string{"c1-conf", "c2-conf", "ironic-data", "ironic-tmp", "other-volume"},
+		volumeNames)
 
 	for _, cont := range updated.Spec.Containers {
-		volumeNames := make([]string, 0, len(cont.VolumeMounts))
+		referencedVolumeNames := make([]string, 0, len(cont.VolumeMounts))
 		mountPaths := make([]string, 0, len(cont.VolumeMounts))
 		for _, vmount := range cont.VolumeMounts {
-			assert.NotContains(t, volumeNames, vmount.Name)
-			volumeNames = append(volumeNames, vmount.Name)
+			assert.Contains(t, volumeNames, vmount.Name)
+			assert.NotContains(t, referencedVolumeNames, vmount.Name)
+			referencedVolumeNames = append(referencedVolumeNames, vmount.Name)
 			mountPaths = append(mountPaths, vmount.MountPath)
-			if vmount.MountPath == "/conf" {
-				assert.Equal(t, cont.Name, vmount.SubPath)
-			} else {
-				assert.Empty(t, vmount.SubPath)
-			}
 			assert.False(t, vmount.ReadOnly)
+			assert.Empty(t, vmount.SubPath)
 		}
-		expected := []string{"/conf", "/data", "/tmp"}
+		expectedMountPaths := []string{"/conf", "/data", "/tmp"}
 		if cont.Name == "c1" {
-			expected = append(expected, "/other")
+			expectedMountPaths = append(expectedMountPaths, "/other")
 		}
-		slices.Sort(expected)
+		slices.Sort(expectedMountPaths)
 		slices.Sort(mountPaths)
-		assert.Equal(t, expected, mountPaths)
+		assert.Equal(t, expectedMountPaths, mountPaths)
 	}
 }
 
