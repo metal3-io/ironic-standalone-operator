@@ -112,6 +112,11 @@ func TestAddDataVolumes(t *testing.T) {
 		referencedVolumeNames := make([]string, 0, len(cont.VolumeMounts))
 		mountPaths := make([]string, 0, len(cont.VolumeMounts))
 		for _, vmount := range cont.VolumeMounts {
+			if vmount.MountPath == "/conf" {
+				// Ensure configuration is not shared between containers
+				assert.Contains(t, vmount.Name, cont.Name)
+			}
+			// Sanity checks on volumes and mounts
 			assert.Contains(t, volumeNames, vmount.Name)
 			assert.NotContains(t, referencedVolumeNames, vmount.Name)
 			referencedVolumeNames = append(referencedVolumeNames, vmount.Name)
