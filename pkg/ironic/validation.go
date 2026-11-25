@@ -223,17 +223,26 @@ func validateEnvNameComponent(field, value string) error {
 
 func validateExtraConfig(configs, oldConfigs []metal3api.ExtraConfig) error {
 	for i, cfg := range configs {
-		if i < len(oldConfigs) && reflect.DeepEqual(cfg, oldConfigs[i]) {
-			continue
+		var oldCfg metal3api.ExtraConfig
+		if i < len(oldConfigs) {
+			oldCfg = oldConfigs[i]
 		}
-		if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].group", i), cfg.Group); err != nil {
-			return err
+		// Group, name, and value are checked on their own. Changing one member
+		// must not reject another member that was already stored.
+		if i >= len(oldConfigs) || cfg.Group != oldCfg.Group {
+			if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].group", i), cfg.Group); err != nil {
+				return err
+			}
 		}
-		if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].name", i), cfg.Name); err != nil {
-			return err
+		if i >= len(oldConfigs) || cfg.Name != oldCfg.Name {
+			if err := validateEnvNameComponent(fmt.Sprintf("extraConfig[%d].name", i), cfg.Name); err != nil {
+				return err
+			}
 		}
-		if err := validateNoControlCharacters(fmt.Sprintf("extraConfig[%d].value", i), cfg.Value); err != nil {
-			return err
+		if i >= len(oldConfigs) || cfg.Value != oldCfg.Value {
+			if err := validateNoControlCharacters(fmt.Sprintf("extraConfig[%d].value", i), cfg.Value); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -318,13 +327,21 @@ func validateContainerInputs(ironic, old *metal3api.IronicSpec) error {
 			return err
 		}
 	}
-	if ironic.Networking.Keepalived != nil && ironic.Networking.Keepalived.Enabled {
+	// Additional VIP interfaces are joined into KEEPALIVED_VIRTUAL_IPS once
+	// Keepalived is enabled. Check them while it is disabled too, so a rejected
+	// name cannot be stored and then enabled without the name itself changing.
+	// Enabling Keepalived rechecks every stored interface for the same reason.
+	if keepalived := ironic.Networking.Keepalived; keepalived != nil {
 		var oldVIPs []metal3api.KeepalivedIP
+		newlyEnabled := keepalived.Enabled
 		if old != nil && previous.Networking.Keepalived != nil {
 			oldVIPs = previous.Networking.Keepalived.AdditionalVIPs
+			if previous.Networking.Keepalived.Enabled {
+				newlyEnabled = false
+			}
 		}
-		for i, entry := range ironic.Networking.Keepalived.AdditionalVIPs {
-			if i < len(oldVIPs) && entry.Interface == oldVIPs[i].Interface {
+		for i, entry := range keepalived.AdditionalVIPs {
+			if !newlyEnabled && old != nil && i < len(oldVIPs) && entry.Interface == oldVIPs[i].Interface {
 				continue
 			}
 			field := fmt.Sprintf("networking.keepalived.additionalVIPs[%d].interface", i)

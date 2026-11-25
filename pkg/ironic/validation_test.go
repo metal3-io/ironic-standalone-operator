@@ -1823,6 +1823,33 @@ func TestValidateIronic(t *testing.T) {
 			ExpectedError: "extraConfig[0].value",
 		},
 		{
+			Scenario: "renaming extraConfig leaves a stored value unchanged",
+			Ironic: metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe group", Name: "retry_timeout", Value: "10\nstored"},
+				},
+			},
+			OldIronic: &metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe group", Name: "timeout", Value: "10\nstored"},
+				},
+			},
+		},
+		{
+			Scenario: "changing extraConfig value introduces a newline",
+			Ironic: metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe", Name: "timeout", Value: "10\nmalicious"},
+				},
+			},
+			OldIronic: &metal3api.IronicSpec{
+				ExtraConfig: []metal3api.ExtraConfig{
+					{Group: "pxe", Name: "timeout", Value: "10"},
+				},
+			},
+			ExpectedError: "extraConfig[0].value",
+		},
+		{
 			Scenario: "kernel parameters with embedded newline",
 			Ironic: metal3api.IronicSpec{
 				DeployRamdisk: metal3api.DeployRamdisk{
@@ -1895,6 +1922,72 @@ func TestValidateIronic(t *testing.T) {
 						Enabled: true,
 						AdditionalVIPs: []metal3api.KeepalivedIP{
 							{IPAddress: "192.168.1.50", Interface: "eth1;id"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0].interface",
+		},
+		{
+			Scenario: "Keepalived additional interface is invalid while keepalived is disabled",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Keepalived: &metal3api.KeepalivedConfig{
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1 injected"},
+						},
+					},
+				},
+			},
+			ExpectedError: "networking.keepalived.additionalVIPs[0].interface",
+		},
+		{
+			Scenario: "enabling keepalived with a valid stored additional interface",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1"},
+						},
+					},
+				},
+			},
+			OldIronic: &metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1"},
+						},
+					},
+				},
+			},
+		},
+		{
+			Scenario: "enabling keepalived rechecks a stored additional interface",
+			Ironic: metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						Enabled: true,
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1 injected"},
+						},
+					},
+				},
+			},
+			OldIronic: &metal3api.IronicSpec{
+				Networking: metal3api.Networking{
+					Interface: "eth0",
+					IPAddress: "192.0.2.2",
+					Keepalived: &metal3api.KeepalivedConfig{
+						AdditionalVIPs: []metal3api.KeepalivedIP{
+							{IPAddress: "192.168.1.50", Interface: "eth1 injected"},
 						},
 					},
 				},
