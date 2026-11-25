@@ -199,14 +199,14 @@ type cloudsConfig struct {
 }
 
 type cloudConfig struct {
-	AuthType                  string    `json:"auth_type"`
+	AuthType                  string    `json:"auth_type"` //nolint:tagliatelle // the clouds.yaml format uses snake case
 	Auth                      cloudAuth `json:"auth"`
-	BaremetalEndpointOverride string    `json:"baremetal_endpoint_override"`
+	BaremetalEndpointOverride string    `json:"baremetal_endpoint_override"` //nolint:tagliatelle // the clouds.yaml format uses snake case
 }
 
 type cloudAuth struct {
 	Username string `json:"username"`
-	Password string `json:"password"`
+	Password string `json:"password"` //nolint:gosec // written to the clouds.yaml secret, not a hardcoded credential
 }
 
 // generateCloudsYAML builds a clouds.yaml with an "internal" cloud that uses

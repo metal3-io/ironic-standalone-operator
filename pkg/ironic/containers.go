@@ -742,9 +742,9 @@ func buildDNSIP(dhcp *metal3api.DHCP) string {
 }
 
 func newURLProbeHandler(https bool, port int, path string, requiresOk bool) corev1.ProbeHandler {
-	proto := "http"
+	proto := protoHTTP
 	if https {
-		proto = "https"
+		proto = protoHTTPS
 	}
 
 	curlCmd := []string{
