@@ -315,7 +315,7 @@ func TestGenerateCloudsYAML(t *testing.T) {
       password: secret
       username: admin
     auth_type: http_basic
-    baremetal_endpoint_override: http://ironic.test.svc:6385
+    baremetal_endpoint_override: http://ironic.test.svc:80
 `,
 		},
 		{
@@ -336,7 +336,7 @@ func TestGenerateCloudsYAML(t *testing.T) {
       password: secret
       username: admin
     auth_type: http_basic
-    baremetal_endpoint_override: https://ironic.test.svc:6443
+    baremetal_endpoint_override: https://ironic.test.svc:443
 `,
 		},
 		{
@@ -356,7 +356,7 @@ func TestGenerateCloudsYAML(t *testing.T) {
       password: secret
       username: admin
     auth_type: http_basic
-    baremetal_endpoint_override: http://ironic.test.svc:6385
+    baremetal_endpoint_override: http://ironic.test.svc:80
 `,
 		},
 	}
@@ -401,6 +401,24 @@ func TestUpdateCloudsYAML(t *testing.T) {
 	delete(secret.Data, corev1.BasicAuthUsernameKey)
 	_, err = UpdateCloudsYAML(secret, ironic)
 	require.Error(t, err)
+}
+
+func TestUpdateCloudsYAMLSharedSecret(t *testing.T) {
+	ironic := &metal3api.Ironic{ObjectMeta: metav1.ObjectMeta{Name: "ironic", Namespace: "test"}}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{OwnerReferences: []metav1.OwnerReference{
+			{Kind: "Ironic", Name: "one"}, {Kind: "Ironic", Name: "two"},
+		}},
+		Data: map[string][]byte{
+			corev1.BasicAuthUsernameKey: []byte("admin"),
+			corev1.BasicAuthPasswordKey: []byte("secret"),
+		},
+	}
+
+	changed, err := UpdateCloudsYAML(secret, ironic)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.NotContains(t, secret.Data, cloudsYAMLKey)
 }
 
 func TestSecretVersionAnnotationsIgnoreKeys(t *testing.T) {

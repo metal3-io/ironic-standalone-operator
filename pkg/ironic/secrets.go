@@ -211,34 +211,38 @@ type cloudAuth struct {
 
 // generateCloudsYAML builds a clouds.yaml with an "internal" cloud that uses
 // the Ironic service and, when the host IP is known from the spec, an
-// "external" cloud that uses the host IP.
+// "external" cloud that uses the host IP. With TLS the endpoints are https
+// without a cacert, because the CA is not in this secret: the client has to
+// mount the CA itself and point OS_CACERT at it.
 func generateCloudsYAML(ironic *metal3api.Ironic, user, password string) ([]byte, error) {
 	scheme := "http"
 	if ironic.Spec.TLS.CertificateName != "" {
 		scheme = "https"
 	}
-	port := ironic.Spec.Networking.APIPort
-	if port == 0 {
-		port = 6385
+	// The service exposes its own port, the host IP is reached on the API port.
+	servicePort := defaultExposedPort
+	if scheme == "https" {
+		servicePort = httpsExposedPort
 	}
-	endpoint := func(host string) string {
-		return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, strconv.Itoa(int(port))))
+	apiPort := int(ironic.Spec.Networking.APIPort)
+	if apiPort == 0 {
+		apiPort = 6385
 	}
-	cloud := func(host string) cloudConfig {
+	cloud := func(host string, port int) cloudConfig {
 		return cloudConfig{
 			AuthType:                  "http_basic",
 			Auth:                      cloudAuth{Username: user, Password: password},
-			BaremetalEndpointOverride: endpoint(host),
+			BaremetalEndpointOverride: fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, strconv.Itoa(port))),
 		}
 	}
 
 	config := cloudsConfig{Clouds: map[string]cloudConfig{
-		"internal": cloud(fmt.Sprintf("%s.%s.svc", ironic.Name, ironic.Namespace)),
+		"internal": cloud(fmt.Sprintf("%s.%s.svc", ironic.Name, ironic.Namespace), servicePort),
 	}}
 	if hostIP := ironic.Spec.Networking.ExternalIP; hostIP != "" {
-		config.Clouds["external"] = cloud(hostIP)
+		config.Clouds["external"] = cloud(hostIP, apiPort)
 	} else if hostIP := ironic.Spec.Networking.IPAddress; hostIP != "" {
-		config.Clouds["external"] = cloud(hostIP)
+		config.Clouds["external"] = cloud(hostIP, apiPort)
 	}
 
 	return yaml.Marshal(config)
@@ -247,6 +251,18 @@ func generateCloudsYAML(ironic *metal3api.Ironic, user, password string) ([]byte
 // UpdateCloudsYAML makes sure the API secret has an up-to-date clouds.yaml.
 // It returns true if the secret was changed and needs saving.
 func UpdateCloudsYAML(secret *corev1.Secret, ironic *metal3api.Ironic) (bool, error) {
+	// When several Ironic resources share the secret, each would overwrite the
+	// endpoints of the others, so leave the key alone.
+	owners := 0
+	for _, ref := range secret.OwnerReferences {
+		if ref.Kind == "Ironic" {
+			owners++
+		}
+	}
+	if owners > 1 {
+		return false, nil
+	}
+
 	user, ok := secret.Data[corev1.BasicAuthUsernameKey]
 	if !ok {
 		return false, fmt.Errorf("missing username in secret %s/%s", secret.Namespace, secret.Name)
