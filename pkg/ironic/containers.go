@@ -742,9 +742,9 @@ func buildDNSIP(dhcp *metal3api.DHCP) string {
 }
 
 func newURLProbeHandler(https bool, port int, path string, requiresOk bool) corev1.ProbeHandler {
-	proto := "http"
+	proto := protoHTTP
 	if https {
-		proto = "https"
+		proto = protoHTTPS
 	}
 
 	curlCmd := []string{
@@ -1189,7 +1189,8 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	}
 
 	// Make sure the pod is restarted when secrets change.
-	annotations := secretVersionAnnotations("api-secret", resources.APISecret)
+	// clouds.yaml is only there for clients, Ironic doesn't need a restart when it changes
+	annotations := secretVersionAnnotations("api-secret", resources.APISecret, cloudsYAMLKey)
 	if resources.TLSSecret != nil {
 		maps.Copy(annotations, secretVersionAnnotations("tls-secret", resources.TLSSecret))
 	}
