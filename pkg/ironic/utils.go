@@ -31,6 +31,7 @@ const (
 	confDir          = "/conf"
 	tmpDir           = "/tmp"
 	dataVolumeName   = "ironic-data"
+	confVolumeTpl    = "%s-conf"
 	tmpVolumeName    = "ironic-tmp"
 	protoHTTP        = "http"
 	protoHTTPS       = "https"
@@ -338,17 +339,14 @@ func appendListOfStringsEnv(envVars []corev1.EnvVar, name string, value []string
 }
 
 func addDataVolumes(podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
-	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, corev1.Volume{
-		Name: dataVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}, corev1.Volume{
-		Name: tmpVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
+	for _, name := range []string{dataVolumeName, tmpVolumeName} {
+		podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	}
 
 	containers := make([]corev1.Container, 0, len(podTemplate.Spec.Containers)+1)
 	for _, cont := range podTemplate.Spec.Containers {
@@ -357,16 +355,27 @@ func addDataVolumes(podTemplate corev1.PodTemplateSpec) corev1.PodTemplateSpec {
 				Name:      dataVolumeName,
 				MountPath: dataDir,
 			},
-			{
-				Name:      dataVolumeName,
-				MountPath: confDir,
-			},
 			// NOTE(dtantsur): Ironic relies on a writable /tmp
 			{
 				Name:      tmpVolumeName,
 				MountPath: tmpDir,
 			},
 		}...)
+
+		// NOTE(dtantsur): ironic-image is not designed in a way
+		// that allows containers to share /conf.
+		confVolumeName := fmt.Sprintf(confVolumeTpl, cont.Name)
+		podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, corev1.Volume{
+			Name: confVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+		cont.VolumeMounts = append(cont.VolumeMounts, corev1.VolumeMount{
+			Name:      confVolumeName,
+			MountPath: confDir,
+		})
+
 		containers = append(containers, cont)
 	}
 	podTemplate.Spec.Containers = containers

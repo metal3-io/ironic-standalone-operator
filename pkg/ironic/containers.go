@@ -42,8 +42,21 @@ const (
 
 	knownExistingPath = "/images/ironic-python-agent.kernel"
 
+	sharedVolumeName    = "ironic-shared"
 	trustedCAVolumeName = "trusted-ca"
 	bmcCAVolumeName     = "cert-bmc"
+)
+
+var (
+	sharedVolumeMount = corev1.VolumeMount{
+		Name:      sharedVolumeName,
+		MountPath: sharedDir,
+	}
+	trustedCAVolumeMount = corev1.VolumeMount{
+		Name:      trustedCAVolumeName,
+		MountPath: certsDir + "/ca/trusted",
+		ReadOnly:  true,
+	}
 )
 
 func buildCommonEnvVars(ironic *metal3api.Ironic) []corev1.EnvVar {
@@ -561,12 +574,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 			},
 		},
 	}
-	mounts = []corev1.VolumeMount{
-		{
-			Name:      "ironic-shared",
-			MountPath: sharedDir,
-		},
-	}
+	mounts = []corev1.VolumeMount{sharedVolumeMount}
 	if isAuthVolumeRequired(resources) {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "ironic-auth",
@@ -617,13 +625,7 @@ func buildIronicVolumesAndMounts(resources Resources) (volumes []corev1.Volume, 
 
 	if maybeVolume := volumeForSecretOrConfigMap(trustedCAVolumeName, resources.TrustedCASecret, resources.TrustedCAConfigMap); maybeVolume != nil {
 		volumes = append(volumes, *maybeVolume)
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      trustedCAVolumeName,
-				MountPath: certsDir + "/ca/trusted",
-				ReadOnly:  true,
-			},
-		)
+		mounts = append(mounts, trustedCAVolumeMount)
 	}
 
 	if resources.Ironic.Spec.Database != nil {
@@ -795,7 +797,7 @@ func dhcpFamilies(dhcp *metal3api.DHCP) (hasV4, hasV6 bool) {
 	return
 }
 
-func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic, sharedVolumeMount corev1.VolumeMount) corev1.Container {
+func newDnsmasqContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
 	dhcp := ironic.Spec.Networking.DHCP
 
 	envVars := buildCommonEnvVars(ironic)
@@ -931,7 +933,7 @@ func flaskRunHost(ironic *metal3api.Ironic) string {
 	return defaultMetricsBindAddr
 }
 
-func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.Ironic, volumeMount corev1.VolumeMount) corev1.Container {
+func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.Ironic) corev1.Container {
 	port := int32(metricsPort)
 	if ironic.Spec.Networking.PrometheusExporterPort != 0 {
 		port = ironic.Spec.Networking.PrometheusExporterPort
@@ -963,7 +965,7 @@ func newPrometheusExporterContainer(versionInfo VersionInfo, ironic *metal3api.I
 				ContainerPort: port,
 			},
 		},
-		VolumeMounts: []corev1.VolumeMount{volumeMount},
+		VolumeMounts: []corev1.VolumeMount{sharedVolumeMount},
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:              ptr.To(ironicUser),
 			RunAsGroup:             ptr.To(ironicGroup),
@@ -1053,24 +1055,18 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	ipaDownloaderVars = appendStringEnv(ipaDownloaderVars,
 		"NO_PROXY", os.Getenv("IPA_NO_PROXY"))
 
-	volumes, mounts := buildIronicVolumesAndMounts(resources)
-	sharedVolumeMount := mounts[0]
+	volumes, ironicMounts := buildIronicVolumesAndMounts(resources)
+	// Similar mounts are required; not reusing the same array since it gets modified in addDataVolumes
+	httpdMounts := slices.Clone(ironicMounts)
 
 	downloaderVolumeMounts := []corev1.VolumeMount{sharedVolumeMount}
-
 	// Let the ramdisk-downloader init container trust the same CA bundle as
 	// Ironic itself (spec.tls.trustedCA), so it can fetch the IPA
 	// kernel/ramdisk from an image server with a custom/self-signed
 	// certificate. CURL_CA_BUNDLE is honored natively by curl.
 	if caPath := resolveTrustedCACertPath(cctx, resources); caPath != "" {
 		ipaDownloaderVars = appendStringEnv(ipaDownloaderVars, "CURL_CA_BUNDLE", caPath)
-
-		for _, m := range mounts {
-			if m.Name == trustedCAVolumeName {
-				downloaderVolumeMounts = append(downloaderVolumeMounts, m)
-				break
-			}
-		}
+		downloaderVolumeMounts = append(downloaderVolumeMounts, trustedCAVolumeMount)
 	}
 
 	var initContainers []corev1.Container
@@ -1124,7 +1120,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runironic"},
 			Env:          ironicEnvVars,
-			VolumeMounts: mounts,
+			VolumeMounts: ironicMounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:              ptr.To(ironicUser),
 				RunAsGroup:             ptr.To(ironicGroup),
@@ -1142,7 +1138,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 			Image:        cctx.VersionInfo.IronicImage,
 			Command:      []string{"/bin/runhttpd"},
 			Env:          httpdEnvVars,
-			VolumeMounts: mounts,
+			VolumeMounts: httpdMounts,
 			SecurityContext: &corev1.SecurityContext{
 				RunAsUser:              ptr.To(ironicUser),
 				RunAsGroup:             ptr.To(ironicGroup),
@@ -1175,7 +1171,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 		if err != nil {
 			return corev1.PodTemplateSpec{}, err
 		}
-		dnsmasqContainer := newDnsmasqContainer(cctx.VersionInfo, resources.Ironic, sharedVolumeMount)
+		dnsmasqContainer := newDnsmasqContainer(cctx.VersionInfo, resources.Ironic)
 		containers = append(containers, dnsmasqContainer)
 	}
 
@@ -1185,7 +1181,7 @@ func newIronicPodTemplate(cctx ControllerContext, resources Resources) (corev1.P
 	}
 
 	if resources.Ironic.Spec.PrometheusExporter != nil && resources.Ironic.Spec.PrometheusExporter.Enabled {
-		containers = append(containers, newPrometheusExporterContainer(cctx.VersionInfo, resources.Ironic, sharedVolumeMount))
+		containers = append(containers, newPrometheusExporterContainer(cctx.VersionInfo, resources.Ironic))
 	}
 
 	// Make sure the pod is restarted when secrets change.

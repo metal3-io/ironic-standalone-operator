@@ -1,6 +1,7 @@
 package ironic
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -65,6 +66,71 @@ func TestBuildEndpoints(t *testing.T) {
 			result := buildEndpoints(tc.IPs, tc.Port, tc.IncludeProto)
 			assert.Equal(t, tc.Expected, result)
 		})
+	}
+}
+
+func TestAddDataVolumes(t *testing.T) {
+	podTemplate := corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "c1",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "other-volume",
+							MountPath: "/other",
+						},
+					},
+				},
+				{
+					Name: "c2",
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "other-volume",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+		},
+	}
+	updated := addDataVolumes(podTemplate)
+
+	volumeNames := make([]string, 0, len(updated.Spec.Volumes))
+	for _, vol := range updated.Spec.Volumes {
+		assert.NotNil(t, vol.EmptyDir)
+		volumeNames = append(volumeNames, vol.Name)
+	}
+	slices.Sort(volumeNames)
+	assert.Equal(t,
+		[]string{"c1-conf", "c2-conf", "ironic-data", "ironic-tmp", "other-volume"},
+		volumeNames)
+
+	for _, cont := range updated.Spec.Containers {
+		referencedVolumeNames := make([]string, 0, len(cont.VolumeMounts))
+		mountPaths := make([]string, 0, len(cont.VolumeMounts))
+		for _, vmount := range cont.VolumeMounts {
+			if vmount.MountPath == "/conf" {
+				// Ensure configuration is not shared between containers
+				assert.Contains(t, vmount.Name, cont.Name)
+			}
+			// Sanity checks on volumes and mounts
+			assert.Contains(t, volumeNames, vmount.Name)
+			assert.NotContains(t, referencedVolumeNames, vmount.Name)
+			referencedVolumeNames = append(referencedVolumeNames, vmount.Name)
+			mountPaths = append(mountPaths, vmount.MountPath)
+			assert.False(t, vmount.ReadOnly)
+			assert.Empty(t, vmount.SubPath)
+		}
+		expectedMountPaths := []string{"/conf", "/data", "/tmp"}
+		if cont.Name == "c1" {
+			expectedMountPaths = append(expectedMountPaths, "/other")
+		}
+		slices.Sort(expectedMountPaths)
+		slices.Sort(mountPaths)
+		assert.Equal(t, expectedMountPaths, mountPaths)
 	}
 }
 
