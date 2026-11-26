@@ -1,0 +1,135 @@
+# -- Override the chart name used in resource names and labels.
+nameOverride: ""
+# -- Override the full name prefix used for all resources.
+fullnameOverride: ""
+
+# -- Labels added to every resource rendered by this chart.
+commonLabels: {}
+# -- Annotations added to every resource rendered by this chart
+# (e.g. reloader.stakater.com/auto: "true").
+commonAnnotations: {}
+
+image:
+  repository: quay.io/metal3-io/ironic-standalone-operator
+  # -- Image tag. Defaults to the chart appVersion.
+  tag: ""
+  # -- Image digest (e.g. sha256:...). Takes precedence over the tag when set.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# -- Namespace the operator watches for Ironic resources.
+# Empty: cluster-wide mode. The operator watches all namespaces and gets a
+# ClusterRole/ClusterRoleBinding.
+# Set: namespaced mode. The operator only watches this namespace, gets a
+# Role/RoleBinding there (no cluster-wide permissions), the leader election
+# lease lives in this namespace and the validating webhook is scoped to it.
+# The namespace may differ from the release namespace, but must already exist.
+watchNamespace: ""
+
+replicaCount: 1
+
+leaderElection:
+  enabled: true
+
+# -- Environment variables for the operator, rendered into a ConfigMap and
+# loaded with envFrom. Supported keys include FEATURE_GATES, IRONIC_VERSION,
+# CLUSTER_DOMAIN, IRONIC_IMAGE, RAMDISK_DOWNLOADER_IMAGE and KEEPALIVED_IMAGE.
+config: {}
+#  FEATURE_GATES: Overrides=true
+
+# -- Additional command line arguments for the manager
+# (e.g. --controller-concurrency=2).
+extraArgs: []
+
+serviceAccount:
+  create: true
+  # -- Name of the service account. Generated from the full name when empty.
+  name: ""
+  annotations: {}
+
+rbac:
+  # -- Create the RBAC resources required by the operator.
+  create: true
+
+crds:
+  # -- Install the Ironic CRD. Disable for additional (namespaced) releases
+  # sharing a CRD that is installed by another release.
+  install: true
+  # -- Add helm.sh/resource-policy: keep so the CRD (and therefore all Ironic
+  # resources) survive helm uninstall.
+  keep: true
+
+webhook:
+  # -- Enable the validating (and CRD conversion) webhook.
+  enabled: true
+  port: 9443
+  failurePolicy: Fail
+  timeoutSeconds: 10
+  certManager:
+    # -- Use cert-manager to issue the webhook serving certificate and inject
+    # the CA bundle.
+    enabled: true
+    # -- Existing Issuer/ClusterIssuer to use. A self-signed Issuer is created
+    # when name is empty.
+    issuerRef: {}
+    #  kind: ClusterIssuer
+    #  name: my-issuer
+  # -- Used when certManager.enabled is false: a pre-existing kubernetes.io/tls
+  # secret in the release namespace holding the serving certificate.
+  existingSecret:
+    name: ""
+    # -- Base64-encoded PEM CA bundle that signed the certificate.
+    caBundle: ""
+
+metrics:
+  # -- Expose the controller-runtime metrics endpoint. Requires a small
+  # cluster-scoped role for TokenReviews/SubjectAccessReviews, because the
+  # endpoint authenticates and authorizes every request.
+  enabled: false
+  port: 8080
+  service:
+    type: ClusterIP
+    port: 8080
+  serviceMonitor:
+    # -- Create a prometheus-operator ServiceMonitor. The scraping service
+    # account must be bound to the "<fullname>-metrics-reader" ClusterRole.
+    enabled: false
+    interval: ""
+    scrapeTimeout: ""
+    labels: {}
+
+healthProbe:
+  port: 8081
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  privileged: false
+  runAsUser: 65532
+  runAsGroup: 65532
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+priorityClassName: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}
+terminationGracePeriodSeconds: 10

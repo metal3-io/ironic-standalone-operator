@@ -1,0 +1,20 @@
+{{- if .Values.crds.install }}
+{{- $crd := .Files.Get "files/crds/ironic.metal3.io_ironics.yaml" | fromYaml }}
+{{- if not $crd.spec }}
+{{- fail "files/crds/ironic.metal3.io_ironics.yaml is missing or invalid; run `make helm-sync`" }}
+{{- end }}
+{{- $annotations := merge (default dict $crd.metadata.annotations) (include "irso.caInjectionAnnotation" . | fromYaml) (include "irso.stringMap" .Values.commonAnnotations | fromYaml) }}
+{{- if .Values.crds.keep }}
+{{- $_ := set $annotations "helm.sh/resource-policy" "keep" }}
+{{- end }}
+{{- $_ := set $crd.metadata "annotations" $annotations }}
+{{- $_ := set $crd.metadata "labels" (include "irso.labels" . | fromYaml) }}
+{{- if .Values.webhook.enabled }}
+{{- $clientConfig := dict "service" (dict "name" (include "irso.webhookServiceName" .) "namespace" .Release.Namespace "path" "/convert") }}
+{{- if and (not .Values.webhook.certManager.enabled) .Values.webhook.existingSecret.caBundle }}
+{{- $_ := set $clientConfig "caBundle" .Values.webhook.existingSecret.caBundle }}
+{{- end }}
+{{- $_ := set $crd.spec "conversion" (dict "strategy" "Webhook" "webhook" (dict "clientConfig" $clientConfig "conversionReviewVersions" (list "v1"))) }}
+{{- end }}
+{{- toYaml $crd }}
+{{- end }}

@@ -1,0 +1,32 @@
+{{- if and .Values.webhook.enabled .Values.webhook.certManager.enabled }}
+{{- $issuerRef := .Values.webhook.certManager.issuerRef }}
+{{- if not $issuerRef.name }}
+{{- $issuerRef = dict "kind" "Issuer" "name" (printf "%s-selfsigned-issuer" (include "irso.fullname" .)) }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $issuerRef.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+spec:
+  selfSigned: {}
+---
+{{- end }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "irso.certificateName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+spec:
+  dnsNames:
+  - {{ include "irso.webhookServiceName" . }}.{{ .Release.Namespace }}.svc
+  - {{ include "irso.webhookServiceName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  issuerRef:
+    {{- toYaml $issuerRef | nindent 4 }}
+  secretName: {{ include "irso.webhookSecretName" . }}
+{{- end }}

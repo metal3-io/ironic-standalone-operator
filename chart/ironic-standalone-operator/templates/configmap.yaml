@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "irso.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "irso.labels" . | nindent 4 }}
+  {{- include "irso.annotations" (dict "ctx" $) }}
+{{- with .Values.config }}
+data:
+  {{- range $key, $value := . }}
+  {{ $key }}: {{ $value | toString | quote }}
+  {{- end }}
+{{- end }}
