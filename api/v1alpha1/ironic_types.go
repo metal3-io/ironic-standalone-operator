@@ -633,6 +633,7 @@ type PrometheusExporter struct {
 type IronicSpec struct {
 	// APICredentialsName is a reference to the secret with Ironic API credentials.
 	// A new secret will be created if this field is empty.
+	// The secret also gets a clouds.yaml for clients. A client that talks to Ironic over TLS has to mount the CA itself and set OS_CACERT.
 	// +optional
 	APICredentialsName string `json:"apiCredentialsName,omitempty"`
 
