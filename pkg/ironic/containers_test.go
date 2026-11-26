@@ -1384,6 +1384,72 @@ func TestHttpdProbeConfiguration(t *testing.T) {
 	}
 }
 
+func TestHttpdLogLevelEnvVar(t *testing.T) {
+	testCases := []struct {
+		Scenario      string
+		Overrides     *metal3api.Overrides
+		ExpectedLevel string
+	}{
+		{
+			Scenario: "No overrides",
+		},
+		{
+			Scenario: "Overrides without HttpdLogLevel",
+			Overrides: &metal3api.Overrides{
+				AgentImages: []metal3api.AgentImages{
+					{
+						Kernel:    "http://example.com/ipa.kernel",
+						Initramfs: "http://example.com/ipa.initramfs",
+					},
+				},
+			},
+		},
+		{
+			Scenario: "HttpdLogLevel set",
+			Overrides: &metal3api.Overrides{
+				HttpdLogLevel: "warn",
+			},
+			ExpectedLevel: "warn",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			cctx := ControllerContext{}
+			secret := &corev1.Secret{
+				Data: map[string][]byte{
+					"htpasswd": []byte("test"),
+				},
+			}
+			ironic := &metal3api.Ironic{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Spec: metal3api.IronicSpec{
+					Overrides: tc.Overrides,
+				},
+			}
+
+			resources := Resources{Ironic: ironic, APISecret: secret}
+			podTemplate, err := newIronicPodTemplate(cctx, resources)
+			require.NoError(t, err)
+
+			for _, container := range podTemplate.Spec.Containers {
+				idx := slices.IndexFunc(container.Env, func(env corev1.EnvVar) bool {
+					return env.Name == "IRONIC_HTTPD_LOGLEVEL"
+				})
+				if container.Name == httpdContainerName && tc.ExpectedLevel != "" {
+					require.NotEqual(t, -1, idx, "IRONIC_HTTPD_LOGLEVEL should be set on httpd")
+					assert.Equal(t, tc.ExpectedLevel, container.Env[idx].Value)
+				} else {
+					assert.Equal(t, -1, idx, "IRONIC_HTTPD_LOGLEVEL should not be set on %s", container.Name)
+				}
+			}
+		})
+	}
+}
+
 func TestDnsmasqProbeConfiguration(t *testing.T) {
 	ipv4Net := metal3api.Networking{
 		Interface: "eth0",
