@@ -51,6 +51,11 @@ make lint          # golangci-lint across all modules
 runs `go vet`, and executes the unit test suite. It then creates a coverage
 profile in the file called `cover.out`.
 
+Some unit tests run against a real API server started with envtest. `make unit`
+downloads the binaries using `setup-envtest` and sets `KUBEBUILDER_ASSETS` for
+`go test`. If you run `go test` directly, those tests are skipped unless you
+set `KUBEBUILDER_ASSETS` yourself.
+
 If you have changed anything under `api/`, you can separately update the
 manifests with:
 
