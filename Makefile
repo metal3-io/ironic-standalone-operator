@@ -126,6 +126,8 @@ modules: ## Runs go mod to ensure proper vendoring.
 	cd $(APIS_DIR) && $(GO) mod verify
 	cd $(TEST_DIR) && $(GO) mod tidy
 	cd $(TEST_DIR) && $(GO) mod verify
+	cd $(TOOLS_DIR) && $(GO) mod tidy
+	cd $(TOOLS_DIR) && $(GO) mod verify
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
