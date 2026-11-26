@@ -95,35 +95,24 @@ func validateMACAddresses(macs, oldMACs []string) error {
 // splitDatabaseHost separates an optional port from a database host.
 // IPv6 addresses must be written in brackets, because the value is pasted
 // into a MySQL URL that has no separate port field.
+// net.SplitHostPort requires a port, so a value with no port is the host itself.
 func splitDatabaseHost(value string) (host, port string, err error) {
-	if strings.HasPrefix(value, "[") {
-		end := strings.IndexByte(value, ']')
-		if end < 0 {
-			return "", "", errors.New("missing closing bracket")
+	host, port, err = net.SplitHostPort(value)
+	if err == nil {
+		if host == "" || port == "" {
+			return "", "", errors.New("empty host or port")
 		}
-		host = value[1:end]
-		rest := value[end+1:]
-		if rest == "" {
-			return host, "", nil
-		}
-		if !strings.HasPrefix(rest, ":") || rest == ":" {
-			return "", "", errors.New("invalid port")
-		}
-		port = rest[1:]
 		return host, port, nil
 	}
-	if strings.Count(value, ":") > 1 {
-		return "", "", errors.New("bare IPv6 address")
+	// [ipv6] has no port. Any other colon means the address is not host:port,
+	// including a bare IPv6 address, which SplitHostPort rejects.
+	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+		return value[1 : len(value)-1], "", nil
 	}
-	var found bool
-	host, port, found = strings.Cut(value, ":")
-	if !found {
-		return value, "", nil
+	if strings.Contains(value, ":") {
+		return "", "", err
 	}
-	if host == "" || port == "" {
-		return "", "", errors.New("empty host or port")
-	}
-	return host, port, nil
+	return value, "", nil
 }
 
 func invalidDatabaseHost(field, value string) error {
