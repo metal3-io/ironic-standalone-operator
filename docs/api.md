@@ -1084,11 +1084,33 @@ Consider setting deployRamdisk.disableDownloader=true when using custom images.<
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>containerOverrideMode</b></td>
+        <td>enum</td>
+        <td>
+          ContainerOverrideMode defines how containers and init containers whose name
+matches an existing container are applied.
+With `replace` (the default), the override container replaces the existing one.
+With `merge`, the override container is merged into the existing one:
+image, command, args, workingDir, imagePullPolicy, terminationMessagePath and
+terminationMessagePolicy replace the existing values when not empty;
+securityContext, probes, lifecycle and restartPolicy replace them when set;
+resources, resizePolicy and restartPolicyRules replace them when not empty;
+stdin, stdinOnce and tty can only be turned on; env and ports are merged by
+name, volumeMounts by mountPath and volumeDevices by devicePath, replacing
+matching items and appending new ones; envFrom is appended.
+Container overrides only apply to the main Ironic pod, not to upgrade jobs.<br/>
+          <br/>
+            <i>Enum</i>: replace, merge<br/>
+            <i>Default</i>: replace<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#ironicspecoverridescontainersindex">containers</a></b></td>
         <td>[]object</td>
         <td>
           Containers to append to the main Ironic pod.
-If a container name matches an existing container, the existing container is replaced.<br/>
+If a container name matches an existing container, the existing container is
+replaced or merged, depending on ContainerOverrideMode.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1110,7 +1132,8 @@ If a container name matches an existing container, the existing container is rep
         <td>[]object</td>
         <td>
           InitContainers to append to the main Ironic pod.
-If a container name matches an existing init container, the existing init container is replaced.<br/>
+If a container name matches an existing init container, the existing init container is
+replaced or merged, depending on ContainerOverrideMode.<br/>
         </td>
         <td>false</td>
       </tr><tr>

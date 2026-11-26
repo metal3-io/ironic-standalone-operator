@@ -91,7 +91,7 @@ func newMigrationTemplate(cctx ControllerContext, ironic *metal3api.Ironic, phas
 			},
 		},
 	}
-	return applyOverridesToPod(ironic.Spec.Overrides, addDataVolumes(corev1.PodTemplateSpec{
+	return applyOverridesToJobPod(ironic.Spec.Overrides, addDataVolumes(corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				metal3api.IronicServiceLabel: ironic.Name,
