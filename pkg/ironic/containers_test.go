@@ -2454,3 +2454,36 @@ func TestGatewayIPWithExtraRanges(t *testing.T) {
 	}
 	assert.Equal(t, "10.0.0.1", gotEnv)
 }
+
+func TestDeployRamdiskKernelParams(t *testing.T) {
+	testCases := []struct {
+		Scenario string
+		Ramdisk  metal3api.DeployRamdisk
+		Expected string
+	}{
+		{
+			Scenario: "empty",
+		},
+		{
+			Scenario: "extra params only",
+			Ramdisk:  metal3api.DeployRamdisk{ExtraKernelParams: " console=ttyS0 "},
+			Expected: "console=ttyS0",
+		},
+		{
+			Scenario: "ntp server only",
+			Ramdisk:  metal3api.DeployRamdisk{NTPServer: "192.0.2.10"},
+			Expected: "ipa-ntp-server=192.0.2.10",
+		},
+		{
+			Scenario: "ntp server with extra params",
+			Ramdisk:  metal3api.DeployRamdisk{ExtraKernelParams: "console=ttyS0", NTPServer: "ntp.example.com"},
+			Expected: "console=ttyS0 ipa-ntp-server=ntp.example.com",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Scenario, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, deployRamdiskKernelParams(&tc.Ramdisk))
+		})
+	}
+}
