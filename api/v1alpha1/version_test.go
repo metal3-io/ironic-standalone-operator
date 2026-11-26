@@ -87,6 +87,12 @@ func TestComparing(t *testing.T) {
 			Expected: 1,
 		},
 		{
+			Scenario: "any < latest",
+			First:    Version{Major: 99, Minor: 99},
+			Second:   VersionLatest,
+			Expected: -1,
+		},
+		{
 			Scenario: "equal",
 			First:    Version{Major: 42, Minor: 0},
 			Second:   Version{Major: 42, Minor: 0},
