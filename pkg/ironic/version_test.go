@@ -27,8 +27,8 @@ func TestWithIronicOverrides(t *testing.T) {
 
 			Expected: VersionInfo{
 				// NOTE(dtantsur): this value will change on stable branches
-				InstalledVersion:       metal3api.VersionLatest,
-				IronicImage:            "quay.io/metal3-io/ironic:latest",
+				InstalledVersion:       metal3api.Version390,
+				IronicImage:            "quay.io/metal3-io/ironic:release-39.0",
 				KeepalivedImage:        "quay.io/metal3-io/keepalived:latest",
 				RamdiskDownloaderImage: "quay.io/metal3-io/ironic-ipa-downloader:latest",
 			},
@@ -50,7 +50,7 @@ func TestWithIronicOverrides(t *testing.T) {
 			Expected: VersionInfo{
 				AgentBranch: "stable/x.y",
 				// NOTE(dtantsur): this value will change on stable branches
-				InstalledVersion:       metal3api.VersionLatest,
+				InstalledVersion:       metal3api.Version390,
 				IronicImage:            "myorg/ironic:tag",
 				KeepalivedImage:        "myorg/keepalived:tag",
 				RamdiskDownloaderImage: "myorg/ramdisk-downloader:tag",
