@@ -39,12 +39,14 @@ func main() {
 	var verbose bool
 	var generateOnly bool
 	var tearDown bool
+	var network string
 
 	flag.StringVar(&inputFile, "input", "", "YAML file containing Ironic resource and optional secrets (required)")
 	flag.StringVar(&outputFile, "output", "", "Output file for generated manifests (required when using --generate-only)")
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.BoolVar(&generateOnly, "generate-only", false, "Only generate manifests, skip running podman kube play")
 	flag.BoolVar(&tearDown, "down", false, "Tear down instead of creating")
+	flag.StringVar(&network, "network", "host", "Podman network mode (host is needed for DHCP/TFTP/PXE)")
 
 	opts := zap.Options{
 		Development: verbose,
@@ -93,13 +95,13 @@ func main() {
 
 	setupLog.V(1).Info("starting run-local-ironic", "input", inputFile, "output", outputFile)
 
-	if err := runLocalIronic(inputFile, outputFile, versionInfo, generateOnly, tearDown); err != nil {
+	if err := runLocalIronic(inputFile, outputFile, versionInfo, generateOnly, tearDown, network); err != nil {
 		setupLog.Error(err, "failed to run local ironic")
 		os.Exit(1)
 	}
 }
 
-func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo, generateOnly, tearDown bool) error {
+func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo, generateOnly, tearDown bool, network string) error {
 	resources, err := ironic.ParseLocalIronic(inputFile, scheme)
 	if err != nil {
 		return fmt.Errorf("failed to parse input file: %w", err)
@@ -128,7 +130,7 @@ func runLocalIronic(inputFile, outputFile string, versionInfo ironic.VersionInfo
 
 	if !generateOnly {
 		// Run podman kube play
-		if err := runPodmanKubePlay(outputFile, tearDown); err != nil {
+		if err := runPodmanKubePlay(outputFile, tearDown, network); err != nil {
 			return fmt.Errorf("failed to run podman kube play: %w", err)
 		}
 		if tearDown {
@@ -181,13 +183,15 @@ func writeManifestsToYAML(manifests []runtime.Object, filename string, scheme *r
 	return nil
 }
 
-func runPodmanKubePlay(manifestFile string, tearDown bool) error {
-	var cmd *exec.Cmd
+func runPodmanKubePlay(manifestFile string, tearDown bool, network string) error {
+	args := []string{"kube", "play"}
 	if tearDown {
-		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--down", manifestFile) //nolint:gosec // manifestFile is a controlled output path, not user input
-	} else {
-		cmd = exec.CommandContext(context.TODO(), "podman", "kube", "play", "--network=host", manifestFile) //nolint:gosec // manifestFile is a controlled output path, not user input
+		args = append(args, "--down")
+	} else if network != "" {
+		args = append(args, "--network="+network)
 	}
+	args = append(args, manifestFile)
+	cmd := exec.CommandContext(context.TODO(), "podman", args...) //nolint:gosec // arguments are a controlled output path and operator-supplied flags
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
